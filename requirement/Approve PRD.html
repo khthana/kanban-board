@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Approved PRD — Kanban Board (Frontend + Mock Backend)</title>
+<style>
+  :root {
+    --bg: #f6f8fa;
+    --surface: #ffffff;
+    --ink: #1f2328;
+    --muted: #57606a;
+    --accent: #0969da;
+    --accent-soft: #ddf4ff;
+    --border: #d0d7de;
+    --green: #1a7f37;
+    --amber: #9a6700;
+    --amber-soft: #fff8c5;
+    --code-bg: #eff1f3;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Sarabun", "Noto Sans Thai", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.7;
+    font-size: 16px;
+  }
+  .wrap {
+    max-width: 940px;
+    margin: 0 auto;
+    padding: 32px 20px 96px;
+  }
+  header.doc {
+    background: linear-gradient(135deg, #0969da 0%, #0a3069 100%);
+    color: #fff;
+    border-radius: 14px;
+    padding: 32px 36px;
+    margin-bottom: 28px;
+    box-shadow: 0 8px 24px rgba(9,105,218,0.25);
+  }
+  header.doc h1 {
+    margin: 0 0 14px;
+    font-size: 26px;
+    line-height: 1.3;
+  }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.16);
+    border: 1px solid rgba(255,255,255,0.28);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    backdrop-filter: blur(4px);
+  }
+  .badge.status { background: #1a7f37; border-color: #1a7f37; font-weight: 600; }
+  .meta-link { color: #ddf4ff; }
+
+  nav.toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 24px;
+    margin-bottom: 28px;
+  }
+  nav.toc h2 { margin: 0 0 10px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+  nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+  nav.toc li { margin: 4px 0; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+
+  section.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 32px;
+    margin-bottom: 22px;
+    box-shadow: 0 1px 3px rgba(27,31,36,0.04);
+  }
+  h2.sec {
+    margin: 0 0 16px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--accent-soft);
+    font-size: 21px;
+  }
+  h2.sec .num {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 8px;
+    padding: 2px 11px;
+    font-size: 16px;
+    margin-right: 10px;
+  }
+  h3 { font-size: 17px; margin: 22px 0 8px; }
+  p { margin: 10px 0; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 6px 0; }
+  strong { color: #000; }
+  a { color: var(--accent); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 14.5px;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 9px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-soft); font-weight: 600; }
+  tbody tr:nth-child(even) { background: #f9fbfd; }
+  td .yes { color: var(--green); font-weight: 600; }
+  td .add { color: var(--accent); font-weight: 600; }
+
+  code {
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 5px;
+    font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 13.5px;
+  }
+  pre {
+    background: #0d1117;
+    color: #e6edf3;
+    padding: 18px 20px;
+    border-radius: 10px;
+    overflow-x: auto;
+    line-height: 1.55;
+    font-size: 13px;
+  }
+  pre code { background: none; color: inherit; padding: 0; }
+
+  .callout {
+    border-left: 4px solid var(--amber);
+    background: var(--amber-soft);
+    padding: 12px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+  }
+  .callout.info { border-left-color: var(--accent); background: var(--accent-soft); }
+
+  .gloss dt { font-weight: 700; margin-top: 12px; color: #000; }
+  .gloss dd { margin: 2px 0 0 0; color: var(--muted); }
+
+  .milestone {
+    border-left: 3px solid var(--accent);
+    padding: 4px 0 4px 16px;
+    margin: 14px 0;
+  }
+  .milestone b { color: var(--accent); }
+
+  ol.flow { counter-reset: step; list-style: none; padding-left: 0; }
+  ol.flow li {
+    position: relative;
+    padding: 8px 8px 8px 44px;
+    margin: 8px 0;
+    background: #f9fbfd;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  ol.flow li::before {
+    counter-increment: step;
+    content: counter(step);
+    position: absolute;
+    left: 10px; top: 50%;
+    transform: translateY(-50%);
+    width: 24px; height: 24px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+  }
+
+  footer.doc {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 40px;
+  }
+  @media print {
+    body { background: #fff; }
+    section.card, nav.toc { box-shadow: none; break-inside: avoid; }
+    header.doc { box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="doc">
+    <h1>Approved PRD — Kanban Board<br><small style="font-weight:400;font-size:18px;opacity:.9">Frontend + Mock Backend Build</small></h1>
+    <div class="badges">
+      <span class="badge status">✓ Approved v1.0</span>
+      <span class="badge">📅 อนุมัติ 31 พฤษภาคม 2026</span>
+      <span class="badge">🎯 Frontend-only + Mock backend</span>
+      <span class="badge">📄 อ้างอิง: <a class="meta-link" href="Kanban-Board-PRD.md">Kanban-Board-PRD.md</a> (Draft v1.0)</span>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <h2>สารบัญ</h2>
+    <ol>
+      <li><a href="#s0">ที่มาของเอกสาร</a></li>
+      <li><a href="#s1">การตัดสินใจที่อนุมัติแล้ว</a></li>
+      <li><a href="#s2">Trade-offs ที่ยอมรับ</a></li>
+      <li><a href="#s3">สถาปัตยกรรม (Seam)</a></li>
+      <li><a href="#s4">Domain Glossary</a></li>
+      <li><a href="#s5">โครงไฟล์ที่วางแผนไว้</a></li>
+      <li><a href="#s6">Milestones</a></li>
+      <li><a href="#s7">Verification</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="s0">
+    <h2 class="sec"><span class="num">0</span>ที่มาของเอกสารฉบับนี้</h2>
+    <p>PRD ต้นฉบับออกแบบระบบเป็น full-stack (React + Node.js + PostgreSQL) แต่ repository ปัจจุบันเป็นเพียง Create React App scaffold เปล่า (React 19, ยังไม่มี backend/DB/router/state)</p>
+    <p>จากการ grill ข้อกำหนดร่วมกัน ได้ข้อสรุปว่า <strong>รอบนี้จะสร้างเฉพาะ frontend</strong> โดยมี <strong>mock API client</strong> ที่เลียนแบบ REST contract ใน PRD ต้นฉบับ (§3.7) คุยกับ "server จำลอง" ที่เก็บ state ใน localStorage เป้าหมายคือได้ Kanban ที่กดเล่นได้จริงในเบราว์เซอร์ทันที และเปลี่ยนไปต่อ Node backend จริงในอนาคตได้โดยแก้แค่ไส้ในของ API client ชั้นเดียว — ไม่ต้องแตะ UI, state หรือ data model</p>
+    <div class="callout info">เอกสารนี้บันทึก <strong>เฉพาะการตัดสินใจที่ override หรือเพิ่มเติมจาก PRD ต้นฉบับ</strong> ส่วนที่ไม่กล่าวถึงให้ยึดตาม PRD ต้นฉบับ</div>
+  </section>
+
+  <section class="card" id="s1">
+    <h2 class="sec"><span class="num">1</span>การตัดสินใจที่อนุมัติแล้ว (Locked Decisions)</h2>
+    <table>
+      <thead><tr><th style="width:18%">หัวข้อ</th><th style="width:52%">ตัดสินใจ</th><th style="width:30%">override PRD เดิม?</th></tr></thead>
+      <tbody>
+        <tr><td><strong>ขอบเขต</strong></td><td>Frontend + mock API client + localStorage persistence</td><td><span class="yes">ใช่</span> — เลื่อน Node/PostgreSQL ออกไป Phase ถัดไป</td></tr>
+        <tr><td><strong>Identity / Auth</strong></td><td><strong>User-switcher</strong> — seed ผู้ใช้หลายคน (Alice/Bob/…) มี dropdown เลือกว่า "ตอนนี้เราเป็นใคร" ไม่มีหน้า login จริง</td><td><span class="yes">ใช่</span> — §3.3 JWT/bcrypt เป็นของจริงไม่ได้เพราะไม่มี server</td></tr>
+        <tr><td><strong>State management</strong></td><td><strong>Zustand</strong> + <code>persist</code> middleware (localStorage)</td><td><span class="add">เลือก</span> 1 ใน option ที่ §3.8 เปิดไว้</td></tr>
+        <tr><td><strong>Mock fidelity</strong></td><td>เต็มรูปแบบ — async Promise + หน่วงเวลา, toggle บังคับ fail (โชว์ rollback), cross-tab sync ผ่าน <code>storage</code> event (จำลอง polling ~10s)</td><td><span class="add">เพิ่มเติม</span> — วิธีจำลองพฤติกรรม §3.1/§3.8 บนเครื่องเดียว</td></tr>
+        <tr><td><strong>Styling</strong></td><td><strong>CSS Modules</strong> (มากับ CRA ไม่ต้องตั้ง build config)</td><td><span class="add">เพิ่มเติม</span></td></tr>
+        <tr><td><strong>Card detail</strong></td><td><strong>Side-panel</strong> เลื่อนเข้าจากขวา (board ยังเห็นด้านหลัง)</td><td><span class="add">เลือก</span> จาก "modal หรือ side-panel" ที่ §4.2 เปิดไว้</td></tr>
+        <tr><td><strong>Drag-and-drop</strong></td><td><strong>dnd-kit</strong> (<code>@dnd-kit/core</code> + <code>@dnd-kit/sortable</code>)</td><td>ยึดตาม §3.8</td></tr>
+        <tr><td><strong>Ordering</strong></td><td><strong>Fractional float <code>position</code></strong></td><td>ยึดตาม §3.5</td></tr>
+        <tr><td><strong>Routing</strong></td><td><strong>react-router-dom</strong></td><td><span class="add">เพิ่มเติม</span></td></tr>
+        <tr><td><strong>Seed data</strong></td><td>บอร์ดตัวอย่าง "Project Phoenix" ตาม mockup §4.7</td><td><span class="add">เพิ่มเติม</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card" id="s2">
+    <h2 class="sec"><span class="num">2</span>Trade-offs ที่ยอมรับ</h2>
+    <p>เนื่องจากไม่มี server จริงในรอบนี้:</p>
+    <ul>
+      <li><strong>Auth เป็นของจำลอง</strong> — ไม่มี password hashing/JWT จริง การ "เป็นใคร" มาจาก user-switcher</li>
+      <li><strong>Collaboration เป็น single-machine</strong> — invite teammate, assignee, polling refresh จาก "คนอื่น" จำลองด้วย user-switcher + cross-tab sync (เปิดหลายแท็บ) ไม่ใช่ multi-user ข้ามเครื่องจริง</li>
+      <li><strong>ปริมาณข้อมูล</strong> — เก็บใน localStorage เหมาะกับ card หลักร้อยใบตามข้อสมมติ §5.5</li>
+    </ul>
+    <div class="callout">ส่วนที่ยังคงทำงาน <strong>จริง</strong> และ demo ได้ครบ: board/column/card CRUD, drag-and-drop + fractional ordering, optimistic update + rollback, persist ข้าม refresh, label/due-date/assignee, owner-vs-member authorization, edge cases (404/403/cascade)</div>
+  </section>
+
+  <section class="card" id="s3">
+    <h2 class="sec"><span class="num">3</span>สถาปัตยกรรม (Seam สำหรับสลับ backend ภายหลัง)</h2>
+<pre><code>UI components ─► Zustand store (optimistic, persisted) ─► API client (รูปแบบ method ตาม PRD §3.7)
+                                                                │
+                                                        mockBackend ("server" จำลอง:
+                                                        canonical state ใน localStorage,
+                                                        latency, failure toggle,
+                                                        membership/authz checks,
+                                                        broadcast การเปลี่ยนข้ามแท็บ)</code></pre>
+    <p><strong>จุดสลับ (swap point)</strong> คือ API client — method (<code>getBoards</code>, <code>getBoard</code>, <code>createBoard</code>, <code>patchCard</code>, <code>moveCard</code>, <code>addMember</code>, …) มีชื่อและ semantics ตรงตาม PRD §3.7 วันนี้เรียก <code>mockBackend</code>; วันหน้าเปลี่ยนเป็น <code>fetch()</code> ยิง Node API จริงโดยผู้เรียกไม่ต้องแก้</p>
+    <p><strong>Authorization</strong> อยู่ใน <code>mockBackend</code> เสมอ (ไม่เชื่อ caller): ทุก operation ตรวจว่า current user เป็นสมาชิกของ board ที่เกี่ยวข้อง; การลบ board / จัดการสมาชิก ตรวจ role <code>owner</code></p>
+  </section>
+
+  <section class="card" id="s4">
+    <h2 class="sec"><span class="num">4</span>Domain Glossary (ภาษากลางของระบบ)</h2>
+    <p class="callout info">ใช้คำเหล่านี้ให้สม่ำเสมอทั้งในโค้ดและการสื่อสาร</p>
+    <dl class="gloss">
+      <dt>Board</dt><dd>workspace ที่มี User หนึ่งคนเป็น owner ภายในมี Column และ Label และมี Member</dd>
+      <dt>Column</dt><dd>stage ของ workflow ที่เรียงลำดับภายใน Board (เช่น To Do) ภายในมี Card</dd>
+      <dt>Card</dt><dd>งานหนึ่งชิ้นภายใน Column มี title, description (optional), assignee, due date, labels และ <code>position</code></dd>
+      <dt>Member</dt><dd>User ที่เข้าถึง Board ได้ role เป็น <strong>owner</strong> (ผู้สร้าง — ลบ board / จัดการสมาชิกได้) หรือ <strong>member</strong> (CRUD column/card ได้ทั้งหมด แต่ลบ board ไม่ได้)</dd>
+      <dt>Assignee</dt><dd>Member คนเดียวที่รับผิดชอบ Card (คนละความหมายกับผู้สร้าง card)</dd>
+      <dt>Position</dt><dd>ค่า ordering แบบ fractional float แทรกระหว่าง A(1.0) กับ B(2.0) ได้ 1.5 ไม่ใช่ index ต่อเนื่อง</dd>
+      <dt>Current User</dt><dd>ในโหมด mock คือ identity ที่เลือกผ่าน user-switcher ใช้เป็น "เราเป็นใคร" ในการตรวจ auth/authz</dd>
+      <dt>Overdue</dt><dd>Card ที่ due date เลยวันปัจจุบันไปแล้ว</dd>
+    </dl>
+  </section>
+
+  <section class="card" id="s5">
+    <h2 class="sec"><span class="num">5</span>โครงไฟล์ที่วางแผนไว้</h2>
+<pre><code>src/
+  index.js                      (เดิม — ครอบด้วย BrowserRouter)
+  App.js                        (เขียนใหม่ — routes + session)
+  routes/
+    BoardListPage.jsx           GET /boards
+    BoardPage.jsx               GET /boards/:id (full snapshot)
+  api/
+    client.js                   API surface ตาม PRD §3.7 (จุดสลับ)
+    mockBackend.js              "server" บน localStorage: authz, latency, failure toggle, cross-tab broadcast
+  domain/
+    ordering.js                 positionBetween, needsRebalance, rebalance — pure, unit-tested
+    validation.js               กฎ §3.10
+  store/
+    useBoardStore.js            Zustand+persist: snapshot, optimistic mutate, rollback
+    useSession.js               current user + seed users (user-switcher)
+  hooks/
+    usePolling.js               interval + storage-event reconcile
+  components/
+    UserSwitcher · TopBar · MemberAvatars · InviteDialog
+    Column · ColumnComposer · Card · CardComposer
+    CardPanel · LabelPicker · AssigneePicker · DueDateField
+    EmptyState · Avatar · LabelChip
+    *.module.css                co-located styles
+  seed.js                       seed users + บอร์ด "Project Phoenix"
+CONTEXT.md  (root)              glossary ข้อ 4</code></pre>
+    <p>Dependencies ที่ต้องเพิ่ม: <code>zustand</code>, <code>react-router-dom</code>, <code>@dnd-kit/core</code>, <code>@dnd-kit/sortable</code>, <code>@dnd-kit/utilities</code>, <code>uuid</code></p>
+  </section>
+
+  <section class="card" id="s6">
+    <h2 class="sec"><span class="num">6</span>Milestones (แต่ละอันรันได้จริง)</h2>
+    <div class="milestone"><b>M0 — Scaffold &amp; seam:</b> ลง deps; เขียน <code>CONTEXT.md</code>; routing; โครง <code>mockBackend</code> + <code>client</code>; <code>useSession</code> + UserSwitcher; <code>seed.js</code>; ต่อ persist → boot แล้วเห็น board list ของ user ที่ seed</div>
+    <div class="milestone"><b>M1 — Boards:</b> board list, create/rename/delete (owner-only), membership; authz ใน <code>mockBackend</code></div>
+    <div class="milestone"><b>M2 — Columns:</b> create/rename/delete + empty states; column ordering ผ่าน <code>domain/ordering</code></div>
+    <div class="milestone"><b>M3 — Cards:</b> create/edit/delete; CardPanel side-panel (title/description); ตัวนับ card ที่หัว column</div>
+    <div class="milestone"><b>M4 — Drag-and-drop + ordering:</b> dnd-kit ย้าย/reorder card + reorder column; fractional <code>position</code>; optimistic + rollback เมื่อบังคับ fail; placeholder/ghost; รองรับคีย์บอร์ด</div>
+    <div class="milestone"><b>M5 — Collaboration fields:</b> assignee picker, label สี (ระดับ board + ผูก card), due date + overdue highlight (สี + icon/ข้อความ ตาม WCAG), invite dialog (เฉพาะ user ที่ seed ไว้)</div>
+    <div class="milestone"><b>M6 — Polling/reconcile + edge cases:</b> <code>usePolling</code> cross-tab reconcile (last-write-wins); card ถูกลบ → เอาออกจาก state (404); member ถูกถอด → เด้งออก (403); ลบ column → ยืนยัน + cascade</div>
+    <div class="milestone"><b>M7 — Polish:</b> loading/empty states ไม่กระพริบทั้งหน้า, responsive (column แคบ + scroll แนวนอน, touch target ≥44px), neutral palette ให้ label เป็นตัวเดินสี</div>
+  </section>
+
+  <section class="card" id="s7">
+    <h2 class="sec"><span class="num">7</span>Verification (เกณฑ์ตรวจรับ)</h2>
+    <h3>Unit tests <code>npm test -- --watchAll=false</code></h3>
+    <p><code>ordering.test.js</code> (แทรกหัว/ท้าย/กลาง + rebalance), <code>validation.test.js</code> (กฎ §3.10), authz checks ใน mockBackend</p>
+    <h3>Manual <code>npm start</code> — เดินตาม acceptance flow ของ PRD §5.2</h3>
+    <ol class="flow">
+      <li>สลับเป็น user ที่ seed → เห็น "Project Phoenix" ใน board list</li>
+      <li>สร้าง board → เพิ่ม column → เพิ่ม card</li>
+      <li>ลาก card A→B: ปรากฏใน B ทันที; refresh แล้วยังอยู่ B (localStorage persist)</li>
+      <li>เปิด toggle บังคับ fail → ลาก card → เด้งกลับพร้อม error (rollback)</li>
+      <li>เปิด 2 แท็บเป็นคนละ user; ย้าย card ในแท็บหนึ่ง → อีกแท็บเห็นตาม (cross-tab polling)</li>
+      <li>invite user ที่ seed (ในฐานะ owner) → สลับเป็น user นั้น → เห็น board ใน list, แก้ card ได้ แต่ลบ board ไม่ได้ (owner-only)</li>
+      <li>ตั้ง due date ในอดีต → card highlight overdue (สี + icon/ข้อความ)</li>
+      <li>ลบ column ที่มี card → ยืนยัน → cascade ลบ card ในนั้น</li>
+    </ol>
+  </section>
+
+  <footer class="doc">
+    Approved PRD v1.0 · Kanban Board · สร้างจาก grilling session — ยังไม่เริ่มเขียนโค้ด
+  </footer>
+
+</div>
+</body>
+</html>

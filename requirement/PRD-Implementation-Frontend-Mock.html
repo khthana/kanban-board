@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD — Kanban Board Frontend (Mock-Backend Build)</title>
+<style>
+  :root {
+    --bg: #f6f8fa;
+    --surface: #ffffff;
+    --ink: #1f2328;
+    --muted: #57606a;
+    --accent: #0969da;
+    --accent-soft: #ddf4ff;
+    --border: #d0d7de;
+    --green: #1a7f37;
+    --green-soft: #dafbe1;
+    --amber: #9a6700;
+    --amber-soft: #fff8c5;
+    --red: #cf222e;
+    --red-soft: #ffebe9;
+    --code-bg: #eff1f3;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Sarabun", "Noto Sans Thai", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.7; font-size: 16px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 32px 20px 96px; }
+  header.doc {
+    background: linear-gradient(135deg, #1a7f37 0%, #0a3069 100%);
+    color: #fff; border-radius: 14px; padding: 32px 36px; margin-bottom: 28px;
+    box-shadow: 0 8px 24px rgba(10,48,105,0.25);
+  }
+  header.doc h1 { margin: 0 0 14px; font-size: 26px; line-height: 1.3; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.28);
+    padding: 4px 12px; border-radius: 999px; font-size: 13px;
+  }
+  .badge.label { background: #0E8A16; border-color: #0E8A16; font-weight: 600; font-family: monospace; }
+  .badge.issue { background: rgba(255,255,255,0.22); }
+  .meta-link { color: #ddf4ff; }
+
+  nav.toc {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 24px; margin-bottom: 28px;
+  }
+  nav.toc h2 { margin: 0 0 10px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+  nav.toc ol { margin: 0; padding-left: 20px; }
+  nav.toc li { margin: 4px 0; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+
+  section.card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px 32px; margin-bottom: 22px;
+    box-shadow: 0 1px 3px rgba(27,31,36,0.04);
+  }
+  h2.sec { margin: 0 0 16px; padding-bottom: 10px; border-bottom: 2px solid var(--green-soft); font-size: 21px; }
+  h2.sec .ic { margin-right: 10px; }
+  h3 { font-size: 16px; margin: 20px 0 6px; color: var(--accent); }
+  p { margin: 10px 0; }
+  ul { padding-left: 22px; }
+  li { margin: 6px 0; }
+  strong { color: #000; }
+  a { color: var(--accent); }
+  code {
+    background: var(--code-bg); padding: 1px 6px; border-radius: 5px;
+    font-family: "SF Mono", "Cascadia Code", Consolas, monospace; font-size: 13.5px;
+  }
+
+  .story-group { margin: 18px 0; }
+  .story-group h3 {
+    display: flex; align-items: center; gap: 8px;
+    margin: 0 0 6px; padding: 6px 12px; background: var(--accent-soft);
+    border-radius: 8px; color: var(--ink); font-size: 15px;
+  }
+  .story-group h3 .count {
+    margin-left: auto; background: var(--accent); color: #fff;
+    border-radius: 999px; padding: 0 9px; font-size: 12px; font-weight: 700;
+  }
+  ol.stories { list-style: none; counter-reset: none; padding-left: 6px; margin: 6px 0 0; }
+  ol.stories li {
+    position: relative; padding: 4px 0 4px 40px; margin: 3px 0; font-size: 14.5px;
+  }
+  ol.stories li .n {
+    position: absolute; left: 0; top: 4px;
+    min-width: 28px; height: 22px; padding: 0 6px;
+    background: #eef2f6; color: var(--muted); border: 1px solid var(--border);
+    border-radius: 6px; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+  }
+  ol.stories li .actor { color: var(--green); font-weight: 600; }
+
+  .dl { margin: 12px 0; }
+  .dl .row { padding: 10px 0; border-bottom: 1px dashed var(--border); }
+  .dl .row:last-child { border-bottom: none; }
+  .dl .k { font-weight: 700; color: #000; }
+  .pill {
+    display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px;
+    border-radius: 999px; margin-right: 8px; vertical-align: middle;
+  }
+  .pill.deep { background: var(--green-soft); color: var(--green); }
+  .pill.shallow { background: #eef2f6; color: var(--muted); }
+
+  .callout { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 12px 18px; border-radius: 0 8px 8px 0; margin: 14px 0; }
+  .callout.warn { border-left-color: var(--amber); background: var(--amber-soft); }
+  .callout.test { border-left-color: var(--green); background: var(--green-soft); }
+
+  .oos li { color: var(--muted); }
+
+  footer.doc { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+  @media print { body { background:#fff; } section.card, nav.toc, header.doc { box-shadow:none; break-inside: avoid; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="doc">
+    <h1>PRD — Kanban Board Frontend<br><small style="font-weight:400;font-size:18px;opacity:.9">Mock-Backend Build</small></h1>
+    <div class="badges">
+      <span class="badge label">ready-for-agent</span>
+      <span class="badge issue">🔗 <a class="meta-link" href="https://github.com/khthana/kanban-board/issues/1">GitHub Issue #1</a></span>
+      <span class="badge">📄 <a class="meta-link" href="Kanban-Board-PRD.md">PRD ต้นฉบับ</a></span>
+      <span class="badge">✅ <a class="meta-link" href="Approve%20PRD.html">Approve PRD</a></span>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <h2>สารบัญ</h2>
+    <ol>
+      <li><a href="#problem">Problem Statement</a></li>
+      <li><a href="#solution">Solution</a></li>
+      <li><a href="#stories">User Stories (42)</a></li>
+      <li><a href="#impl">Implementation Decisions</a></li>
+      <li><a href="#testing">Testing Decisions</a></li>
+      <li><a href="#oos">Out of Scope</a></li>
+      <li><a href="#notes">Further Notes</a></li>
+    </ol>
+  </nav>
+
+  <section class="card" id="problem">
+    <h2 class="sec"><span class="ic">🎯</span>Problem Statement</h2>
+    <p>ทีมเล็ก (2–15 คน) จัดการงานกระจัดกระจายในแชท สเปรดชีต และอีเมล ไม่มีจุดเดียวที่เห็นสถานะงานทั้งหมด ไม่รู้ว่าใครรับผิดชอบอะไร และงานตกหล่น ผู้ใช้ต้องการกระดาน Kanban ที่เห็นงานทั้งทีมในหน้าจอเดียว ลากการ์ดข้ามสถานะได้ลื่นไหล และเชื่อถือได้ว่าข้อมูลไม่หาย</p>
+    <p>ในเชิงการพัฒนา ทีมยังไม่ต้องการลงทุนกับโครงสร้าง backend (Node + PostgreSQL + auth จริง) ก่อนจะได้พิสูจน์ว่า core experience ของกระดาน — การสร้าง/ลาก-ย้าย card, ordering, optimistic UI — ใช้งานได้จริงและน่าใช้</p>
+  </section>
+
+  <section class="card" id="solution">
+    <h2 class="sec"><span class="ic">💡</span>Solution</h2>
+    <p>สร้าง <strong>Kanban Board frontend</strong> เป็น React SPA ที่กดเล่นได้เต็มรูปแบบในเบราว์เซอร์ทันที โดยมี <strong>mock backend</strong> ที่เก็บ canonical state ไว้ใน localStorage และจำลองพฤติกรรมของ server จริง (async, latency, การ enforce สิทธิ์, การ broadcast การเปลี่ยนแปลงข้ามแท็บ)</p>
+    <p>ผู้ใช้เปิดแอปแล้วเลือกตัวตนจาก <strong>user-switcher</strong> (ตัวตนที่ seed ไว้) เห็นรายการ Board ที่ตนเป็น owner หรือ member เปิด Board เห็น Column เรียงแนวนอน แต่ละ Column มี Card ที่ลาก-ย้าย/จัดลำดับได้ด้วย drag-and-drop การลากตอบสนองทันที (optimistic) และคงอยู่หลัง refresh เปิดรายละเอียด Card ใน side-panel เพื่อแก้ description, assignee, due date, labels ได้</p>
+    <p>mock backend ถูกออกแบบให้ interface ของ API client ตรงกับ REST contract ของ PRD ต้นฉบับ (§3.7) เพื่อให้สลับไปต่อ Node backend จริงในอนาคตได้โดยแก้แค่ไส้ในของ client ชั้นเดียว ไม่ต้องแตะ UI, state store หรือ data model</p>
+  </section>
+
+  <section class="card" id="stories">
+    <h2 class="sec"><span class="ic">📝</span>User Stories <span style="font-size:14px;color:var(--muted)">— 42 ข้อ, 8 หมวด</span></h2>
+
+    <div class="story-group">
+      <h3>Identity &amp; Session <span class="count">3</span></h3>
+      <ol class="stories">
+        <li><span class="n">1</span>As a <span class="actor">user</span>, I want to pick which seeded identity I am acting as from a switcher, so that I can simulate different team members without a real login.</li>
+        <li><span class="n">2</span>As a <span class="actor">user</span>, I want my current identity to persist across page refresh, so that I don't have to re-select it every time.</li>
+        <li><span class="n">3</span>As a <span class="actor">user</span>, I want to switch identity at any time, so that I can demonstrate collaboration between members on one machine.</li>
+      </ol>
+    </div>
+
+    <div class="story-group">
+      <h3>Board list <span class="count">6</span></h3>
+      <ol class="stories">
+        <li><span class="n">4</span>As a <span class="actor">user</span>, I want to see a list of all Boards where I am owner or member, so that I can switch between projects.</li>
+        <li><span class="n">5</span>As a <span class="actor">user</span>, I want Boards I have no access to to be hidden from my list, so that I only see what is relevant to me.</li>
+        <li><span class="n">6</span>As a <span class="actor">user</span>, I want to create a new Board with a name, so that I can organize work for a specific project.</li>
+        <li><span class="n">7</span>As a <span class="actor">Board owner</span>, I want to rename my Board, so that I can keep the name accurate.</li>
+        <li><span class="n">8</span>As a <span class="actor">Board owner</span>, I want to delete my Board, so that I can remove finished projects.</li>
+        <li><span class="n">9</span>As a <span class="actor">member who is not the owner</span>, I want the delete action to be unavailable, so that I cannot accidentally remove a Board I don't own.</li>
+      </ol>
+    </div>
+
+    <div class="story-group">
+      <h3>Membership &amp; invitation <span class="count">4</span></h3>
+      <ol class="stories">
+        <li><span class="n">10</span>As a <span class="actor">Board owner</span>, I want to invite an existing seeded user by email, so that they can collaborate on the Board.</li>
+        <li><span class="n">11</span>As a <span class="actor">Board owner</span>, I want to remove a member, so that I can manage who has access.</li>
+        <li><span class="n">12</span>As an <span class="actor">invited member</span>, I want the Board to appear in my list when I switch to my identity, so that I can start working on it.</li>
+        <li><span class="n">13</span>As a <span class="actor">user</span>, I want to see the avatars of all Board members in the top bar, so that I know who is on the team.</li>
+      </ol>
+    </div>
+
+    <div class="story-group">
+      <h3>Columns <span class="count">6</span></h3>
+      <ol class="stories">
+        <li><span class="n">14</span>As a <span class="actor">member</span>, I want to create Columns with custom names, so that I can model my workflow stages.</li>
+        <li><span class="n">15</span>As a <span class="actor">member</span>, I want to rename a Column, so that I can adjust the workflow wording.</li>
+        <li><span class="n">16</span>As a <span class="actor">member</span>, I want to delete a Column, with confirmation when it still has Cards, so that I don't lose Cards by accident.</li>
+        <li><span class="n">17</span>As a <span class="actor">member</span>, I want to reorder Columns by dragging, so that the Board reflects the real sequence of work.</li>
+        <li><span class="n">18</span>As a <span class="actor">member</span>, I want each Column header to show a count of its Cards, so that I can see workload at a glance.</li>
+        <li><span class="n">19</span>As a <span class="actor">member</span>, I want an empty Board to show an inviting empty state to add the first Column, so that I know how to start.</li>
+      </ol>
+    </div>
+
+    <div class="story-group">
+      <h3>Cards <span class="count">5</span></h3>
+      <ol class="stories">
+        <li><span class="n">20</span>As a <span class="actor">member</span>, I want to create a Card with a title inside a Column, so that I can capture a task quickly.</li>
+        <li><span class="n">21</span>As a <span class="actor">member</span>, I want to open a Card in a side-panel to see and edit its full detail, so that the Board stays visible behind it.</li>
+        <li><span class="n">22</span>As a <span class="actor">member</span>, I want to edit a Card's description, so that I can capture full task detail.</li>
+        <li><span class="n">23</span>As a <span class="actor">member</span>, I want to delete a Card, so that I can remove tasks that are no longer relevant.</li>
+        <li><span class="n">24</span>As a <span class="actor">member</span>, I want an empty Column to show an inviting empty state to add the first Card, so that I know how to start.</li>
+      </ol>
+    </div>
+
+    <div class="story-group">
+      <h3>Drag-and-drop &amp; ordering <span class="count">7</span></h3>
+      <ol class="stories">
+        <li><span class="n">25</span>As a <span class="actor">member</span>, I want to drag a Card to another Column, so that I can update its status visually.</li>
+        <li><span class="n">26</span>As a <span class="actor">member</span>, I want to reorder a Card within its Column, so that I can express priority.</li>
+        <li><span class="n">27</span>As a <span class="actor">member</span>, I want the moved Card to appear in its new place instantly (optimistic), so that the interaction feels immediate.</li>
+        <li><span class="n">28</span>As a <span class="actor">member</span>, I want a clear placeholder/ghost showing where the Card will drop, so that I can aim the drop accurately.</li>
+        <li><span class="n">29</span>As a <span class="actor">member</span>, I want a moved Card to stay where I dropped it after refresh, so that I trust the change was saved.</li>
+        <li><span class="n">30</span>As a <span class="actor">member</span>, I want a Card to snap back with an error message if the save fails, so that I am never misled about the saved state.</li>
+        <li><span class="n">31</span>As a <span class="actor">member</span>, I want to drag Cards and Columns using the keyboard, so that the Board is accessible.</li>
+      </ol>
+    </div>
+
+    <div class="story-group">
+      <h3>Collaboration fields <span class="count">6</span></h3>
+      <ol class="stories">
+        <li><span class="n">32</span>As a <span class="actor">member</span>, I want to assign a Card to a single teammate, so that responsibility is clear.</li>
+        <li><span class="n">33</span>As a <span class="actor">member</span>, I want to create colored Labels at the Board level, so that I can define categories like bug/feature/urgent.</li>
+        <li><span class="n">34</span>As a <span class="actor">member</span>, I want to attach and detach Labels on a Card, so that I can categorize it.</li>
+        <li><span class="n">35</span>As a <span class="actor">member</span>, I want a Card to show its Label color bar, assignee avatar, and due date for quick scanning, so that I don't need to open it.</li>
+        <li><span class="n">36</span>As a <span class="actor">member</span>, I want to set a due date on a Card, so that deadlines are explicit.</li>
+        <li><span class="n">37</span>As a <span class="actor">member</span>, I want overdue Cards highlighted with color plus an icon/text (not color alone), so that the cue is accessible to color-blind users.</li>
+      </ol>
+    </div>
+
+    <div class="story-group">
+      <h3>Sync &amp; reconcile <span class="count">4</span></h3>
+      <ol class="stories">
+        <li><span class="n">38</span>As a <span class="actor">member</span>, I want changes made in another tab (as another identity) to appear in my open Board, so that collaboration is visible.</li>
+        <li><span class="n">39</span>As a <span class="actor">member</span>, I want the Board to refresh quietly without flashing the whole screen, so that updates are unobtrusive.</li>
+        <li><span class="n">40</span>As a <span class="actor">member whose Card was deleted by someone else</span>, I want it removed from my view, so that I don't act on a stale Card.</li>
+        <li><span class="n">41</span>As a <span class="actor">member who is removed from a Board while viewing it</span>, I want to be ejected with a message on the next sync, so that I understand my access changed.</li>
+      </ol>
+    </div>
+
+    <div class="story-group">
+      <h3>Robustness toggles (dev/demo) <span class="count">1</span></h3>
+      <ol class="stories">
+        <li><span class="n">42</span>As a <span class="actor">developer demoing the app</span>, I want a toggle that forces mock-backend failures, so that I can demonstrate optimistic rollback on demand.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="card" id="impl">
+    <h2 class="sec"><span class="ic">🏗️</span>Implementation Decisions</h2>
+
+    <h3>Scope &amp; architecture (locked — Approve PRD §1)</h3>
+    <ul>
+      <li>Build the React frontend only; back it with a mock backend (localStorage). No Node/PostgreSQL this round.</li>
+      <li>Layering: <strong>UI components → Zustand store (optimistic, persisted) → API client (PRD §3.7 method shape) → mockBackend</strong>.</li>
+      <li>The <strong>API client</strong> is a deliberately <em>shallow</em> seam (the swap point). Methods <code>getBoards</code>, <code>getBoard</code>, <code>createBoard</code>, <code>patchBoard</code>, <code>deleteBoard</code>, <code>addMember</code>, <code>removeMember</code>, <code>createColumn</code>, <code>patchColumn</code>, <code>deleteColumn</code>, <code>createCard</code>, <code>patchCard</code>, <code>moveCard</code>, <code>deleteCard</code>, <code>createLabel</code>, <code>patchLabel</code>, <code>deleteLabel</code>, <code>attachLabel</code>, <code>detachLabel</code> match PRD §3.7 so a real <code>fetch()</code> backend drops in without changing callers.</li>
+    </ul>
+
+    <h3>Modules</h3>
+    <div class="dl">
+      <div class="row"><span class="pill deep">DEEP</span><span class="k">domain/ordering</span> — pure fractional-float ordering: <code>positionBetween(prevPos, nextPos)</code>, <code>needsRebalance(positions)</code>, <code>rebalance(items)</code>. Moving one item computes a new <code>position</code> from neighbours and writes a single record; rebalance runs when the float gap collapses.</div>
+      <div class="row"><span class="pill deep">DEEP</span><span class="k">domain/validation</span> — pure validators encoding §3.10: board/column name non-empty ≤100; card title non-empty ≤255; description ≤~5000; label color valid hex; invite email must match an existing seeded user.</div>
+      <div class="row"><span class="pill deep">DEEP</span><span class="k">api/mockBackend</span> — the "server". Canonical state, mutations, authorization (membership guard every op; <code>owner</code> check for board delete / member management), cascade deletes (board→columns/cards/labels/members; column→cards; label→card_labels only), latency + forced failures, persist + broadcast across tabs. Async, REST-shaped.</div>
+      <div class="row"><span class="pill shallow">SHALLOW</span><span class="k">store/useBoardStore</span> (Zustand + <code>persist</code>) — orchestrates optimistic updates: snapshot slice, apply, call client, restore + surface error on rejection.</div>
+      <div class="row"><span class="pill shallow">SHALLOW</span><span class="k">api/client</span> — thin adapter delegating to mockBackend.</div>
+      <div class="row"><span class="pill shallow">SHALLOW</span><span class="k">React components / routes</span> — verified via manual acceptance flows.</div>
+    </div>
+
+    <h3>Other decisions</h3>
+    <ul>
+      <li><strong>Identity</strong> — User-switcher over seeded users; current identity persisted in localStorage; used as "current user" for all authz in mockBackend. No real password hashing/JWT.</li>
+      <li><strong>Data model</strong> — PRD §3.6 logical schema (users, boards, board_members, columns, cards, labels, card_labels), UUID ids, <code>position</code> floats. Stored as JSON in localStorage but shaped identically so a real DB maps 1:1.</li>
+      <li><strong>Card move contract</strong> — single <code>moveCard(cardId, { columnId, position })</code> covers cross-Column move + in-Column reorder; mockBackend always assigns a final authoritative <code>position</code> (no collisions, PRD §3.9).</li>
+      <li><strong>Sync</strong> — <code>usePolling</code> reconciles the Board snapshot on a fallback interval and on cross-tab <code>storage</code> events (last-write-wins); stands in for the PRD's ~10s polling.</li>
+      <li><strong>Card detail</strong> — right-hand <strong>side-panel</strong>, Board visible behind (PRD §4.2 panel selected).</li>
+      <li><strong>Tech</strong> — react-router-dom; dnd-kit (<code>@dnd-kit/core</code> + <code>@dnd-kit/sortable</code>, keyboard-capable); CSS Modules; uuid; seed "Project Phoenix" board (mockup §4.7).</li>
+    </ul>
+  </section>
+
+  <section class="card" id="testing">
+    <h2 class="sec"><span class="ic">🧪</span>Testing Decisions</h2>
+    <div class="callout test"><strong>เกณฑ์เทสต์ที่ดี:</strong> assert external behavior ผ่าน public interface ของโมดูล ไม่ใช่ internal representation สำหรับ <code>domain/ordering</code>: ให้ position ที่คืนมาเรียงถูกตำแหน่งเทียบ siblings — assert <em>ผลการเรียงลำดับ</em> ไม่ใช่ค่า float เป๊ะๆ</div>
+    <h3>Modules to be unit-tested (developer selected): <code>domain/ordering</code> only</h3>
+    <ul>
+      <li>Insert at head (no previous), tail (no next), and middle (between two) — ผลต้องเรียงเข้า slot ที่ตั้งใจ</li>
+      <li><code>rebalance</code> — เมื่อ insert ถี่จน gap ตัน ต้องกระจาย position ใหม่โดยคงลำดับเดิม</li>
+      <li><code>needsRebalance</code> — คืน true เมื่อ precision ระหว่าง position ติดกันหมด</li>
+    </ul>
+    <div class="callout warn"><strong>ไม่เทสต์รอบนี้</strong> (ตามที่ developer เลือก): <code>domain/validation</code>, <code>mockBackend</code> authz, store rollback — ครอบด้วย manual acceptance flow แทน (ยังเป็นเป้าหมายเทสต์ในอนาคตได้ เพราะ interface ออกแบบมาให้เทสต์ได้)</div>
+    <p><strong>Prior art:</strong> <code>src/App.test.js</code> เดิมใช้ <code>@testing-library/react</code> + Jest (CRA default). เทสต์ <code>domain/ordering</code> ไม่ต้องใช้ DOM — Jest unit test ล้วน รันผ่าน <code>npm test</code></p>
+  </section>
+
+  <section class="card" id="oos">
+    <h2 class="sec"><span class="ic">🚫</span>Out of Scope</h2>
+    <ul class="oos">
+      <li>Real backend (Node.js/Express/Fastify), PostgreSQL, real JWT/bcrypt — เลื่อนไป phase ถัดไป; API client seam คือจุดต่อ</li>
+      <li>Real multi-user/multi-device collaboration, WebSocket live sync, presence/cursors</li>
+      <li>Fine-grained roles เกิน owner/member (viewer/editor/admin)</li>
+      <li>Sub-checklists, large file attachments, email/push notifications, automation rules, swimlanes, cross-board advanced search, mobile native app, analytics dashboard</li>
+      <li>เชิญ user ที่ยังไม่ seed/register</li>
+      <li>Unit tests สำหรับ validation, mockBackend authz, store rollback (รอบนี้ครอบด้วย manual เท่านั้น)</li>
+    </ul>
+  </section>
+
+  <section class="card" id="notes">
+    <h2 class="sec"><span class="ic">📌</span>Further Notes</h2>
+    <ul>
+      <li><strong>Trade-offs</strong> (Approve PRD §2): auth จำลอง; collaboration เป็น single-machine ผ่าน user-switcher + cross-tab sync ส่วนที่เหลือ — board/column/card CRUD, drag-and-drop + fractional ordering, optimistic + rollback, persist ข้าม refresh, labels/due-date/assignee, owner-vs-member authz, edge cases (404/403/cascade) — ทำงานจริงและ demo ได้</li>
+      <li><strong>Build order</strong> (M0–M7) และ 8 manual acceptance flows อยู่ใน <a href="Approve%20PRD.html">Approve PRD</a> §6–§7 (มาจาก PRD §5.1–§5.2)</li>
+      <li><strong>Domain glossary</strong> (Board, Column, Card, Member, Assignee, Position, Current User, Overdue) จะอยู่ใน root <code>CONTEXT.md</code> ใช้คำเหล่านี้สม่ำเสมอในโค้ดและการสื่อสาร</li>
+    </ul>
+  </section>
+
+  <footer class="doc">
+    PRD — Kanban Board Frontend (Mock-Backend Build) · ready-for-agent · <a href="https://github.com/khthana/kanban-board/issues/1">Issue #1</a>
+  </footer>
+
+</div>
+</body>
+</html>
