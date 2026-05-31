@@ -1,0 +1,62 @@
+.addBtn {
+  width: 100%;
+  padding: 0.5rem;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.addBtn:hover { background: #e2e8f0; color: #475569; }
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.625rem;
+  font-size: 0.875rem;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  resize: none;
+  font-family: inherit;
+  color: #1e293b;
+  outline: none;
+}
+
+.fieldError { font-size: 0.75rem; color: #dc2626; }
+
+.row { display: flex; gap: 0.375rem; }
+
+.btn {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn:hover { background: #2563eb; }
+
+.btnCancel {
+  padding: 0.375rem 0.5rem;
+  font-size: 0.8rem;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.btnCancel:hover { background: #e2e8f0; }

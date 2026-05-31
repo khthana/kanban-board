@@ -130,6 +130,54 @@ const useBoardStore = create((set, get) => ({
       throw err;
     }
   },
+
+  // ── cards ────────────────────────────────────────────────────────────────────
+
+  createCard: async (columnId, userId, { title }) => {
+    const cards = get().board?.cards.filter(c => c.columnId === columnId) ?? [];
+    const lastPos = cards.length > 0 ? Math.max(...cards.map(c => c.position)) : null;
+    const position = positionBetween(lastPos, null);
+
+    const tempId = uuidv4();
+    const placeholder = { id: tempId, columnId, title, description: '', assigneeId: null, dueDate: null, position };
+    const snapshot = get().board;
+    set(s => ({ board: { ...s.board, cards: [...s.board.cards, placeholder] }, error: null }));
+    try {
+      const card = await client.createCard(columnId, userId, { title, position });
+      set(s => ({ board: { ...s.board, cards: s.board.cards.map(c => c.id === tempId ? card : c) } }));
+      return card;
+    } catch (err) {
+      set({ board: snapshot, error: err.message });
+      throw err;
+    }
+  },
+
+  patchCard: async (cardId, userId, patch) => {
+    const snapshot = get().board;
+    set(s => ({
+      board: { ...s.board, cards: s.board.cards.map(c => c.id === cardId ? { ...c, ...patch } : c) },
+      error: null,
+    }));
+    try {
+      const card = await client.patchCard(cardId, userId, patch);
+      set(s => ({ board: { ...s.board, cards: s.board.cards.map(c => c.id === cardId ? card : c) } }));
+      return card;
+    } catch (err) {
+      set({ board: snapshot, error: err.message });
+      throw err;
+    }
+  },
+
+  deleteCard: async (cardId, userId) => {
+    const snapshot = get().board;
+    set(s => ({ board: { ...s.board, cards: s.board.cards.filter(c => c.id !== cardId) }, error: null }));
+    try {
+      await client.deleteCard(cardId, userId);
+    } catch (err) {
+      set({ board: snapshot, error: err.message });
+      throw err;
+    }
+  },
 }));
 
 export default useBoardStore;

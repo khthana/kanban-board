@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { validateColumnName } from '../domain/validation';
 import Card from './Card';
+import CardComposer from './CardComposer';
 import styles from './Column.module.css';
 
 function RenameForm({ column, onSave, onCancel }) {
@@ -32,7 +33,7 @@ function RenameForm({ column, onSave, onCancel }) {
   );
 }
 
-export default function Column({ column, cards, onRename, onDelete }) {
+export default function Column({ column, cards, onRename, onDelete, onCardClick, onAddCard }) {
   const [renaming, setRenaming] = useState(false);
 
   function handleDelete() {
@@ -64,11 +65,13 @@ export default function Column({ column, cards, onRename, onDelete }) {
       </div>
 
       <div className={styles.cards}>
-        {cards.length === 0 ? (
-          <p className={styles.empty}>No cards yet. Add one below.</p>
-        ) : (
-          cards.map(card => <Card key={card.id} card={card} />)
+        {cards.length === 0 && (
+          <p className={styles.empty}>No cards yet.</p>
         )}
+        {cards.map(card => (
+          <Card key={card.id} card={card} onClick={onCardClick} />
+        ))}
+        <CardComposer onAdd={title => onAddCard(column.id, title)} />
       </div>
     </div>
   );
