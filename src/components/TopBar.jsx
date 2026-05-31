@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
 import Avatar from './Avatar';
-import UserSwitcher from './UserSwitcher';
 import styles from './TopBar.module.css';
 
 export default function TopBar({ board, members, currentUserId, onInvite, onRemoveMember }) {
   const isOwner = board.ownerId === currentUserId;
+  const currentUser = members.find(m => m.userId === currentUserId)?.user;
 
   return (
     <header className={styles.bar}>
@@ -37,7 +37,9 @@ export default function TopBar({ board, members, currentUserId, onInvite, onRemo
           </button>
         )}
 
-        <UserSwitcher />
+        {currentUser && (
+          <span className={styles.currentUser}>{currentUser.displayName}</span>
+        )}
       </div>
     </header>
   );

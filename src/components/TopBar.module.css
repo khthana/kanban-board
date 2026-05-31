@@ -83,3 +83,9 @@
   white-space: nowrap;
 }
 .inviteBtn:hover { background: #e2e8f0; }
+
+.currentUser {
+  font-size: 0.875rem;
+  color: #64748b;
+  white-space: nowrap;
+}

@@ -24,3 +24,21 @@ export function validateInviteEmail(email, users) {
   if (!users.some(u => u.email === email)) return 'No user with that email exists';
   return null;
 }
+
+export function validateEmail(email) {
+  if (!email || email.trim().length === 0) return 'Email is required';
+  if (!email.includes('@')) return 'Email must be a valid email address';
+  return null;
+}
+
+export function validatePassword(password) {
+  if (!password || password.length === 0) return 'Password is required';
+  if (password.length < 8) return 'Password must be at least 8 characters';
+  return null;
+}
+
+export function validateDisplayName(name) {
+  if (!name || name.trim().length === 0) return 'Display name is required';
+  if (name.length > 100) return 'Display name must be 100 characters or fewer';
+  return null;
+}

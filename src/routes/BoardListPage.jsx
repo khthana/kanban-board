@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import useSession from '../store/useSession';
 import useBoardStore from '../store/useBoardStore';
-import UserSwitcher from '../components/UserSwitcher';
 import { validateBoardName } from '../domain/validation';
 import styles from './BoardListPage.module.css';
 
@@ -62,11 +61,17 @@ function RenameForm({ board, onSave, onCancel }) {
 }
 
 export default function BoardListPage() {
-  const { currentUserId } = useSession();
+  const { currentUserId, logout } = useSession();
   const { boards, loading, error, fetchBoards, createBoard, renameBoard, deleteBoard } = useBoardStore();
   const [renamingId, setRenamingId] = useState(null);
   const location = useLocation();
-  const ejected = location.state?.ejected ?? false;
+  const navigate  = useNavigate();
+  const ejected   = location.state?.ejected ?? false;
+
+  function handleLogout() {
+    logout();
+    navigate('/login', { replace: true });
+  }
 
   useEffect(() => {
     fetchBoards(currentUserId);
@@ -90,7 +95,7 @@ export default function BoardListPage() {
     <div className={styles.page}>
       <header className={styles.header}>
         <h1 className={styles.title}>Kanban Board</h1>
-        <UserSwitcher />
+        <button className={styles.btnSmall} onClick={handleLogout}>Sign out</button>
       </header>
 
       <main className={styles.main}>

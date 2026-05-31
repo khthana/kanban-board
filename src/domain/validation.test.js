@@ -1,4 +1,4 @@
-import { validateBoardName, validateColumnName, validateCardTitle, validateCardDescription, validateLabelColor, validateInviteEmail } from './validation';
+import { validateBoardName, validateColumnName, validateCardTitle, validateCardDescription, validateLabelColor, validateInviteEmail, validateEmail, validatePassword, validateDisplayName } from './validation';
 
 describe('validateBoardName', () => {
   test('rejects empty string', () => {
@@ -94,5 +94,47 @@ describe('validateInviteEmail', () => {
 
   test('accepts email that matches an existing user', () => {
     expect(validateInviteEmail('alice@example.com', users)).toBeNull();
+  });
+});
+
+describe('validateEmail', () => {
+  test('rejects empty string', () => {
+    expect(validateEmail('')).not.toBeNull();
+  });
+
+  test('rejects string without @', () => {
+    expect(validateEmail('notanemail')).not.toBeNull();
+  });
+
+  test('accepts valid email', () => {
+    expect(validateEmail('user@example.com')).toBeNull();
+  });
+});
+
+describe('validatePassword', () => {
+  test('rejects empty string', () => {
+    expect(validatePassword('')).not.toBeNull();
+  });
+
+  test('rejects password shorter than 8 characters', () => {
+    expect(validatePassword('abc123')).not.toBeNull();
+  });
+
+  test('accepts password with 8 or more characters', () => {
+    expect(validatePassword('password1')).toBeNull();
+  });
+});
+
+describe('validateDisplayName', () => {
+  test('rejects empty string', () => {
+    expect(validateDisplayName('')).not.toBeNull();
+  });
+
+  test('rejects name longer than 100 characters', () => {
+    expect(validateDisplayName('a'.repeat(101))).not.toBeNull();
+  });
+
+  test('accepts valid display name', () => {
+    expect(validateDisplayName('Alice')).toBeNull();
   });
 });
