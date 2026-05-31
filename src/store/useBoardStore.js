@@ -31,6 +31,10 @@ const useBoardStore = create((set, get) => ({
     }
   },
 
+  reconcileBoard: (data) => {
+    set({ board: data });
+  },
+
   createBoard: async (userId, { name }) => {
     const tempId = uuidv4();
     const placeholder = { id: tempId, name, ownerId: userId };

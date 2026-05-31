@@ -7,6 +7,7 @@ import {
 import { SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
 import useSession from '../store/useSession';
 import useBoardStore from '../store/useBoardStore';
+import { usePolling } from '../hooks/usePolling';
 import { positionBetween } from '../domain/ordering';
 import { setForceFailNext } from '../api/client';
 import TopBar from '../components/TopBar';
@@ -23,7 +24,7 @@ export default function BoardPage() {
   const { currentUserId } = useSession();
   const {
     board, loading, error,
-    fetchBoard,
+    fetchBoard, reconcileBoard,
     createColumn, renameColumn, deleteColumn, moveColumn,
     createCard, patchCard, deleteCard, moveCard,
     createLabel, deleteLabel, attachLabel, detachLabel,
@@ -44,6 +45,14 @@ export default function BoardPage() {
   useEffect(() => {
     fetchBoard(boardId, currentUserId);
   }, [boardId, currentUserId, fetchBoard]);
+
+  usePolling({
+    boardId,
+    userId: currentUserId,
+    onReconcile: reconcileBoard,
+    onForbidden: () => navigate('/boards', { state: { ejected: true } }),
+    onNotFound:  () => navigate('/boards', { replace: true }),
+  });
 
   useEffect(() => {
     if (activeCard && board) {

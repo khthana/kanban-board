@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import useSession from '../store/useSession';
 import useBoardStore from '../store/useBoardStore';
 import UserSwitcher from '../components/UserSwitcher';
@@ -65,6 +65,8 @@ export default function BoardListPage() {
   const { currentUserId } = useSession();
   const { boards, loading, error, fetchBoards, createBoard, renameBoard, deleteBoard } = useBoardStore();
   const [renamingId, setRenamingId] = useState(null);
+  const location = useLocation();
+  const ejected = location.state?.ejected ?? false;
 
   useEffect(() => {
     fetchBoards(currentUserId);
@@ -92,6 +94,9 @@ export default function BoardListPage() {
       </header>
 
       <main className={styles.main}>
+        {ejected && (
+          <p className={styles.ejected}>You were removed from that board.</p>
+        )}
         {error && <p className={styles.error}>{error}</p>}
 
         <CreateBoardForm onSubmit={handleCreate} />
