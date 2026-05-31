@@ -1,3 +1,5 @@
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import Avatar from './Avatar';
 import styles from './Card.module.css';
 
@@ -6,17 +8,31 @@ function isOverdue(dueDate) {
   return new Date(dueDate) < new Date(new Date().toDateString());
 }
 
-export default function Card({ card, onClick, labels = [], members = [] }) {
+export default function Card({ card, onClick, labels = [], members = [], dragOverlay = false }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: card.id,
+    data: { type: 'card', card, columnId: card.columnId },
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0 : 1,
+  };
+
   const overdue  = isOverdue(card.dueDate);
   const assignee = members.find(m => m.userId === card.assigneeId)?.user ?? null;
 
   return (
     <div
-      className={`${styles.card} ${overdue ? styles.overdue : ''}`}
-      onClick={() => onClick(card)}
+      ref={setNodeRef}
+      style={dragOverlay ? {} : style}
+      {...attributes}
+      {...listeners}
+      className={`${styles.card} ${overdue ? styles.overdue : ''} ${dragOverlay ? styles.overlay : ''}`}
+      onClick={e => { if (!isDragging) onClick?.(card); }}
       role="button"
       tabIndex={0}
-      onKeyDown={e => e.key === 'Enter' && onClick(card)}
     >
       {labels.length > 0 && (
         <div className={styles.labelBar}>

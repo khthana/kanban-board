@@ -179,6 +179,38 @@ const useBoardStore = create((set, get) => ({
     }
   },
 
+  moveCard: async (cardId, userId, { columnId, position }) => {
+    const snapshot = get().board;
+    set(s => ({
+      board: { ...s.board, cards: s.board.cards.map(c => c.id === cardId ? { ...c, columnId, position } : c) },
+      error: null,
+    }));
+    try {
+      const card = await client.moveCard(cardId, userId, { columnId, position });
+      set(s => ({ board: { ...s.board, cards: s.board.cards.map(c => c.id === cardId ? card : c) } }));
+      return card;
+    } catch (err) {
+      set({ board: snapshot, error: err.message });
+      throw err;
+    }
+  },
+
+  moveColumn: async (columnId, userId, { position }) => {
+    const snapshot = get().board;
+    set(s => ({
+      board: { ...s.board, columns: s.board.columns.map(c => c.id === columnId ? { ...c, position } : c) },
+      error: null,
+    }));
+    try {
+      const col = await client.patchColumn(columnId, userId, { position });
+      set(s => ({ board: { ...s.board, columns: s.board.columns.map(c => c.id === columnId ? col : c) } }));
+      return col;
+    } catch (err) {
+      set({ board: snapshot, error: err.message });
+      throw err;
+    }
+  },
+
   // ── labels ───────────────────────────────────────────────────────────────────
 
   createLabel: async (boardId, userId, { name, color }) => {

@@ -9,10 +9,24 @@
 }
 
 .header {
-  padding: 0.75rem 0.75rem 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem 0.5rem 0.5rem;
   border-bottom: 1px solid #e2e8f0;
   min-height: 44px;
+  gap: 0.375rem;
 }
+
+.dragHandle {
+  cursor: grab;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  letter-spacing: -2px;
+  padding: 0.25rem 0.125rem;
+  flex-shrink: 0;
+  user-select: none;
+}
+.dragHandle:active { cursor: grabbing; }
 
 .headerRight {
   display: flex;
@@ -25,12 +39,6 @@
   font-weight: 600;
   color: #1e293b;
   flex: 1;
-}
-
-.header:not(:has(.renameForm)) {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
 }
 
 .count {

@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useDroppable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import { validateColumnName } from '../domain/validation';
 import Card from './Card';
 import CardComposer from './CardComposer';
@@ -33,8 +36,27 @@ function RenameForm({ column, onSave, onCancel }) {
   );
 }
 
-export default function Column({ column, cards, labels = [], cardLabels = [], members = [], onRename, onDelete, onCardClick, onAddCard }) {
+export default function Column({
+  column, cards, labels = [], cardLabels = [], members = [],
+  onRename, onDelete, onCardClick, onAddCard,
+  dragOverlay = false,
+}) {
   const [renaming, setRenaming] = useState(false);
+
+  // Column itself is sortable (for column reordering)
+  const {
+    attributes, listeners, setNodeRef: setSortableRef,
+    transform, transition, isDragging,
+  } = useSortable({ id: column.id, data: { type: 'column', col: column } });
+
+  // Column body is a drop zone for cards (even when empty)
+  const { setNodeRef: setDropRef } = useDroppable({ id: `col:${column.id}` });
+
+  const style = dragOverlay ? {} : {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
 
   function handleDelete() {
     if (cards.length > 0) {
@@ -43,8 +65,10 @@ export default function Column({ column, cards, labels = [], cardLabels = [], me
     onDelete(column.id);
   }
 
+  const cardIds = cards.map(c => c.id);
+
   return (
-    <div className={styles.column}>
+    <div ref={setSortableRef} className={styles.column} style={style} {...attributes}>
       <div className={styles.header}>
         {renaming ? (
           <RenameForm
@@ -54,29 +78,36 @@ export default function Column({ column, cards, labels = [], cardLabels = [], me
           />
         ) : (
           <>
+            <div className={styles.dragHandle} {...listeners} title="Drag to reorder column">⋮⋮</div>
             <span className={styles.name}>{column.name}</span>
             <div className={styles.headerRight}>
               <span className={styles.count}>{cards.length}</span>
-              <button className={styles.btnIcon} title="Rename column" onClick={() => setRenaming(true)}>✏️</button>
-              <button className={`${styles.btnIcon} ${styles.btnDanger}`} title="Delete column" onClick={handleDelete}>🗑️</button>
+              {!dragOverlay && (
+                <>
+                  <button className={styles.btnIcon} title="Rename column" onClick={() => setRenaming(true)}>✏️</button>
+                  <button className={`${styles.btnIcon} ${styles.btnDanger}`} title="Delete column" onClick={handleDelete}>🗑️</button>
+                </>
+              )}
             </div>
           </>
         )}
       </div>
 
-      <div className={styles.cards}>
-        {cards.length === 0 && (
-          <p className={styles.empty}>No cards yet.</p>
-        )}
-        {cards.map(card => {
-          const attachedIds = new Set(cardLabels.filter(cl => cl.cardId === card.id).map(cl => cl.labelId));
-          const cardLabelObjs = labels.filter(l => attachedIds.has(l.id));
-          return (
-            <Card key={card.id} card={card} onClick={onCardClick}
-              labels={cardLabelObjs} members={members} />
-          );
-        })}
-        <CardComposer onAdd={title => onAddCard(column.id, title)} />
+      <div ref={setDropRef} className={styles.cards}>
+        <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
+          {cards.length === 0 && (
+            <p className={styles.empty}>No cards yet.</p>
+          )}
+          {cards.map(card => {
+            const attachedIds = new Set(cardLabels.filter(cl => cl.cardId === card.id).map(cl => cl.labelId));
+            const cardLabelObjs = labels.filter(l => attachedIds.has(l.id));
+            return (
+              <Card key={card.id} card={card} onClick={onCardClick}
+                labels={cardLabelObjs} members={members} />
+            );
+          })}
+        </SortableContext>
+        {!dragOverlay && <CardComposer onAdd={title => onAddCard(column.id, title)} />}
       </div>
     </div>
   );
