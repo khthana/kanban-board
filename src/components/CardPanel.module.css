@@ -41,7 +41,6 @@
   border-radius: 4px;
   flex-shrink: 0;
 }
-
 .closeBtn:hover { color: #1e293b; background: #f1f5f9; }
 
 .body {
@@ -49,9 +48,11 @@
   padding: 1rem 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 1rem;
   overflow-y: auto;
 }
+
+.descSection { display: flex; flex-direction: column; gap: 0.375rem; }
 
 .label {
   font-size: 0.75rem;
@@ -73,7 +74,6 @@
   color: #1e293b;
   line-height: 1.5;
 }
-
 .textarea:focus { outline: 2px solid #3b82f6; outline-offset: 1px; border-color: transparent; }
 
 .fieldError { font-size: 0.8rem; color: #dc2626; margin: 0; }
@@ -89,7 +89,6 @@
   border-radius: 6px;
   cursor: pointer;
 }
-
 .saveBtn:hover { background: #2563eb; }
 
 .footer {
@@ -107,5 +106,4 @@
   border-radius: 6px;
   cursor: pointer;
 }
-
 .deleteBtn:hover { background: #fef2f2; }

@@ -178,6 +178,68 @@ const useBoardStore = create((set, get) => ({
       throw err;
     }
   },
+
+  // ── labels ───────────────────────────────────────────────────────────────────
+
+  createLabel: async (boardId, userId, { name, color }) => {
+    const snapshot = get().board;
+    const tempId = uuidv4();
+    set(s => ({ board: { ...s.board, labels: [...s.board.labels, { id: tempId, boardId, name, color }] }, error: null }));
+    try {
+      const label = await client.createLabel(boardId, userId, { name, color });
+      set(s => ({ board: { ...s.board, labels: s.board.labels.map(l => l.id === tempId ? label : l) } }));
+      return label;
+    } catch (err) {
+      set({ board: snapshot, error: err.message });
+      throw err;
+    }
+  },
+
+  deleteLabel: async (labelId, userId) => {
+    const snapshot = get().board;
+    set(s => ({
+      board: {
+        ...s.board,
+        labels: s.board.labels.filter(l => l.id !== labelId),
+        cardLabels: s.board.cardLabels.filter(cl => cl.labelId !== labelId),
+      },
+      error: null,
+    }));
+    try {
+      await client.deleteLabel(labelId, userId);
+    } catch (err) {
+      set({ board: snapshot, error: err.message });
+      throw err;
+    }
+  },
+
+  attachLabel: async (cardId, labelId, userId) => {
+    const snapshot = get().board;
+    set(s => ({
+      board: { ...s.board, cardLabels: [...s.board.cardLabels, { cardId, labelId }] },
+      error: null,
+    }));
+    try {
+      await client.attachLabel(cardId, labelId, userId);
+    } catch (err) {
+      set({ board: snapshot, error: err.message });
+      throw err;
+    }
+  },
+
+  detachLabel: async (cardId, labelId, userId) => {
+    const snapshot = get().board;
+    set(s => ({
+      board: { ...s.board, cardLabels: s.board.cardLabels.filter(cl => !(cl.cardId === cardId && cl.labelId === labelId)) },
+      error: null,
+    }));
+    try {
+      await client.detachLabel(cardId, labelId, userId);
+    } catch (err) {
+      set({ board: snapshot, error: err.message });
+      throw err;
+    }
+  },
 }));
 
 export default useBoardStore;

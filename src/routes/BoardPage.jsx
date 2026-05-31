@@ -12,21 +12,26 @@ export default function BoardPage() {
   const { boardId } = useParams();
   const navigate    = useNavigate();
   const { currentUserId } = useSession();
-  const { board, loading, error, fetchBoard, createColumn, renameColumn, deleteColumn,
-          createCard, patchCard, deleteCard } = useBoardStore();
+  const {
+    board, loading, error,
+    fetchBoard,
+    createColumn, renameColumn, deleteColumn,
+    createCard, patchCard, deleteCard,
+    createLabel, deleteLabel, attachLabel, detachLabel,
+  } = useBoardStore();
   const [activeCard, setActiveCard] = useState(null);
 
   useEffect(() => {
     fetchBoard(boardId, currentUserId);
   }, [boardId, currentUserId, fetchBoard]);
 
-  // keep activeCard in sync with store (description save updates store)
+  // keep activeCard in sync with store
   useEffect(() => {
     if (activeCard && board) {
       const updated = board.cards.find(c => c.id === activeCard.id);
       if (updated) setActiveCard(updated);
     }
-  }, [board?.cards]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [board?.cards, board?.cardLabels]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (error) navigate('/boards', { replace: true });
@@ -36,8 +41,13 @@ export default function BoardPage() {
     return <div className={styles.loading}>Loading…</div>;
   }
 
-  const { board: boardData, columns, cards, members } = board;
+  const { board: boardData, columns, cards, labels, members, cardLabels } = board;
   const sortedColumns = [...columns].sort((a, b) => a.position - b.position);
+
+  function cardLabelsFor(cardId) {
+    const attachedIds = new Set(cardLabels.filter(cl => cl.cardId === cardId).map(cl => cl.labelId));
+    return labels.filter(l => attachedIds.has(l.id));
+  }
 
   return (
     <div className={styles.page}>
@@ -50,6 +60,9 @@ export default function BoardPage() {
               key={col.id}
               column={col}
               cards={cards.filter(c => c.columnId === col.id).sort((a, b) => a.position - b.position)}
+              labels={labels}
+              cardLabels={cardLabels}
+              members={members}
               onRename={(colId, name) => renameColumn(colId, currentUserId, { name })}
               onDelete={(colId) => deleteColumn(colId, currentUserId)}
               onCardClick={setActiveCard}
@@ -63,9 +76,18 @@ export default function BoardPage() {
       {activeCard && (
         <CardPanel
           card={activeCard}
+          allLabels={labels}
+          cardLabels={cardLabels}
+          members={members}
+          boardId={boardId}
+          userId={currentUserId}
           onSave={patch => patchCard(activeCard.id, currentUserId, patch)}
           onDelete={cardId => deleteCard(cardId, currentUserId)}
           onClose={() => setActiveCard(null)}
+          onCreateLabel={(bId, uId, data) => createLabel(bId, uId, data)}
+          onDeleteLabel={(labelId, uId) => deleteLabel(labelId, uId)}
+          onAttachLabel={(cardId, labelId, uId) => attachLabel(cardId, labelId, uId)}
+          onDetachLabel={(cardId, labelId, uId) => detachLabel(cardId, labelId, uId)}
         />
       )}
     </div>

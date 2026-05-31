@@ -1,13 +1,20 @@
 import { useState, useEffect } from 'react';
 import { validateCardDescription } from '../domain/validation';
+import LabelPicker from './LabelPicker';
+import AssigneePicker from './AssigneePicker';
+import DueDateField from './DueDateField';
 import styles from './CardPanel.module.css';
 
-export default function CardPanel({ card, onSave, onDelete, onClose }) {
+export default function CardPanel({
+  card, allLabels, cardLabels, members, boardId,
+  onSave, onDelete, onClose,
+  onCreateLabel, onDeleteLabel, onAttachLabel, onDetachLabel,
+  userId,
+}) {
   const [desc, setDesc]   = useState(card.description ?? '');
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState(null);
 
-  // reset when card changes
   useEffect(() => {
     setDesc(card.description ?? '');
     setDirty(false);
@@ -34,6 +41,8 @@ export default function CardPanel({ card, onSave, onDelete, onClose }) {
     onClose();
   }
 
+  const attachedIds = new Set(cardLabels.filter(cl => cl.cardId === card.id).map(cl => cl.labelId));
+
   return (
     <aside className={styles.panel}>
       <div className={styles.header}>
@@ -42,20 +51,44 @@ export default function CardPanel({ card, onSave, onDelete, onClose }) {
       </div>
 
       <div className={styles.body}>
-        <label className={styles.label} htmlFor="card-desc">Description</label>
-        <textarea
-          id="card-desc"
-          className={styles.textarea}
-          value={desc}
-          rows={8}
-          maxLength={5001}
-          placeholder="Add a description…"
-          onChange={handleDescChange}
+        <LabelPicker
+          boardId={boardId}
+          userId={userId}
+          allLabels={allLabels}
+          attachedLabelIds={attachedIds}
+          onAttach={labelId => onAttachLabel(card.id, labelId, userId)}
+          onDetach={labelId => onDetachLabel(card.id, labelId, userId)}
+          onCreateLabel={onCreateLabel}
+          onDeleteLabel={onDeleteLabel}
         />
-        {error && <p className={styles.fieldError}>{error}</p>}
-        {dirty && !error && (
-          <button className={styles.saveBtn} onClick={handleSave}>Save</button>
-        )}
+
+        <AssigneePicker
+          members={members}
+          assigneeId={card.assigneeId}
+          onChange={assigneeId => onSave({ assigneeId })}
+        />
+
+        <DueDateField
+          dueDate={card.dueDate}
+          onChange={dueDate => onSave({ dueDate })}
+        />
+
+        <div className={styles.descSection}>
+          <label className={styles.label} htmlFor="card-desc">Description</label>
+          <textarea
+            id="card-desc"
+            className={styles.textarea}
+            value={desc}
+            rows={6}
+            maxLength={5001}
+            placeholder="Add a description…"
+            onChange={handleDescChange}
+          />
+          {error && <p className={styles.fieldError}>{error}</p>}
+          {dirty && !error && (
+            <button className={styles.saveBtn} onClick={handleSave}>Save</button>
+          )}
+        </div>
       </div>
 
       <div className={styles.footer}>

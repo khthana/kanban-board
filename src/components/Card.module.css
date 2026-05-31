@@ -5,10 +5,29 @@
   padding: 0.625rem 0.75rem;
   cursor: pointer;
   transition: box-shadow 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
 }
 
-.card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+.card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+
+.overdue {
+  border-left: 3px solid #ef4444;
+  background: #fff5f5;
+}
+
+.labelBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.labelDot {
+  display: inline-block;
+  width: 28px;
+  height: 6px;
+  border-radius: 3px;
 }
 
 .title {
@@ -16,4 +35,36 @@
   font-size: 0.875rem;
   color: #1e293b;
   line-height: 1.4;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.375rem;
+}
+
+.dueChip {
+  font-size: 0.7rem;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 0.15rem 0.375rem;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.overdueChip {
+  background: #fef2f2;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.overdueIcon {
+  font-size: 0.75rem;
+}
+
+.overdueText {
+  font-size: 0.65rem;
 }

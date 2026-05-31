@@ -33,7 +33,7 @@ function RenameForm({ column, onSave, onCancel }) {
   );
 }
 
-export default function Column({ column, cards, onRename, onDelete, onCardClick, onAddCard }) {
+export default function Column({ column, cards, labels = [], cardLabels = [], members = [], onRename, onDelete, onCardClick, onAddCard }) {
   const [renaming, setRenaming] = useState(false);
 
   function handleDelete() {
@@ -68,9 +68,14 @@ export default function Column({ column, cards, onRename, onDelete, onCardClick,
         {cards.length === 0 && (
           <p className={styles.empty}>No cards yet.</p>
         )}
-        {cards.map(card => (
-          <Card key={card.id} card={card} onClick={onCardClick} />
-        ))}
+        {cards.map(card => {
+          const attachedIds = new Set(cardLabels.filter(cl => cl.cardId === card.id).map(cl => cl.labelId));
+          const cardLabelObjs = labels.filter(l => attachedIds.has(l.id));
+          return (
+            <Card key={card.id} card={card} onClick={onCardClick}
+              labels={cardLabelObjs} members={members} />
+          );
+        })}
         <CardComposer onAdd={title => onAddCard(column.id, title)} />
       </div>
     </div>
