@@ -6,6 +6,7 @@ import TopBar from '../components/TopBar';
 import Column from '../components/Column';
 import ColumnComposer from '../components/ColumnComposer';
 import CardPanel from '../components/CardPanel';
+import InviteDialog from '../components/InviteDialog';
 import styles from './BoardPage.module.css';
 
 export default function BoardPage() {
@@ -18,8 +19,10 @@ export default function BoardPage() {
     createColumn, renameColumn, deleteColumn,
     createCard, patchCard, deleteCard,
     createLabel, deleteLabel, attachLabel, detachLabel,
+    addMember, removeMember,
   } = useBoardStore();
-  const [activeCard, setActiveCard] = useState(null);
+  const [activeCard, setActiveCard]       = useState(null);
+  const [inviteOpen, setInviteOpen]       = useState(false);
 
   useEffect(() => {
     fetchBoard(boardId, currentUserId);
@@ -51,7 +54,13 @@ export default function BoardPage() {
 
   return (
     <div className={styles.page}>
-      <TopBar board={boardData} members={members} />
+      <TopBar
+        board={boardData}
+        members={members}
+        currentUserId={currentUserId}
+        onInvite={() => setInviteOpen(true)}
+        onRemoveMember={memberId => removeMember(boardId, currentUserId, { memberId })}
+      />
 
       <main className={styles.main}>
         <div className={styles.columns} style={activeCard ? { marginRight: 380 } : {}}>
@@ -72,6 +81,15 @@ export default function BoardPage() {
           <ColumnComposer onAdd={name => createColumn(boardId, currentUserId, { name })} />
         </div>
       </main>
+
+      {inviteOpen && (
+        <InviteDialog
+          members={members}
+          allUsers={useSession.getState().users}
+          onInvite={email => addMember(boardId, currentUserId, { email })}
+          onClose={() => setInviteOpen(false)}
+        />
+      )}
 
       {activeCard && (
         <CardPanel

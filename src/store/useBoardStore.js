@@ -240,6 +240,38 @@ const useBoardStore = create((set, get) => ({
       throw err;
     }
   },
+
+  // ── members ──────────────────────────────────────────────────────────────────
+
+  addMember: async (boardId, userId, { email }) => {
+    // optimistic not possible without knowing the invitee's id upfront —
+    // refetch after success instead
+    try {
+      await client.addMember(boardId, userId, { email });
+      const data = await client.getBoard(boardId, userId);
+      set({ board: data, error: null });
+    } catch (err) {
+      set(s => ({ error: err.message }));
+      throw err;
+    }
+  },
+
+  removeMember: async (boardId, userId, { memberId }) => {
+    const snapshot = get().board;
+    set(s => ({
+      board: {
+        ...s.board,
+        members: s.board.members.filter(m => m.userId !== memberId),
+      },
+      error: null,
+    }));
+    try {
+      await client.removeMember(boardId, userId, { memberId });
+    } catch (err) {
+      set({ board: snapshot, error: err.message });
+      throw err;
+    }
+  },
 }));
 
 export default useBoardStore;
