@@ -4,13 +4,14 @@ import useSession from '../store/useSession';
 import useBoardStore from '../store/useBoardStore';
 import TopBar from '../components/TopBar';
 import Column from '../components/Column';
+import ColumnComposer from '../components/ColumnComposer';
 import styles from './BoardPage.module.css';
 
 export default function BoardPage() {
   const { boardId } = useParams();
   const navigate    = useNavigate();
   const { currentUserId } = useSession();
-  const { board, loading, error, fetchBoard } = useBoardStore();
+  const { board, loading, error, fetchBoard, createColumn, renameColumn, deleteColumn } = useBoardStore();
 
   useEffect(() => {
     fetchBoard(boardId, currentUserId);
@@ -33,24 +34,21 @@ export default function BoardPage() {
       <TopBar board={boardData} members={members} />
 
       <main className={styles.main}>
-        {sortedColumns.length === 0 ? (
-          <div className={styles.emptyBoard}>
-            <p className={styles.emptyMsg}>No columns yet.</p>
-            <p className={styles.emptyHint}>Add the first column to get started.</p>
-          </div>
-        ) : (
-          <div className={styles.columns}>
-            {sortedColumns.map(col => (
-              <Column
-                key={col.id}
-                column={col}
-                cards={cards
-                  .filter(c => c.columnId === col.id)
-                  .sort((a, b) => a.position - b.position)}
-              />
-            ))}
-          </div>
-        )}
+        <div className={styles.columns}>
+          {sortedColumns.map(col => (
+            <Column
+              key={col.id}
+              column={col}
+              cards={cards
+                .filter(c => c.columnId === col.id)
+                .sort((a, b) => a.position - b.position)}
+              onRename={(colId, name) => renameColumn(colId, currentUserId, { name })}
+              onDelete={(colId) => deleteColumn(colId, currentUserId)}
+            />
+          ))}
+
+          <ColumnComposer onAdd={name => createColumn(boardId, currentUserId, { name })} />
+        </div>
       </main>
     </div>
   );
