@@ -1,70 +1,92 @@
-# Getting Started with Create React App
+# Kanban Board
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A collaborative Kanban board for small teams (2–15 people). Drag-and-drop cards across columns, assign members, set due dates, and add labels — all synced in real time via polling.
+
+## Tech Stack
+
+- **React 19** — UI
+- **Zustand** — state management with optimistic updates
+- **dnd-kit** — drag-and-drop (pointer + keyboard)
+- **React Router v7** — client-side routing
+
+## Prerequisites
+
+- Node.js 18+
+- The [kanban-board-api](https://github.com/khthana/kanban-board-api) backend running on port 4000
+
+## Getting Started
+
+```bash
+npm install
+npm start        # dev server at http://localhost:3000
+```
+
+The CRA proxy forwards all API requests to `http://localhost:4000` automatically — no CORS configuration needed in development.
+
+## Environment
+
+```bash
+# .env.development.local (optional — defaults to http://localhost:4000)
+REACT_APP_API_URL=http://localhost:4000
+```
+
+For production set `REACT_APP_API_URL` to your backend URL before building.
 
 ## Available Scripts
 
-In the project directory, you can run:
+```bash
+npm start                        # dev server
+npm test                         # watch mode
+npm test -- --watchAll=false     # CI mode (42 tests)
+npm run build                    # production build
+```
 
-### `npm start`
+## Architecture
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```
+src/
+├── api/
+│   └── client.js          # fetch client — JWT header, 401 handler, snake_case→camelCase
+├── store/
+│   ├── useSession.js       # JWT auth (login / register / logout)
+│   └── useBoardStore.js    # board state + optimistic mutations
+├── hooks/
+│   └── usePolling.js       # 10s polling for cross-tab sync
+├── domain/
+│   ├── ordering.js         # positionBetween, needsRebalance, rebalance
+│   └── validation.js       # client-side field validation
+├── routes/
+│   ├── LoginPage.jsx
+│   ├── RegisterPage.jsx
+│   ├── BoardListPage.jsx
+│   └── BoardPage.jsx       # drag-and-drop board
+└── components/
+    ├── Column.jsx
+    ├── Card.jsx
+    ├── CardPanel.jsx        # card detail side-panel
+    ├── TopBar.jsx           # member avatars + invite
+    └── InviteDialog.jsx
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### Key Design Decisions
 
-### `npm test`
+**Fractional float positions** — card and column positions are stored as floats (`1.0`, `1.5`, `1.25` …). Drag-and-drop updates a single record. The backend rebalances positions when precision runs out (gap < 1e-9).
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+**Optimistic UI** — every mutation snapshots state, applies the change locally, then calls the API. On failure the snapshot is restored and an error banner is shown.
 
-### `npm run build`
+**JWT auth** — token stored in `localStorage`. Every request attaches `Authorization: Bearer <token>`. A 401 response clears the token and redirects to `/login`.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+**Polling** — `GET /boards/:id` is called every 10 seconds to reconcile state across tabs. A 403 ejects the user to the board list; a 404 navigates away.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Features
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- Register / Login / Logout
+- Create, rename, delete boards (owner only)
+- Create, rename, delete columns
+- Create, edit, delete cards with title, description, assignee, due date
+- Drag cards within and across columns
+- Drag columns to reorder
+- Labels — create with hex color, attach/detach per card
+- Invite members by email; remove members (owner only)
+- Overdue card highlight (red border + ⚠ icon)
+- Cross-tab sync via polling (~10 s)
