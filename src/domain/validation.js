@@ -21,7 +21,7 @@ export function validateLabelColor(color) {
 }
 
 export function validateInviteEmail(email, users) {
-  if (!users.some(u => u.email === email)) return 'No user with that email exists';
+  if (users.length > 0 && !users.some(u => u.email === email)) return 'No user with that email exists';
   return null;
 }
 

@@ -1,5 +1,5 @@
 // API client — real fetch backend (PRD §3.7)
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+const BASE_URL = process.env.REACT_APP_API_URL || '';
 
 // ── token storage ────────────────────────────────────────────────────────────
 
@@ -105,7 +105,10 @@ export async function register(email, password, displayName) {
 
 // ── boards ───────────────────────────────────────────────────────────────────
 
-export const getBoards  = ()              => apiFetch('GET',    '/boards');
+export const getBoards  = ()              =>
+  apiFetch('GET', '/boards').then(rows =>
+    rows.map(b => ({ id: b.id, name: b.name, ownerId: b.owner_id, createdAt: b.created_at }))
+  );
 export const createBoard  = (_uid, data)  => apiFetch('POST',   '/boards', data);
 export const patchBoard   = (id, _uid, p) => apiFetch('PATCH',  `/boards/${id}`, p);
 export const deleteBoard  = (id)          => apiFetch('DELETE', `/boards/${id}`);
@@ -128,11 +131,24 @@ export const deleteColumn = (id)                    => apiFetch('DELETE', `/colu
 
 // ── cards ────────────────────────────────────────────────────────────────────
 
-export const createCard = (columnId, _uid, data)    => apiFetch('POST',   `/columns/${columnId}/cards`, data);
+function cardPatchToApi(patch) {
+  const out = {};
+  if (patch.title       !== undefined) out.title        = patch.title;
+  if (patch.description !== undefined) out.description  = patch.description;
+  if (patch.assigneeId  !== undefined) out.assignee_id  = patch.assigneeId;
+  if (patch.dueDate     !== undefined) out.due_date      = patch.dueDate;
+  if (patch.columnId    !== undefined) out.column_id     = patch.columnId;
+  if (patch.position    !== undefined) out.position      = patch.position;
+  return out;
+}
+
+export const createCard = (columnId, _uid, data)    =>
+  apiFetch('POST', `/columns/${columnId}/cards`, data).then(normalizeCard);
+
 export const deleteCard = (id)                      => apiFetch('DELETE', `/cards/${id}`);
 
 export async function patchCard(cardId, _uid, patch) {
-  const raw = await apiFetch('PATCH', `/cards/${cardId}`, patch);
+  const raw = await apiFetch('PATCH', `/cards/${cardId}`, cardPatchToApi(patch));
   return raw ? normalizeCard(raw) : null;
 }
 
