@@ -222,7 +222,6 @@ export default function BoardPage() {
       {inviteOpen && (
         <InviteDialog
           members={members}
-          allUsers={[]}
           onInvite={email => addMember(boardId, currentUserId, { email })}
           onClose={() => setInviteOpen(false)}
         />

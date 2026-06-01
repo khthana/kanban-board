@@ -24,7 +24,7 @@ async function apiFetch(method, path, body) {
 
   if (res.status === 401) {
     clearToken();
-    window.location.href = '/login';
+    window.location.replace('/login');
     throw Object.assign(new Error('Session expired'), { status: 401 });
   }
 
@@ -162,8 +162,5 @@ export async function moveCard(cardId, _uid, { columnId, position }) {
 export const createLabel  = (boardId, _uid, data)          => apiFetch('POST',   `/boards/${boardId}/labels`, data);
 export const patchLabel   = (id, _uid, patch)              => apiFetch('PATCH',  `/labels/${id}`, patch);
 export const deleteLabel  = (id)                           => apiFetch('DELETE', `/labels/${id}`);
-export const attachLabel  = (cardId, labelId)              => apiFetch('PUT',    `/cards/${cardId}/labels/${labelId}`);
-export const detachLabel  = (cardId, labelId)              => apiFetch('DELETE', `/cards/${cardId}/labels/${labelId}`);
-
-// ── getUsers (removed — real API has no public user list) ────────────────────
-export const getUsers = () => Promise.resolve([]);
+export const attachLabel  = (cardId, labelId, _uid)        => apiFetch('PUT',    `/cards/${cardId}/labels/${labelId}`);
+export const detachLabel  = (cardId, labelId, _uid)        => apiFetch('DELETE', `/cards/${cardId}/labels/${labelId}`);

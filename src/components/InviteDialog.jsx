@@ -1,16 +1,13 @@
 import { useState } from 'react';
-import { validateInviteEmail } from '../domain/validation';
 import styles from './InviteDialog.module.css';
 
-export default function InviteDialog({ members, allUsers, onInvite, onClose }) {
+export default function InviteDialog({ members, onInvite, onClose }) {
   const [email, setEmail] = useState('');
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const err = validateInviteEmail(email, allUsers);
-    if (err) { setError(err); return; }
     const alreadyMember = members.some(m => m.user.email === email);
     if (alreadyMember) { setError('This user is already a member.'); return; }
     setSubmitting(true);

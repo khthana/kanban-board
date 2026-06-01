@@ -13,7 +13,7 @@ function initFromToken() {
   const token = getToken();
   if (!token) return { currentUserId: null, isAuthenticated: false };
   const payload = decodeJwt(token);
-  if (!payload || payload.exp * 1000 < Date.now()) {
+  if (!payload || payload.exp * 1000 < Date.now() + 60_000) {
     clearToken();
     return { currentUserId: null, isAuthenticated: false };
   }
