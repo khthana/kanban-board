@@ -5,73 +5,58 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm start          # Dev server at localhost:3000
-npm test           # Run tests in watch mode
-npm test -- --watchAll=false   # Run tests once (CI mode)
-npm test -- --testPathPattern="App"  # Run a single test file
-npm run build      # Production build
+npm start                                # Dev server at localhost:3000 (proxies API to localhost:4000)
+npm test                                 # Run tests in watch mode
+npm test -- --watchAll=false             # Run tests once (CI mode)
+npm test -- --testPathPattern="polling"  # Run a single test file
+npm run build                            # Production build
 ```
+
+## Project Overview
+
+A Kanban board SPA for small teams (2–15 people). **Fully implemented** — React frontend connected to a real Node.js/PostgreSQL backend.
+
+- **Frontend** (this repo): React + Zustand + dnd-kit
+- **Backend** (separate repo: `kanban-board-api`): Node.js + Express + PostgreSQL, runs on port 4000
+- **Full PRD**: [requirement/Kanban-Board-PRD.md](requirement/Kanban-Board-PRD.md)
 
 ## Architecture
 
-This project is currently a Create React App scaffold. The full application to be built is a Kanban board for small teams (2–15 people). The complete PRD is in [requirement/Kanban-Board-PRD.md](requirement/Kanban-Board-PRD.md).
+### API Client
 
-### Planned Stack
+`src/api/client.js` — real `fetch()` client. All functions attach `Authorization: Bearer <token>` from localStorage. 401 response clears token and redirects to `/login`. Normalizes backend snake_case responses to camelCase for the store.
 
-- **Frontend**: React SPA (this repo) — communicates with backend via REST/JSON
-- **Backend**: Node.js (Express or Fastify) — business logic and auth (separate repo/service)
-- **Database**: PostgreSQL
+In development, CRA proxies all API requests through the dev server (`"proxy": "http://localhost:4000"` in package.json) — no CORS needed.
 
-### Key Architecture Decisions
+### State
 
-**Ordering**: Column and card positions use a **fractional float** field (`position`), not integer indices. Inserting between position 1.0 and 2.0 assigns 1.5. This lets drag-and-drop update a single record rather than re-writing all siblings. Backend must periodically rebalance when precision runs out.
+`src/store/useBoardStore.js` — all mutations use optimistic update pattern: snapshot → apply locally → API call → rollback on error.
 
-**State & Optimistic UI**: Frontend loads the full board snapshot from `GET /boards/:id` into a client store (Redux/Zustand/React Query). Drag-and-drop updates state immediately and fires `PATCH /cards/:id` in the background; failure rolls back and shows an error.
+`src/store/useSession.js` — JWT auth. `login()`/`register()` call the real backend, store token in localStorage, decode JWT `sub` → `currentUserId`.
 
-**Sync**: MVP uses polling (~10 s interval) — no WebSockets. API shape must be designed to support WebSocket upgrade in a future phase without schema changes.
+### Polling
 
-**Auth**: Stateless JWT. `Authorization: Bearer <token>` header on every protected request. Access token TTL 15–60 min. Passwords hashed with bcrypt (cost ≥ 10) or argon2 — no plaintext ever stored.
+`src/hooks/usePolling.js` — 10s `setInterval`. Routes 403 → eject to `/boards`; 404 → navigate away.
 
-**Authorization**: Two roles only — `owner` (can delete board, manage members) and `member` (full CRUD on columns/cards, cannot delete board). All enforcement happens on the backend; never trust client-supplied role claims.
+### Key Decisions
 
-### Data Model (logical)
-
-All tables use UUID primary keys and `created_at`/`updated_at`.
-
-| Table | Key fields |
-|---|---|
-| `users` | `email` (unique), `password_hash`, `display_name` |
-| `boards` | `name`, `owner_id → users` |
-| `board_members` | `board_id`, `user_id`, `role` (owner\|member); unique (board_id, user_id) |
-| `columns` | `board_id`, `name`, `position` (float) |
-| `cards` | `column_id`, `title`, `description`, `assignee_id`, `due_date`, `position` (float) |
-| `labels` | `board_id`, `name`, `color` (hex) |
-| `card_labels` | `card_id`, `label_id` (composite PK) |
-
-Cascade rules: delete board → cascade to columns, cards, labels, memberships; delete column → cascade to cards; delete label → only removes `card_labels` rows.
-
-Index on frequently queried FKs: `columns.board_id`, `cards.column_id`, `board_members.user_id`.
-
-### API Contract (REST)
-
-Card move uses a single `PATCH /cards/:id` with `{ column_id, position }` — covers both cross-column move and in-column reorder.
-
-`GET /boards/:id` returns the full board snapshot (board + columns + cards + labels) in one call for initial render.
-
-### Frontend Module Plan
-
-- **Auth views** — login/register
-- **Board list view** — all boards the user owns or is a member of
-- **Board detail view** — columns + cards with drag-and-drop (recommended: dnd-kit)
-- **Card detail modal/panel** — full card fields (description, assignee, due date, labels)
-- **Shared API client + state store**
+- **Fractional float position**: `positionBetween(prev, next)` for drag-and-drop — single record update, backend rebalances when gap < 1e-9
+- **Optimistic UI**: snapshot → apply → API → rollback on error
+- **Board snapshot**: `GET /boards/:id` returns nested shape; `client.js` flattens to `{ board, columns[], cards[], labels[], members[], cardLabels[] }`
+- **snake_case ↔ camelCase**: `normalizeCard()` / `cardPatchToApi()` in `client.js` handle conversion
 
 ### Validation Constraints
 
 - `board.name`, `column.name`: non-empty, ≤ 100 chars
 - `card.title`: non-empty, ≤ 255 chars
-- `card.description`: ≤ ~5,000 chars
-- `label.color`: valid hex color
-- Invite target must be an existing registered user (no unregistered invites in MVP)
+- `card.description`: ≤ 5,000 chars
+- `label.color`: valid hex (`#rgb` or `#rrggbb`)
+- Invite target must already be a registered user
 
-Validation runs both client-side (UX) and backend (authoritative).
+Validation runs client-side (UX) and is enforced by the backend (authoritative).
+
+## Tests
+
+42 unit tests — `src/domain/` and `src/hooks/`. Run: `npm test -- --watchAll=false`
+
+Not unit-tested: store, components, auth flow — covered by manual verification.
