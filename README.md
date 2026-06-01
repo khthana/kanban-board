@@ -1,5 +1,7 @@
 # Kanban Board
 
+[🇹🇭 อ่านเป็นภาษาไทย](README.th.md)
+
 A collaborative Kanban board for small teams (2–15 people). Drag-and-drop cards across columns, assign members, set due dates, and add labels — all synced in real time via polling.
 
 ## Tech Stack
