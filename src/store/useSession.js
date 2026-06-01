@@ -1,44 +1,44 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { SEED_USERS } from '../seed';
-import { v4 as uuidv4 } from 'uuid';
+import { login as apiLogin, register as apiRegister, clearToken, getToken } from '../api/client';
 
-const useSession = create(
-  persist(
-    (set, get) => ({
-      currentUserId: null,
-      isAuthenticated: false,
-      users: SEED_USERS,
+function decodeJwt(token) {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch {
+    return null;
+  }
+}
 
-      // mock login: accepts any password — swap this call for real POST /auth/login
-      login: async (email, password) => {
-        const users = get().users;
-        const user = users.find(u => u.email === email.trim().toLowerCase());
-        if (!user) throw new Error('No account with that email');
-        set({ currentUserId: user.id, isAuthenticated: true });
-      },
+function initFromToken() {
+  const token = getToken();
+  if (!token) return { currentUserId: null, isAuthenticated: false };
+  const payload = decodeJwt(token);
+  if (!payload || payload.exp * 1000 < Date.now()) {
+    clearToken();
+    return { currentUserId: null, isAuthenticated: false };
+  }
+  return { currentUserId: payload.sub, isAuthenticated: true };
+}
 
-      // mock register: creates user in-memory — swap for real POST /auth/register
-      register: async (email, password, displayName) => {
-        const users = get().users;
-        if (users.some(u => u.email === email.trim().toLowerCase())) {
-          throw new Error('An account with that email already exists');
-        }
-        const newUser = { id: uuidv4(), email: email.trim().toLowerCase(), displayName };
-        set(s => ({
-          users: [...s.users, newUser],
-          currentUserId: newUser.id,
-          isAuthenticated: true,
-        }));
-      },
+const useSession = create((set) => ({
+  ...initFromToken(),
 
-      logout: () => set({ currentUserId: null, isAuthenticated: false }),
+  login: async (email, password) => {
+    const data = await apiLogin(email, password);
+    const payload = decodeJwt(data.token);
+    set({ currentUserId: payload.sub, isAuthenticated: true });
+  },
 
-      // dev-only: kept for UserSwitcher during mock phase
-      switchUser: (userId) => set({ currentUserId: userId, isAuthenticated: true }),
-    }),
-    { name: 'kanban_session' }
-  )
-);
+  register: async (email, password, displayName) => {
+    const data = await apiRegister(email, password, displayName);
+    const payload = decodeJwt(data.token);
+    set({ currentUserId: payload.sub, isAuthenticated: true });
+  },
+
+  logout: () => {
+    clearToken();
+    set({ currentUserId: null, isAuthenticated: false });
+  },
+}));
 
 export default useSession;

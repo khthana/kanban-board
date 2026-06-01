@@ -9,7 +9,6 @@ import useSession from '../store/useSession';
 import useBoardStore from '../store/useBoardStore';
 import { usePolling } from '../hooks/usePolling';
 import { positionBetween } from '../domain/ordering';
-import { setForceFailNext } from '../api/client';
 import TopBar from '../components/TopBar';
 import Column from '../components/Column';
 import ColumnComposer from '../components/ColumnComposer';
@@ -33,9 +32,8 @@ export default function BoardPage() {
 
   const [activeCard, setActiveCard]   = useState(null);
   const [inviteOpen, setInviteOpen]   = useState(false);
-  const [forceFail, setForceFail]     = useState(false);
-  const [activeDrag, setActiveDrag]   = useState(null); // { type, data }
-  const [opError, setOpError]         = useState(null); // inline error for mutations
+  const [activeDrag, setActiveDrag]   = useState(null);
+  const [opError, setOpError]         = useState(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -65,12 +63,6 @@ export default function BoardPage() {
   useEffect(() => {
     if (error && (loading === false && !board)) navigate('/boards', { replace: true });
   }, [error, loading, board, navigate]);
-
-  function toggleForceFail() {
-    const next = !forceFail;
-    setForceFail(next);
-    if (next) setForceFailNext(true);
-  }
 
   function handleDragStart({ active }) {
     setActiveDrag(active.data.current ?? null);
@@ -179,13 +171,6 @@ export default function BoardPage() {
         </div>
       )}
 
-      {forceFail && (
-        <div className={styles.forceFailBanner}>
-          ⚠ Force-fail mode ON — next mutation will fail and roll back
-          <button className={styles.forceFailOff} onClick={toggleForceFail}>Disable</button>
-        </div>
-      )}
-
       <main className={styles.main}>
         <DndContext
           sensors={sensors}
@@ -234,16 +219,10 @@ export default function BoardPage() {
         </DndContext>
       </main>
 
-      {!forceFail && (
-        <button className={styles.devToggle} onClick={toggleForceFail} title="Toggle force-fail (dev)">
-          🔧
-        </button>
-      )}
-
       {inviteOpen && (
         <InviteDialog
           members={members}
-          allUsers={useSession.getState().users}
+          allUsers={[]}
           onInvite={email => addMember(boardId, currentUserId, { email })}
           onClose={() => setInviteOpen(false)}
         />

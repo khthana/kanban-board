@@ -1,8 +1,6 @@
 import { useEffect } from 'react';
 import { getBoard } from '../api/client';
 
-const STORAGE_KEY = 'kanban_db';
-
 export function usePolling({ boardId, userId, intervalMs = 10_000, onReconcile, onForbidden, onNotFound }) {
   useEffect(() => {
     async function reconcile() {
@@ -15,16 +13,7 @@ export function usePolling({ boardId, userId, intervalMs = 10_000, onReconcile, 
       }
     }
 
-    function onStorage(e) {
-      if (e.key === STORAGE_KEY) reconcile();
-    }
-
-    window.addEventListener('storage', onStorage);
     const timer = setInterval(reconcile, intervalMs);
-
-    return () => {
-      window.removeEventListener('storage', onStorage);
-      clearInterval(timer);
-    };
+    return () => clearInterval(timer);
   }, [boardId, userId, intervalMs, onReconcile, onForbidden, onNotFound]);
 }

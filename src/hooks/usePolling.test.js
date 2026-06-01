@@ -19,25 +19,6 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-// ── test 1 ────────────────────────────────────────────────────────────────────
-
-test('storage event (kanban_db) triggers reconcile and calls onReconcile', async () => {
-  const onReconcile = jest.fn();
-
-  renderHook(() =>
-    usePolling({ boardId: BOARD_ID, userId: USER_ID, intervalMs: 60_000, onReconcile }),
-  );
-
-  await act(async () => {
-    window.dispatchEvent(new StorageEvent('storage', { key: 'kanban_db' }));
-  });
-
-  expect(client.getBoard).toHaveBeenCalledWith(BOARD_ID, USER_ID);
-  expect(onReconcile).toHaveBeenCalledWith(FRESH);
-});
-
-// ── test 2 ────────────────────────────────────────────────────────────────────
-
 test('interval tick triggers reconcile and calls onReconcile', async () => {
   const onReconcile = jest.fn();
 
@@ -53,8 +34,6 @@ test('interval tick triggers reconcile and calls onReconcile', async () => {
   expect(onReconcile).toHaveBeenCalledWith(FRESH);
 });
 
-// ── test 3 ────────────────────────────────────────────────────────────────────
-
 test('403 from getBoard calls onForbidden and does not call onReconcile', async () => {
   const err403 = Object.assign(new Error('Forbidden'), { status: 403 });
   client.getBoard.mockRejectedValue(err403);
@@ -62,18 +41,16 @@ test('403 from getBoard calls onForbidden and does not call onReconcile', async 
   const onForbidden = jest.fn();
 
   renderHook(() =>
-    usePolling({ boardId: BOARD_ID, userId: USER_ID, intervalMs: 60_000, onReconcile, onForbidden }),
+    usePolling({ boardId: BOARD_ID, userId: USER_ID, intervalMs: 5_000, onReconcile, onForbidden }),
   );
 
   await act(async () => {
-    window.dispatchEvent(new StorageEvent('storage', { key: 'kanban_db' }));
+    jest.advanceTimersByTime(5_000);
   });
 
   expect(onForbidden).toHaveBeenCalledTimes(1);
   expect(onReconcile).not.toHaveBeenCalled();
 });
-
-// ── test 4 ────────────────────────────────────────────────────────────────────
 
 test('404 from getBoard calls onNotFound and does not call onReconcile', async () => {
   const err404 = Object.assign(new Error('Not found'), { status: 404 });
@@ -82,20 +59,18 @@ test('404 from getBoard calls onNotFound and does not call onReconcile', async (
   const onNotFound  = jest.fn();
 
   renderHook(() =>
-    usePolling({ boardId: BOARD_ID, userId: USER_ID, intervalMs: 60_000, onReconcile, onNotFound }),
+    usePolling({ boardId: BOARD_ID, userId: USER_ID, intervalMs: 5_000, onReconcile, onNotFound }),
   );
 
   await act(async () => {
-    window.dispatchEvent(new StorageEvent('storage', { key: 'kanban_db' }));
+    jest.advanceTimersByTime(5_000);
   });
 
   expect(onNotFound).toHaveBeenCalledTimes(1);
   expect(onReconcile).not.toHaveBeenCalled();
 });
 
-// ── test 5 ────────────────────────────────────────────────────────────────────
-
-test('unmount removes storage listener and clears interval', async () => {
+test('unmount clears interval — no more reconcile after unmount', async () => {
   const onReconcile = jest.fn();
 
   const { unmount } = renderHook(() =>
@@ -105,7 +80,6 @@ test('unmount removes storage listener and clears interval', async () => {
   unmount();
 
   await act(async () => {
-    window.dispatchEvent(new StorageEvent('storage', { key: 'kanban_db' }));
     jest.advanceTimersByTime(10_000);
   });
 
