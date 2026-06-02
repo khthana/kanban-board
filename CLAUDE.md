@@ -10,7 +10,18 @@ npm test                                 # Run tests in watch mode
 npm test -- --watchAll=false             # Run tests once (CI mode)
 npm test -- --testPathPattern="polling"  # Run a single test file
 npm run build                            # Production build
+npm run test:e2e                         # Run Playwright E2E tests (requires app running)
 ```
+
+### Docker (recommended for full-stack dev)
+
+```bash
+docker compose up                        # Start postgres + api + frontend (frontend on :3500)
+docker compose down                      # Stop all
+docker compose down -v                   # Stop and delete database volume
+```
+
+First run only: `npm install && npx playwright install chromium`
 
 ## Project Overview
 
@@ -26,7 +37,7 @@ A Kanban board SPA for small teams (2–15 people). **Fully implemented** — Re
 
 `src/api/client.js` — real `fetch()` client. All functions attach `Authorization: Bearer <token>` from localStorage. 401 response clears token and redirects to `/login`. Normalizes backend snake_case responses to camelCase for the store.
 
-In development, CRA proxies all API requests through the dev server (`"proxy": "http://localhost:4000"` in package.json) — no CORS needed.
+In development, `src/setupProxy.js` proxies all API routes (`/auth`, `/boards`, `/columns`, `/cards`, `/labels`) to `API_PROXY_TARGET` env var (default `http://localhost:4000`). Docker Compose sets `API_PROXY_TARGET=http://api:4000` so the frontend container reaches the backend container.
 
 ### State
 
@@ -57,6 +68,27 @@ Validation runs client-side (UX) and is enforced by the backend (authoritative).
 
 ## Tests
 
-42 unit tests — `src/domain/` and `src/hooks/`. Run: `npm test -- --watchAll=false`
+### Unit tests (42)
+`src/domain/` and `src/hooks/`. Run: `npm test -- --watchAll=false`
 
 Not unit-tested: store, components, auth flow — covered by manual verification.
+
+### E2E tests (Playwright)
+
+`e2e/` — 8 tests across 5 files. Require the full stack to be running (`docker compose up`).
+
+| File | Flows covered |
+|---|---|
+| `auth.spec.js` | register, logout, login, redirect unauthenticated |
+| `board.spec.js` | create/rename/delete board; member cannot delete |
+| `card.spec.js` | create column + card → persist on refresh |
+| `dnd.spec.js` | drag card cross-column → persist on refresh |
+| `member.spec.js` | invite member → member sees board |
+
+Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode)
+
+**DnD note**: dnd-kit uses `PointerSensor` with `activationConstraint: { distance: 8 }`. Use `pointerDrag()` helper in `e2e/helpers.js` — `page.dragTo()` skips pointer events and won't trigger activation.
+
+### CI (GitHub Actions)
+
+`.github/workflows/ci.yml` — runs 42 unit tests on every push/PR to `main`.
