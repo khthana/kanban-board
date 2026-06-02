@@ -68,7 +68,7 @@ export default function Column({
   const cardIds = cards.map(c => c.id);
 
   return (
-    <div ref={setSortableRef} className={styles.column} style={style} {...attributes}>
+    <div ref={setSortableRef} className={styles.column} style={style} data-testid="column" {...attributes}>
       <div className={styles.header}>
         {renaming ? (
           <RenameForm

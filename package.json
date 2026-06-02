@@ -22,7 +22,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "test:e2e": "playwright test"
   },
   "eslintConfig": {
     "extends": [
@@ -42,8 +43,8 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:4000",
   "devDependencies": {
-    "playwright": "^1.60.0"
+    "@playwright/test": "^1.60.0",
+    "http-proxy-middleware": "^2.0.6"
   }
 }
