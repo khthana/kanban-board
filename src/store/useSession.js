@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { login as apiLogin, register as apiRegister, getMe, clearToken, getToken } from '../api/client';
+import { login as apiLogin, register as apiRegister, getMe, patchMe, clearToken, getToken } from '../api/client';
 
 function decodeJwt(token) {
   try {
@@ -37,6 +37,11 @@ const useSession = create((set) => ({
     const payload = decodeJwt(data.token);
     const profile = await getMe();
     set({ currentUserId: payload.sub, isAuthenticated: true, displayName: profile.displayName, email: profile.email });
+  },
+
+  updateProfile: async (patch) => {
+    const updated = await patchMe(patch);
+    set({ displayName: updated.displayName, email: updated.email });
   },
 
   fetchProfile: async () => {

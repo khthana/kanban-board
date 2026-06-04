@@ -14,7 +14,8 @@ beforeEach(() => {
   client.login.mockResolvedValue({ token: makeToken('user-1') });
   client.register.mockResolvedValue({ token: makeToken('user-1') });
   client.getMe.mockResolvedValue({ id: 'user-1', displayName: 'Alice', email: 'alice@example.com' });
-  useSession.setState({ currentUserId: null, isAuthenticated: false, displayName: null, email: null });
+  client.patchMe.mockResolvedValue({ id: 'user-1', displayName: 'Alice Updated', email: 'alice@example.com' });
+  useSession.setState({ currentUserId: 'user-1', isAuthenticated: true, displayName: 'Alice', email: 'alice@example.com' });
 });
 
 test('login() populates displayName and email from getMe', async () => {
@@ -44,7 +45,24 @@ test('logout() clears displayName and email', async () => {
 });
 
 test('fetchProfile() populates displayName and email', async () => {
+  useSession.setState({ displayName: null, email: null });
   await useSession.getState().fetchProfile();
+
+  expect(useSession.getState().displayName).toBe('Alice');
+  expect(useSession.getState().email).toBe('alice@example.com');
+});
+
+test('updateProfile() updates displayName and email in store', async () => {
+  await useSession.getState().updateProfile({ displayName: 'Alice Updated' });
+
+  expect(useSession.getState().displayName).toBe('Alice Updated');
+  expect(useSession.getState().email).toBe('alice@example.com');
+});
+
+test('updateProfile() 409 throws error and leaves store unchanged', async () => {
+  client.patchMe.mockRejectedValue(Object.assign(new Error('email already registered'), { status: 409 }));
+
+  await expect(useSession.getState().updateProfile({ email: 'taken@example.com' })).rejects.toMatchObject({ status: 409 });
 
   expect(useSession.getState().displayName).toBe('Alice');
   expect(useSession.getState().email).toBe('alice@example.com');

@@ -104,6 +104,8 @@ export async function register(email, password, displayName) {
 }
 
 export const getMe = () => apiFetch('GET', '/auth/me');
+export const patchMe = (patch) => apiFetch('PATCH', '/auth/me', patch);
+export const patchMePassword = (body) => apiFetch('PATCH', '/auth/me/password', body);
 
 // ── boards ───────────────────────────────────────────────────────────────────
 
