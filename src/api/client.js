@@ -103,6 +103,8 @@ export async function register(email, password, displayName) {
   return data;
 }
 
+export const getMe = () => apiFetch('GET', '/auth/me');
+
 // ── boards ───────────────────────────────────────────────────────────────────
 
 export const getBoards  = ()              =>

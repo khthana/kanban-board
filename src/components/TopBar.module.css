@@ -84,8 +84,44 @@
 }
 .inviteBtn:hover { background: #e2e8f0; }
 
-.currentUser {
+.userMenu {
+  position: relative;
+}
+
+.userBtn {
   font-size: 0.875rem;
   color: #64748b;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
   white-space: nowrap;
 }
+.userBtn:hover { background: #f1f5f9; color: #1e293b; }
+
+.dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  min-width: 140px;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.dropdownItem {
+  display: block;
+  width: 100%;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #374151;
+}
+.dropdownItem:hover { background: #f8fafc; }

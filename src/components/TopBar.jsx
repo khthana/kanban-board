@@ -1,10 +1,14 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import Avatar from './Avatar';
+import useSession from '../store/useSession';
 import styles from './TopBar.module.css';
 
 export default function TopBar({ board, members, currentUserId, onInvite, onRemoveMember }) {
   const isOwner = board.ownerId === currentUserId;
-  const currentUser = members.find(m => m.userId === currentUserId)?.user;
+  const { displayName, logout } = useSession();
+  const navigate = useNavigate();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   return (
     <header className={styles.bar}>
@@ -37,8 +41,25 @@ export default function TopBar({ board, members, currentUserId, onInvite, onRemo
           </button>
         )}
 
-        {currentUser && (
-          <span className={styles.currentUser}>{currentUser.displayName}</span>
+        {displayName && (
+          <div className={styles.userMenu}>
+            <button
+              className={styles.userBtn}
+              onClick={() => setDropdownOpen(o => !o)}
+            >
+              {displayName} ▾
+            </button>
+            {dropdownOpen && (
+              <div className={styles.dropdown}>
+                <button className={styles.dropdownItem} onClick={() => { setDropdownOpen(false); navigate('/profile'); }}>
+                  Profile
+                </button>
+                <button className={styles.dropdownItem} onClick={() => { logout(); navigate('/login'); }}>
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </header>

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { login as apiLogin, register as apiRegister, clearToken, getToken } from '../api/client';
+import { login as apiLogin, register as apiRegister, getMe, clearToken, getToken } from '../api/client';
 
 function decodeJwt(token) {
   try {
@@ -22,22 +22,31 @@ function initFromToken() {
 
 const useSession = create((set) => ({
   ...initFromToken(),
+  displayName: null,
+  email: null,
 
   login: async (email, password) => {
     const data = await apiLogin(email, password);
     const payload = decodeJwt(data.token);
-    set({ currentUserId: payload.sub, isAuthenticated: true });
+    const profile = await getMe();
+    set({ currentUserId: payload.sub, isAuthenticated: true, displayName: profile.displayName, email: profile.email });
   },
 
   register: async (email, password, displayName) => {
     const data = await apiRegister(email, password, displayName);
     const payload = decodeJwt(data.token);
-    set({ currentUserId: payload.sub, isAuthenticated: true });
+    const profile = await getMe();
+    set({ currentUserId: payload.sub, isAuthenticated: true, displayName: profile.displayName, email: profile.email });
+  },
+
+  fetchProfile: async () => {
+    const profile = await getMe();
+    set({ displayName: profile.displayName, email: profile.email });
   },
 
   logout: () => {
     clearToken();
-    set({ currentUserId: null, isAuthenticated: false });
+    set({ currentUserId: null, isAuthenticated: false, displayName: null, email: null });
   },
 }));
 
