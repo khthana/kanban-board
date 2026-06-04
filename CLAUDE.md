@@ -25,11 +25,12 @@ First run only: `npm install && npx playwright install chromium`
 
 ## Project Overview
 
-A Kanban board SPA for small teams (2–15 people). **Fully implemented** — React frontend connected to a real Node.js/PostgreSQL backend.
+A Kanban board SPA for small teams (2–15 people). **Fully implemented** — React frontend connected to a real Node.js/PostgreSQL backend. Includes User Profile page (view/edit displayName, email, password).
 
 - **Frontend** (this repo): React + Zustand + dnd-kit
 - **Backend** (separate repo: `kanban-board-api`): Node.js + Express + PostgreSQL, runs on port 4000
 - **Full PRD**: [requirement/Kanban-Board-PRD.md](requirement/Kanban-Board-PRD.md)
+- **User Profile PRD**: [requirement/PRD-User-Profile.md](requirement/PRD-User-Profile.md)
 
 ## Architecture
 
@@ -37,13 +38,15 @@ A Kanban board SPA for small teams (2–15 people). **Fully implemented** — Re
 
 `src/api/client.js` — real `fetch()` client. All functions attach `Authorization: Bearer <token>` from localStorage. 401 response clears token and redirects to `/login`. Normalizes backend snake_case responses to camelCase for the store.
 
-In development, `src/setupProxy.js` proxies all API routes (`/auth`, `/boards`, `/columns`, `/cards`, `/labels`) to `API_PROXY_TARGET` env var (default `http://localhost:4000`). Docker Compose sets `API_PROXY_TARGET=http://api:4000` so the frontend container reaches the backend container.
+In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/columns`, `/cards`, `/labels`) to `API_PROXY_TARGET` (default `http://localhost:4000`). **Proxy skips requests with `Accept: text/html`** so browser navigation to `/boards/:id` etc. is handled by React's historyApiFallback (serves `index.html`), not forwarded to the API.
 
 ### State
 
 `src/store/useBoardStore.js` — all mutations use optimistic update pattern: snapshot → apply locally → API call → rollback on error.
 
-`src/store/useSession.js` — JWT auth. `login()`/`register()` call the real backend, store token in localStorage, decode JWT `sub` → `currentUserId`.
+`src/store/useSession.js` — JWT auth. `login()`/`register()` call the real backend, store token in localStorage, decode JWT `sub` → `currentUserId`. Also stores `displayName` and `email` fetched from `GET /auth/me` after auth. Exposes `fetchProfile()` (re-fetch on page reload) and `updateProfile()` (PATCH /auth/me).
+
+`src/components/RequireAuth.jsx` — calls `fetchProfile()` on mount when `isAuthenticated && !displayName` to re-hydrate after page reload.
 
 ### Polling
 
@@ -55,6 +58,7 @@ In development, `src/setupProxy.js` proxies all API routes (`/auth`, `/boards`, 
 - **Optimistic UI**: snapshot → apply → API → rollback on error
 - **Board snapshot**: `GET /boards/:id` returns nested shape; `client.js` flattens to `{ board, columns[], cards[], labels[], members[], cardLabels[] }`
 - **snake_case ↔ camelCase**: `normalizeCard()` / `cardPatchToApi()` in `client.js` handle conversion
+- **Profile endpoints**: `GET /auth/me`, `PATCH /auth/me`, `PATCH /auth/me/password` in `kanban-board-api`
 
 ### Validation Constraints
 
@@ -63,32 +67,41 @@ In development, `src/setupProxy.js` proxies all API routes (`/auth`, `/boards`, 
 - `card.description`: ≤ 5,000 chars
 - `label.color`: valid hex (`#rgb` or `#rrggbb`)
 - Invite target must already be a registered user
+- `displayName`: non-empty, ≤ 100 chars
+- `newPassword`: ≥ 8 chars; `confirmPassword` must match
 
 Validation runs client-side (UX) and is enforced by the backend (authoritative).
 
 ## Tests
 
-### Unit tests (42)
-`src/domain/` and `src/hooks/`. Run: `npm test -- --watchAll=false`
+### Unit tests (51)
+`src/domain/`, `src/hooks/`, `src/store/useSession.test.js`. Run: `npm test -- --watchAll=false`
 
-Not unit-tested: store, components, auth flow — covered by manual verification.
+Not unit-tested: `useBoardStore`, components — covered by E2E.
+
+`useSession` IS unit-tested: use `useSession.getState()` directly (no renderHook), mock `../api/client` entirely, reset with `useSession.setState({...})` in `beforeEach`.
 
 ### E2E tests (Playwright)
 
-`e2e/` — 8 tests across 5 files. Require the full stack to be running (`docker compose up`).
+`e2e/` — 12 tests across 6 files. Require the full stack (`docker compose up`).
 
-| File | Flows covered |
-|---|---|
-| `auth.spec.js` | register, logout, login, redirect unauthenticated |
-| `board.spec.js` | create/rename/delete board; member cannot delete |
-| `card.spec.js` | create column + card → persist on refresh |
-| `dnd.spec.js` | drag card cross-column → persist on refresh |
-| `member.spec.js` | invite member → member sees board |
+| File | Flows covered | Status |
+|---|---|---|
+| `auth.spec.js` | register, logout, login, redirect unauthenticated | ✅ |
+| `card.spec.js` | create column + card → persist on refresh | ✅ |
+| `dnd.spec.js` | drag card cross-column → persist on refresh | ✅ |
+| `profile.spec.js` | update name, email conflict, change password, wrong password | ✅ |
+| `board.spec.js` | create/rename/delete board; member cannot delete | ⚠️ pre-existing failure |
+| `member.spec.js` | invite member → member sees board | ⚠️ pre-existing failure |
 
 Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode)
 
 **DnD note**: dnd-kit uses `PointerSensor` with `activationConstraint: { distance: 8 }`. Use `pointerDrag()` helper in `e2e/helpers.js` — `page.dragTo()` skips pointer events and won't trigger activation.
 
+**Profile E2E note**: Use `page.click('a:has-text("← Boards")')` for SPA navigation back to boards. Avoid `page.goBack()` to board pages — Chromium's history navigation sends a non-HTML Accept header that bypasses the proxy fix, returning API JSON.
+
+**board/member failures**: `button:has-text("Invite")` is ambiguous — matches both TopBar "+ Invite" and InviteDialog "Invite". Pre-existing issue, not introduced by profile work.
+
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs 42 unit tests on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs 51 unit tests on every push/PR to `main`.
