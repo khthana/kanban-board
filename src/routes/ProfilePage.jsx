@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import useSession from '../store/useSession';
 import { validatePasswordChange } from '../domain/validation';
@@ -16,6 +16,12 @@ export default function ProfilePage() {
   const [displayName, setDisplayName] = useState(sessionName ?? '');
   const [email, setEmail] = useState(sessionEmail ?? '');
   const [profileError, setProfileError] = useState(null);
+
+  // Sync form when session store populates async (e.g. after page reload + fetchProfile)
+  useEffect(() => {
+    if (sessionName) setDisplayName(sessionName);
+    if (sessionEmail) setEmail(sessionEmail);
+  }, [sessionName, sessionEmail]);
   const [saving, setSaving] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -86,8 +92,9 @@ export default function ProfilePage() {
           <h2 className={styles.sectionTitle}>ข้อมูลส่วนตัว</h2>
           <form onSubmit={handleProfileSubmit} className={styles.form}>
             <div className={styles.field}>
-              <label className={styles.label}>ชื่อที่แสดง</label>
+              <label className={styles.label} htmlFor="profile-displayName">ชื่อที่แสดง</label>
               <input
+                id="profile-displayName"
                 className={`${styles.input} ${profileError?.field === 'displayName' ? styles.inputError : ''}`}
                 value={displayName}
                 onChange={e => { setDisplayName(e.target.value); setProfileError(null); }}
@@ -99,8 +106,9 @@ export default function ProfilePage() {
             </div>
 
             <div className={styles.field}>
-              <label className={styles.label}>Email</label>
+              <label className={styles.label} htmlFor="profile-email">Email</label>
               <input
+                id="profile-email"
                 className={`${styles.input} ${profileError?.field === 'email' ? styles.inputError : ''}`}
                 type="email"
                 value={email}
@@ -121,8 +129,9 @@ export default function ProfilePage() {
           <h2 className={styles.sectionTitle}>เปลี่ยนรหัสผ่าน</h2>
           <form onSubmit={handlePasswordSubmit} className={styles.form}>
             <div className={styles.field}>
-              <label className={styles.label}>รหัสผ่านปัจจุบัน</label>
+              <label className={styles.label} htmlFor="current-password">รหัสผ่านปัจจุบัน</label>
               <input
+                id="current-password"
                 className={`${styles.input} ${pwError?.field === 'currentPassword' ? styles.inputError : ''}`}
                 type="password"
                 value={currentPassword}
@@ -134,8 +143,9 @@ export default function ProfilePage() {
             </div>
 
             <div className={styles.field}>
-              <label className={styles.label}>รหัสผ่านใหม่</label>
+              <label className={styles.label} htmlFor="new-password">รหัสผ่านใหม่</label>
               <input
+                id="new-password"
                 className={`${styles.input} ${pwError?.field === 'newPassword' ? styles.inputError : ''}`}
                 type="password"
                 value={newPassword}
@@ -147,8 +157,9 @@ export default function ProfilePage() {
             </div>
 
             <div className={styles.field}>
-              <label className={styles.label}>ยืนยันรหัสผ่านใหม่</label>
+              <label className={styles.label} htmlFor="confirm-password">ยืนยันรหัสผ่านใหม่</label>
               <input
+                id="confirm-password"
                 className={`${styles.input} ${pwError?.field === 'confirmPassword' ? styles.inputError : ''}`}
                 type="password"
                 value={confirmPassword}
