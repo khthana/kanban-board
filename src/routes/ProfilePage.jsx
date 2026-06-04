@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import useSession from '../store/useSession';
+import { validatePasswordChange } from '../domain/validation';
+import { patchMePassword } from '../api/client';
 import Toast from '../components/Toast';
 import styles from './ProfilePage.module.css';
 
@@ -13,17 +15,24 @@ export default function ProfilePage() {
 
   const [displayName, setDisplayName] = useState(sessionName ?? '');
   const [email, setEmail] = useState(sessionEmail ?? '');
-  const [fieldError, setFieldError] = useState(null);
+  const [profileError, setProfileError] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pwError, setPwError] = useState(null);
+  const [changingPw, setChangingPw] = useState(false);
+
   const [toast, setToast] = useState(null);
 
-  async function handleSubmit(e) {
+  async function handleProfileSubmit(e) {
     e.preventDefault();
-    setFieldError(null);
+    setProfileError(null);
 
-    if (!displayName.trim()) return setFieldError({ field: 'displayName', message: 'ชื่อที่แสดงห้ามว่าง' });
-    if (displayName.trim().length > 100) return setFieldError({ field: 'displayName', message: 'ชื่อที่แสดงยาวไม่เกิน 100 ตัวอักษร' });
-    if (!isValidEmail(email)) return setFieldError({ field: 'email', message: 'รูปแบบ email ไม่ถูกต้อง' });
+    if (!displayName.trim()) return setProfileError({ field: 'displayName', message: 'ชื่อที่แสดงห้ามว่าง' });
+    if (displayName.trim().length > 100) return setProfileError({ field: 'displayName', message: 'ชื่อที่แสดงยาวไม่เกิน 100 ตัวอักษร' });
+    if (!isValidEmail(email)) return setProfileError({ field: 'email', message: 'รูปแบบ email ไม่ถูกต้อง' });
 
     setSaving(true);
     try {
@@ -31,12 +40,37 @@ export default function ProfilePage() {
       setToast('บันทึกแล้ว');
     } catch (err) {
       if (err.status === 409) {
-        setFieldError({ field: 'email', message: 'Email นี้ถูกใช้งานแล้ว' });
+        setProfileError({ field: 'email', message: 'Email นี้ถูกใช้งานแล้ว' });
       } else {
-        setFieldError({ field: 'email', message: err.message });
+        setProfileError({ field: 'email', message: err.message });
       }
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handlePasswordSubmit(e) {
+    e.preventDefault();
+    setPwError(null);
+
+    const validationErr = validatePasswordChange({ newPassword, confirmPassword });
+    if (validationErr) return setPwError(validationErr);
+
+    setChangingPw(true);
+    try {
+      await patchMePassword({ currentPassword, newPassword });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setToast('เปลี่ยนรหัสผ่านแล้ว');
+    } catch (err) {
+      if (err.status === 400) {
+        setPwError({ field: 'currentPassword', message: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' });
+      } else {
+        setPwError({ field: 'currentPassword', message: err.message });
+      }
+    } finally {
+      setChangingPw(false);
     }
   }
 
@@ -50,35 +84,83 @@ export default function ProfilePage() {
 
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>ข้อมูลส่วนตัว</h2>
-          <form onSubmit={handleSubmit} className={styles.form}>
+          <form onSubmit={handleProfileSubmit} className={styles.form}>
             <div className={styles.field}>
               <label className={styles.label}>ชื่อที่แสดง</label>
               <input
-                className={`${styles.input} ${fieldError?.field === 'displayName' ? styles.inputError : ''}`}
+                className={`${styles.input} ${profileError?.field === 'displayName' ? styles.inputError : ''}`}
                 value={displayName}
-                onChange={e => { setDisplayName(e.target.value); setFieldError(null); }}
+                onChange={e => { setDisplayName(e.target.value); setProfileError(null); }}
                 maxLength={101}
               />
-              {fieldError?.field === 'displayName' && (
-                <span className={styles.fieldError}>{fieldError.message}</span>
+              {profileError?.field === 'displayName' && (
+                <span className={styles.fieldError}>{profileError.message}</span>
               )}
             </div>
 
             <div className={styles.field}>
               <label className={styles.label}>Email</label>
               <input
-                className={`${styles.input} ${fieldError?.field === 'email' ? styles.inputError : ''}`}
+                className={`${styles.input} ${profileError?.field === 'email' ? styles.inputError : ''}`}
                 type="email"
                 value={email}
-                onChange={e => { setEmail(e.target.value); setFieldError(null); }}
+                onChange={e => { setEmail(e.target.value); setProfileError(null); }}
               />
-              {fieldError?.field === 'email' && (
-                <span className={styles.fieldError}>{fieldError.message}</span>
+              {profileError?.field === 'email' && (
+                <span className={styles.fieldError}>{profileError.message}</span>
               )}
             </div>
 
             <button className={styles.btn} type="submit" disabled={saving}>
               {saving ? 'กำลังบันทึก…' : 'บันทึก'}
+            </button>
+          </form>
+        </section>
+
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>เปลี่ยนรหัสผ่าน</h2>
+          <form onSubmit={handlePasswordSubmit} className={styles.form}>
+            <div className={styles.field}>
+              <label className={styles.label}>รหัสผ่านปัจจุบัน</label>
+              <input
+                className={`${styles.input} ${pwError?.field === 'currentPassword' ? styles.inputError : ''}`}
+                type="password"
+                value={currentPassword}
+                onChange={e => { setCurrentPassword(e.target.value); setPwError(null); }}
+              />
+              {pwError?.field === 'currentPassword' && (
+                <span className={styles.fieldError}>{pwError.message}</span>
+              )}
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.label}>รหัสผ่านใหม่</label>
+              <input
+                className={`${styles.input} ${pwError?.field === 'newPassword' ? styles.inputError : ''}`}
+                type="password"
+                value={newPassword}
+                onChange={e => { setNewPassword(e.target.value); setPwError(null); }}
+              />
+              {pwError?.field === 'newPassword' && (
+                <span className={styles.fieldError}>{pwError.message}</span>
+              )}
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.label}>ยืนยันรหัสผ่านใหม่</label>
+              <input
+                className={`${styles.input} ${pwError?.field === 'confirmPassword' ? styles.inputError : ''}`}
+                type="password"
+                value={confirmPassword}
+                onChange={e => { setConfirmPassword(e.target.value); setPwError(null); }}
+              />
+              {pwError?.field === 'confirmPassword' && (
+                <span className={styles.fieldError}>{pwError.message}</span>
+              )}
+            </div>
+
+            <button className={styles.btn} type="submit" disabled={changingPw}>
+              {changingPw ? 'กำลังเปลี่ยน…' : 'เปลี่ยนรหัสผ่าน'}
             </button>
           </form>
         </section>

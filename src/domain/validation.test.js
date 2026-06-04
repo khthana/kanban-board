@@ -1,4 +1,4 @@
-import { validateBoardName, validateColumnName, validateCardTitle, validateCardDescription, validateLabelColor, validateInviteEmail, validateEmail, validatePassword, validateDisplayName } from './validation';
+import { validateBoardName, validateColumnName, validateCardTitle, validateCardDescription, validateLabelColor, validateInviteEmail, validateEmail, validatePassword, validateDisplayName, validatePasswordChange } from './validation';
 
 describe('validateBoardName', () => {
   test('rejects empty string', () => {
@@ -122,6 +122,24 @@ describe('validatePassword', () => {
 
   test('accepts password with 8 or more characters', () => {
     expect(validatePassword('password1')).toBeNull();
+  });
+});
+
+describe('validatePasswordChange', () => {
+  test('accepts valid newPassword and matching confirmPassword', () => {
+    expect(validatePasswordChange({ newPassword: 'newpass456', confirmPassword: 'newpass456' })).toBeNull();
+  });
+
+  test('rejects newPassword shorter than 8 characters', () => {
+    const result = validatePasswordChange({ newPassword: 'short', confirmPassword: 'short' });
+    expect(result).not.toBeNull();
+    expect(result.field).toBe('newPassword');
+  });
+
+  test('rejects confirmPassword that does not match newPassword', () => {
+    const result = validatePasswordChange({ newPassword: 'newpass456', confirmPassword: 'different' });
+    expect(result).not.toBeNull();
+    expect(result.field).toBe('confirmPassword');
   });
 });
 

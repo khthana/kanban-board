@@ -42,3 +42,10 @@ export function validateDisplayName(name) {
   if (name.length > 100) return 'Display name must be 100 characters or fewer';
   return null;
 }
+
+export function validatePasswordChange({ newPassword, confirmPassword }) {
+  const err = validatePassword(newPassword);
+  if (err) return { field: 'newPassword', message: err };
+  if (newPassword !== confirmPassword) return { field: 'confirmPassword', message: 'รหัสผ่านไม่ตรงกัน' };
+  return null;
+}
