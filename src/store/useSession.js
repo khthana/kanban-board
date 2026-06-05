@@ -1,5 +1,14 @@
 import { create } from 'zustand';
-import { login as apiLogin, register as apiRegister, getMe, patchMe, clearToken, getToken } from '../api/client';
+import {
+  login as apiLogin,
+  register as apiRegister,
+  getMe,
+  patchMe,
+  clearToken,
+  clearRefreshToken,
+  getToken,
+  getRefreshToken,
+} from '../api/client';
 
 function decodeJwt(token) {
   try {
@@ -11,13 +20,19 @@ function decodeJwt(token) {
 
 function initFromToken() {
   const token = getToken();
-  if (!token) return { currentUserId: null, isAuthenticated: false };
-  const payload = decodeJwt(token);
-  if (!payload || payload.exp * 1000 < Date.now() + 60_000) {
+  if (token) {
+    const payload = decodeJwt(token);
+    if (payload && payload.exp * 1000 >= Date.now() + 60_000) {
+      return { currentUserId: payload.sub, isAuthenticated: true };
+    }
     clearToken();
-    return { currentUserId: null, isAuthenticated: false };
   }
-  return { currentUserId: payload.sub, isAuthenticated: true };
+  // Access token expired/missing — if refresh token exists, stay authenticated
+  // fetchProfile() (called by RequireAuth) will silently renew via apiFetch 401 retry
+  if (getRefreshToken()) {
+    return { currentUserId: null, isAuthenticated: true };
+  }
+  return { currentUserId: null, isAuthenticated: false };
 }
 
 const useSession = create((set) => ({
@@ -46,11 +61,18 @@ const useSession = create((set) => ({
 
   fetchProfile: async () => {
     const profile = await getMe();
-    set({ displayName: profile.displayName, email: profile.email });
+    // getMe() may have triggered a silent token refresh — decode the current token
+    const payload = decodeJwt(getToken());
+    set({
+      currentUserId: payload?.sub ?? null,
+      displayName: profile.displayName,
+      email: profile.email,
+    });
   },
 
   logout: () => {
     clearToken();
+    clearRefreshToken();
     set({ currentUserId: null, isAuthenticated: false, displayName: null, email: null });
   },
 }));
