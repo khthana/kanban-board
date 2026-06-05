@@ -168,7 +168,8 @@ export const getBoards  = ()              =>
     rows.map(b => ({ id: b.id, name: b.name, ownerId: b.owner_id, createdAt: b.created_at }))
   );
 export const createBoard  = (_uid, data)  => apiFetch('POST',   '/boards', data);
-export const patchBoard   = (id, _uid, p) => apiFetch('PATCH',  `/boards/${id}`, p);
+export const patchBoard   = (id, _uid, p) => apiFetch('PATCH',  `/boards/${id}`, p)
+  .then(b => ({ id: b.id, name: b.name, ownerId: b.owner_id, createdAt: b.created_at }));
 export const deleteBoard  = (id)          => apiFetch('DELETE', `/boards/${id}`);
 
 export async function getBoard(boardId) {
