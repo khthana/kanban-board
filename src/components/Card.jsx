@@ -8,7 +8,7 @@ function isOverdue(dueDate) {
   return new Date(dueDate) < new Date(new Date().toDateString());
 }
 
-export default function Card({ card, onClick, labels = [], members = [], dragOverlay = false }) {
+export default function Card({ card, onClick, labels = [], members = [], subtasks = [], dragOverlay = false }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
     data: { type: 'card', card, columnId: card.columnId },
@@ -20,8 +20,10 @@ export default function Card({ card, onClick, labels = [], members = [], dragOve
     opacity: isDragging ? 0 : 1,
   };
 
-  const overdue  = isOverdue(card.dueDate);
-  const assignee = members.find(m => m.userId === card.assigneeId)?.user ?? null;
+  const overdue      = isOverdue(card.dueDate);
+  const assignee     = members.find(m => m.userId === card.assigneeId)?.user ?? null;
+  const checkedCount = subtasks.filter(s => s.checked).length;
+  const totalCount   = subtasks.length;
 
   return (
     <div
@@ -44,13 +46,18 @@ export default function Card({ card, onClick, labels = [], members = [], dragOve
 
       <p className={styles.title}>{card.title}</p>
 
-      {(assignee || card.dueDate) && (
+      {(assignee || card.dueDate || totalCount > 0) && (
         <div className={styles.meta}>
           {card.dueDate && (
             <span className={`${styles.dueChip} ${overdue ? styles.overdueChip : ''}`}>
               {overdue && <span className={styles.overdueIcon} aria-label="Overdue">⚠</span>}
               {card.dueDate}
               {overdue && <span className={styles.overdueText}> · Overdue</span>}
+            </span>
+          )}
+          {totalCount > 0 && (
+            <span className={styles.subtaskProgress}>
+              ✓ {checkedCount} / {totalCount}
             </span>
           )}
           {assignee && <Avatar user={assignee} size="sm" />}

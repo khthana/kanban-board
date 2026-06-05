@@ -37,7 +37,7 @@ function RenameForm({ column, onSave, onCancel }) {
 }
 
 export default function Column({
-  column, cards, labels = [], cardLabels = [], members = [],
+  column, cards, labels = [], cardLabels = [], members = [], subtasks = [],
   onRename, onDelete, onCardClick, onAddCard,
   dragOverlay = false,
 }) {
@@ -103,7 +103,8 @@ export default function Column({
             const cardLabelObjs = labels.filter(l => attachedIds.has(l.id));
             return (
               <Card key={card.id} card={card} onClick={onCardClick}
-                labels={cardLabelObjs} members={members} />
+                labels={cardLabelObjs} members={members}
+                subtasks={subtasks.filter(s => s.cardId === card.id)} />
             );
           })}
         </SortableContext>

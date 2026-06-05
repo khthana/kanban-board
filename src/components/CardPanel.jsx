@@ -12,6 +12,7 @@ export default function CardPanel({
   userId,
   subtasks = [],
   onCreateSubtask,
+  onToggleSubtask,
   onRenameSubtask,
   onDeleteSubtask,
   onMoveSubtaskUp,
@@ -122,7 +123,12 @@ export default function CardPanel({
 
           {[...subtasks].sort((a, b) => a.position - b.position).map((s, idx, arr) => (
             <div key={s.id} className={styles.subtaskRow}>
-              <input type="checkbox" className={styles.subtaskCheck} defaultChecked={s.checked} readOnly />
+              <input
+                type="checkbox"
+                className={styles.subtaskCheck}
+                checked={s.checked}
+                onChange={() => onToggleSubtask?.(s.id)}
+              />
               {editingId === s.id ? (
                 <div className={styles.subtaskEditRow}>
                   <input
@@ -137,6 +143,7 @@ export default function CardPanel({
               ) : (
                 <span
                   className={styles.subtaskTitle}
+                  style={s.checked ? { textDecoration: 'line-through', color: '#94a3b8' } : undefined}
                   onClick={() => { setEditingId(s.id); setEditInput(s.title); setEditError(null); }}
                   title="Click to edit"
                 >{s.title}</span>

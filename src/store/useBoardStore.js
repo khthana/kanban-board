@@ -367,6 +367,25 @@ const useBoardStore = create((set, get) => ({
     }
   },
 
+  toggleSubtask: async (subtaskId) => {
+    const current = get().board?.subtasks?.find(s => s.id === subtaskId);
+    if (!current) return;
+    const newChecked = !current.checked;
+    const snapshot = get().board;
+    set(s => ({
+      board: { ...s.board, subtasks: s.board.subtasks.map(st => st.id === subtaskId ? { ...st, checked: newChecked } : st) },
+      error: null,
+    }));
+    try {
+      const updated = await client.patchSubtask(subtaskId, { checked: newChecked });
+      set(s => ({
+        board: { ...s.board, subtasks: s.board.subtasks.map(st => st.id === subtaskId ? updated : st) },
+      }));
+    } catch (err) {
+      set({ board: snapshot, error: err.message });
+    }
+  },
+
   renameSubtask: async (subtaskId, title) => {
     const snapshot = get().board;
     set(s => ({

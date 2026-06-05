@@ -28,7 +28,7 @@ export default function BoardPage() {
     createCard, patchCard, deleteCard, moveCard,
     createLabel, deleteLabel, attachLabel, detachLabel,
     addMember, removeMember,
-    createSubtask, renameSubtask, deleteSubtask, moveSubtaskUp, moveSubtaskDown,
+    createSubtask, toggleSubtask, renameSubtask, deleteSubtask, moveSubtaskUp, moveSubtaskDown,
   } = useBoardStore();
 
   const [activeCard, setActiveCard]   = useState(null);
@@ -144,7 +144,7 @@ export default function BoardPage() {
     return <div className={styles.loading}>Loading…</div>;
   }
 
-  const { board: boardData, columns, cards, labels, members, cardLabels } = board;
+  const { board: boardData, columns, cards, labels, members, cardLabels, subtasks: allSubtasks = [] } = board;
   const sortedColumns = [...columns].sort((a, b) => a.position - b.position);
 
   // Active drag overlay data
@@ -189,6 +189,7 @@ export default function BoardPage() {
                   labels={labels}
                   cardLabels={cardLabels}
                   members={members}
+                  subtasks={allSubtasks}
                   onRename={(colId, name) => renameColumn(colId, currentUserId, { name })}
                   onDelete={(colId) => deleteColumn(colId, currentUserId)}
                   onCardClick={setActiveCard}
@@ -245,6 +246,7 @@ export default function BoardPage() {
           onDetachLabel={(cardId, labelId, uId) => detachLabel(cardId, labelId, uId)}
           subtasks={(board?.subtasks ?? []).filter(s => s.cardId === activeCard?.id)}
           onCreateSubtask={title => createSubtask(activeCard.id, { title })}
+          onToggleSubtask={toggleSubtask}
           onRenameSubtask={renameSubtask}
           onDeleteSubtask={deleteSubtask}
           onMoveSubtaskUp={moveSubtaskUp}
