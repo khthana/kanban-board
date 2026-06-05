@@ -140,6 +140,17 @@
 .subtaskMoveBtn:hover:not(:disabled) { color: #475569; }
 .subtaskMoveBtn:disabled { opacity: 0.3; cursor: default; }
 
+.subtaskDeleteBtn {
+  padding: 0 4px;
+  font-size: 0.7rem;
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  cursor: pointer;
+  line-height: 1;
+}
+.subtaskDeleteBtn:hover { color: #dc2626; }
+
 .subtaskInputRow { margin-top: 0.25rem; }
 
 .subtaskInput {

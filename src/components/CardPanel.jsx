@@ -12,6 +12,7 @@ export default function CardPanel({
   userId,
   subtasks = [],
   onCreateSubtask,
+  onDeleteSubtask,
   onMoveSubtaskUp,
   onMoveSubtaskDown,
 }) {
@@ -117,6 +118,11 @@ export default function CardPanel({
                   onClick={() => onMoveSubtaskDown?.(s.id)}
                   title="Move down"
                 >↓</button>
+                <button
+                  className={styles.subtaskDeleteBtn}
+                  onClick={() => onDeleteSubtask?.(s.id)}
+                  title="Delete subtask"
+                >✕</button>
               </div>
             </div>
           ))}

@@ -227,3 +227,4 @@ export const detachLabel  = (cardId, labelId, _uid)        => apiFetch('DELETE',
 
 export const createSubtask = (cardId, data)    => apiFetch('POST',   `/cards/${cardId}/subtasks`, data).then(normalizeSubtask);
 export const patchSubtask  = (id, patch)       => apiFetch('PATCH',  `/subtasks/${id}`, patch).then(normalizeSubtask);
+export const deleteSubtask = (id)              => apiFetch('DELETE', `/subtasks/${id}`);

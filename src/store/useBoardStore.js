@@ -367,6 +367,19 @@ const useBoardStore = create((set, get) => ({
     }
   },
 
+  deleteSubtask: async (subtaskId) => {
+    const snapshot = get().board;
+    set(s => ({
+      board: { ...s.board, subtasks: s.board.subtasks.filter(st => st.id !== subtaskId) },
+      error: null,
+    }));
+    try {
+      await client.deleteSubtask(subtaskId);
+    } catch (err) {
+      set({ board: snapshot, error: err.message });
+    }
+  },
+
   createSubtask: async (cardId, { title }) => {
     const tempId = uuidv4();
     const currentSubtasks = get().board?.subtasks ?? [];
