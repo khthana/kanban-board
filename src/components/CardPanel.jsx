@@ -12,6 +12,8 @@ export default function CardPanel({
   userId,
   subtasks = [],
   onCreateSubtask,
+  onMoveSubtaskUp,
+  onMoveSubtaskDown,
 }) {
   const [desc, setDesc]           = useState(card.description ?? '');
   const [dirty, setDirty]         = useState(false);
@@ -98,10 +100,24 @@ export default function CardPanel({
         <div className={styles.subtaskSection}>
           <p className={styles.label}>Subtasks {subtasks.length > 0 && <span className={styles.subtaskCount}>({subtasks.length})</span>}</p>
 
-          {subtasks.map(s => (
+          {[...subtasks].sort((a, b) => a.position - b.position).map((s, idx, arr) => (
             <div key={s.id} className={styles.subtaskRow}>
               <input type="checkbox" className={styles.subtaskCheck} defaultChecked={s.checked} readOnly />
               <span className={styles.subtaskTitle}>{s.title}</span>
+              <div className={styles.subtaskActions}>
+                <button
+                  className={styles.subtaskMoveBtn}
+                  disabled={idx === 0}
+                  onClick={() => onMoveSubtaskUp?.(s.id)}
+                  title="Move up"
+                >↑</button>
+                <button
+                  className={styles.subtaskMoveBtn}
+                  disabled={idx === arr.length - 1}
+                  onClick={() => onMoveSubtaskDown?.(s.id)}
+                  title="Move down"
+                >↓</button>
+              </div>
             </div>
           ))}
 

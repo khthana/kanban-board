@@ -311,6 +311,62 @@ const useBoardStore = create((set, get) => ({
 
   // ── subtasks ─────────────────────────────────────────────────────────────────
 
+  moveSubtaskUp: async (subtaskId) => {
+    const subtasks = get().board?.subtasks ?? [];
+    const sorted = [...subtasks].sort((a, b) => a.position - b.position);
+    const idx = sorted.findIndex(s => s.id === subtaskId);
+    if (idx <= 0) return;
+
+    const prev = sorted[idx - 2] ?? null;
+    const target = sorted[idx - 1];
+    const newPos = positionBetween(prev?.position ?? null, target.position);
+
+    const snapshot = get().board;
+    set(s => ({
+      board: {
+        ...s.board,
+        subtasks: s.board.subtasks.map(st => st.id === subtaskId ? { ...st, position: newPos } : st),
+      },
+      error: null,
+    }));
+    try {
+      const updated = await client.patchSubtask(subtaskId, { position: newPos });
+      set(s => ({
+        board: { ...s.board, subtasks: s.board.subtasks.map(st => st.id === subtaskId ? updated : st) },
+      }));
+    } catch (err) {
+      set({ board: snapshot, error: err.message });
+    }
+  },
+
+  moveSubtaskDown: async (subtaskId) => {
+    const subtasks = get().board?.subtasks ?? [];
+    const sorted = [...subtasks].sort((a, b) => a.position - b.position);
+    const idx = sorted.findIndex(s => s.id === subtaskId);
+    if (idx < 0 || idx >= sorted.length - 1) return;
+
+    const target = sorted[idx + 1];
+    const next = sorted[idx + 2] ?? null;
+    const newPos = positionBetween(target.position, next?.position ?? null);
+
+    const snapshot = get().board;
+    set(s => ({
+      board: {
+        ...s.board,
+        subtasks: s.board.subtasks.map(st => st.id === subtaskId ? { ...st, position: newPos } : st),
+      },
+      error: null,
+    }));
+    try {
+      const updated = await client.patchSubtask(subtaskId, { position: newPos });
+      set(s => ({
+        board: { ...s.board, subtasks: s.board.subtasks.map(st => st.id === subtaskId ? updated : st) },
+      }));
+    } catch (err) {
+      set({ board: snapshot, error: err.message });
+    }
+  },
+
   createSubtask: async (cardId, { title }) => {
     const tempId = uuidv4();
     const currentSubtasks = get().board?.subtasks ?? [];

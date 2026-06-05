@@ -124,7 +124,21 @@
 
 .subtaskCheck { cursor: default; flex-shrink: 0; }
 
-.subtaskTitle { font-size: 0.875rem; color: #1e293b; }
+.subtaskTitle { font-size: 0.875rem; color: #1e293b; flex: 1; }
+
+.subtaskActions { display: flex; gap: 2px; margin-left: auto; }
+
+.subtaskMoveBtn {
+  padding: 0 4px;
+  font-size: 0.75rem;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  line-height: 1;
+}
+.subtaskMoveBtn:hover:not(:disabled) { color: #475569; }
+.subtaskMoveBtn:disabled { opacity: 0.3; cursor: default; }
 
 .subtaskInputRow { margin-top: 0.25rem; }
 

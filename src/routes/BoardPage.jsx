@@ -28,7 +28,7 @@ export default function BoardPage() {
     createCard, patchCard, deleteCard, moveCard,
     createLabel, deleteLabel, attachLabel, detachLabel,
     addMember, removeMember,
-    createSubtask,
+    createSubtask, moveSubtaskUp, moveSubtaskDown,
   } = useBoardStore();
 
   const [activeCard, setActiveCard]   = useState(null);
@@ -245,6 +245,8 @@ export default function BoardPage() {
           onDetachLabel={(cardId, labelId, uId) => detachLabel(cardId, labelId, uId)}
           subtasks={(board?.subtasks ?? []).filter(s => s.cardId === activeCard?.id)}
           onCreateSubtask={title => createSubtask(activeCard.id, { title })}
+          onMoveSubtaskUp={moveSubtaskUp}
+          onMoveSubtaskDown={moveSubtaskDown}
         />
       )}
     </div>
