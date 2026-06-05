@@ -124,7 +124,10 @@
 
 .subtaskCheck { cursor: default; flex-shrink: 0; }
 
-.subtaskTitle { font-size: 0.875rem; color: #1e293b; flex: 1; }
+.subtaskTitle { font-size: 0.875rem; color: #1e293b; flex: 1; cursor: pointer; }
+.subtaskTitle:hover { text-decoration: underline; text-decoration-style: dotted; }
+
+.subtaskEditRow { flex: 1; }
 
 .subtaskActions { display: flex; gap: 2px; margin-left: auto; }
 

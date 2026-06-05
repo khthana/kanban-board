@@ -12,6 +12,7 @@ export default function CardPanel({
   userId,
   subtasks = [],
   onCreateSubtask,
+  onRenameSubtask,
   onDeleteSubtask,
   onMoveSubtaskUp,
   onMoveSubtaskDown,
@@ -19,9 +20,12 @@ export default function CardPanel({
   const [desc, setDesc]           = useState(card.description ?? '');
   const [dirty, setDirty]         = useState(false);
   const [error, setError]         = useState(null);
-  const [addingSubtask, setAddingSubtask] = useState(false);
-  const [subtaskInput, setSubtaskInput]   = useState('');
-  const [subtaskError, setSubtaskError]   = useState(null);
+  const [addingSubtask, setAddingSubtask]   = useState(false);
+  const [subtaskInput, setSubtaskInput]     = useState('');
+  const [subtaskError, setSubtaskError]     = useState(null);
+  const [editingId, setEditingId]           = useState(null);
+  const [editInput, setEditInput]           = useState('');
+  const [editError, setEditError]           = useState(null);
 
   useEffect(() => {
     setDesc(card.description ?? '');
@@ -57,6 +61,21 @@ export default function CardPanel({
       setSubtaskError(null);
     } catch (err) {
       setSubtaskError(err.message);
+    }
+  }
+
+  async function handleEditKeyDown(e, subtaskId) {
+    if (e.key === 'Escape') { setEditingId(null); setEditError(null); return; }
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const err = validateSubtaskTitle(editInput);
+    if (err) { setEditError(err); return; }
+    try {
+      await onRenameSubtask?.(subtaskId, editInput.trim());
+      setEditingId(null);
+      setEditError(null);
+    } catch (err) {
+      setEditError(err.message);
     }
   }
 
@@ -104,7 +123,24 @@ export default function CardPanel({
           {[...subtasks].sort((a, b) => a.position - b.position).map((s, idx, arr) => (
             <div key={s.id} className={styles.subtaskRow}>
               <input type="checkbox" className={styles.subtaskCheck} defaultChecked={s.checked} readOnly />
-              <span className={styles.subtaskTitle}>{s.title}</span>
+              {editingId === s.id ? (
+                <div className={styles.subtaskEditRow}>
+                  <input
+                    className={styles.subtaskInput}
+                    autoFocus
+                    value={editInput}
+                    onChange={e => { setEditInput(e.target.value); setEditError(null); }}
+                    onKeyDown={e => handleEditKeyDown(e, s.id)}
+                  />
+                  {editError && <p className={styles.fieldError}>{editError}</p>}
+                </div>
+              ) : (
+                <span
+                  className={styles.subtaskTitle}
+                  onClick={() => { setEditingId(s.id); setEditInput(s.title); setEditError(null); }}
+                  title="Click to edit"
+                >{s.title}</span>
+              )}
               <div className={styles.subtaskActions}>
                 <button
                   className={styles.subtaskMoveBtn}

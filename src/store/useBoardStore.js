@@ -367,6 +367,23 @@ const useBoardStore = create((set, get) => ({
     }
   },
 
+  renameSubtask: async (subtaskId, title) => {
+    const snapshot = get().board;
+    set(s => ({
+      board: { ...s.board, subtasks: s.board.subtasks.map(st => st.id === subtaskId ? { ...st, title } : st) },
+      error: null,
+    }));
+    try {
+      const updated = await client.patchSubtask(subtaskId, { title });
+      set(s => ({
+        board: { ...s.board, subtasks: s.board.subtasks.map(st => st.id === subtaskId ? updated : st) },
+      }));
+    } catch (err) {
+      set({ board: snapshot, error: err.message });
+      throw err;
+    }
+  },
+
   deleteSubtask: async (subtaskId) => {
     const snapshot = get().board;
     set(s => ({
