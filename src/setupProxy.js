@@ -7,7 +7,7 @@ module.exports = function (app) {
   // Only proxy XHR/fetch requests, not browser navigations (Accept: text/html).
   // Browser navigations to /boards/:id etc. should be served by React's historyApiFallback.
   app.use(
-    ['/auth', '/boards', '/columns', '/cards', '/labels'],
+    ['/auth', '/boards', '/columns', '/cards', '/labels', '/subtasks'],
     (req, res, next) => {
       if ((req.headers.accept || '').includes('text/html')) return next();
       return proxy(req, res, next);
