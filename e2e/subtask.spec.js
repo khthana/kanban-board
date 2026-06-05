@@ -152,16 +152,17 @@ test('max 20 subtasks — add button hidden, hint shown', async ({ page }) => {
   const { cardTitle } = await setupBoard(page);
   await openCard(page, cardTitle);
 
-  // Add 20 subtasks — click button once then reuse the open input
+  // Add 20 subtasks — wait for each POST to confirm so count is exact in the store
   await page.locator('button:has-text("+ Add subtask")').click();
   for (let i = 1; i <= 20; i++) {
     const input = page.locator('input[placeholder="Subtask title…"]');
     await input.fill(`Step ${i}`);
-    await input.press('Enter');
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/subtasks') && r.status() === 201),
+      input.press('Enter'),
+    ]);
   }
 
-  // Wait for the 20th to appear (optimistic update) before closing
-  await expect(page.locator('aside').getByText('Step 20')).toBeVisible();
   await page.keyboard.press('Escape');
 
   await expect(page.locator('button:has-text("+ Add subtask")')).not.toBeVisible();
