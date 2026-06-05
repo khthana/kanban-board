@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { validateCardDescription } from '../domain/validation';
+import { validateCardDescription, validateSubtaskTitle, validateSubtaskCount } from '../domain/validation';
 import LabelPicker from './LabelPicker';
 import AssigneePicker from './AssigneePicker';
 import DueDateField from './DueDateField';
@@ -10,10 +10,15 @@ export default function CardPanel({
   onSave, onDelete, onClose,
   onCreateLabel, onDeleteLabel, onAttachLabel, onDetachLabel,
   userId,
+  subtasks = [],
+  onCreateSubtask,
 }) {
-  const [desc, setDesc]   = useState(card.description ?? '');
-  const [dirty, setDirty] = useState(false);
-  const [error, setError] = useState(null);
+  const [desc, setDesc]           = useState(card.description ?? '');
+  const [dirty, setDirty]         = useState(false);
+  const [error, setError]         = useState(null);
+  const [addingSubtask, setAddingSubtask] = useState(false);
+  const [subtaskInput, setSubtaskInput]   = useState('');
+  const [subtaskError, setSubtaskError]   = useState(null);
 
   useEffect(() => {
     setDesc(card.description ?? '');
@@ -33,6 +38,23 @@ export default function CardPanel({
     if (err) { setError(err); return; }
     onSave({ description: desc });
     setDirty(false);
+  }
+
+  async function handleSubtaskKeyDown(e) {
+    if (e.key === 'Escape') { setAddingSubtask(false); setSubtaskInput(''); setSubtaskError(null); return; }
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const titleErr = validateSubtaskTitle(subtaskInput);
+    if (titleErr) { setSubtaskError(titleErr); return; }
+    const countErr = validateSubtaskCount(subtasks.length);
+    if (countErr) { setSubtaskError(countErr); return; }
+    try {
+      await onCreateSubtask(subtaskInput.trim());
+      setSubtaskInput('');
+      setSubtaskError(null);
+    } catch (err) {
+      setSubtaskError(err.message);
+    }
   }
 
   function handleDelete() {
@@ -72,6 +94,35 @@ export default function CardPanel({
           dueDate={card.dueDate}
           onChange={dueDate => onSave({ dueDate })}
         />
+
+        <div className={styles.subtaskSection}>
+          <p className={styles.label}>Subtasks {subtasks.length > 0 && <span className={styles.subtaskCount}>({subtasks.length})</span>}</p>
+
+          {subtasks.map(s => (
+            <div key={s.id} className={styles.subtaskRow}>
+              <input type="checkbox" className={styles.subtaskCheck} defaultChecked={s.checked} readOnly />
+              <span className={styles.subtaskTitle}>{s.title}</span>
+            </div>
+          ))}
+
+          {addingSubtask ? (
+            <div className={styles.subtaskInputRow}>
+              <input
+                className={styles.subtaskInput}
+                autoFocus
+                value={subtaskInput}
+                placeholder="Subtask title…"
+                onChange={e => { setSubtaskInput(e.target.value); setSubtaskError(null); }}
+                onKeyDown={handleSubtaskKeyDown}
+              />
+              {subtaskError && <p className={styles.fieldError}>{subtaskError}</p>}
+            </div>
+          ) : (
+            validateSubtaskCount(subtasks.length)
+              ? <p className={styles.subtaskLimit}>Maximum 20 subtasks per card</p>
+              : <button className={styles.addSubtaskBtn} onClick={() => setAddingSubtask(true)}>+ Add subtask</button>
+          )}
+        </div>
 
         <div className={styles.descSection}>
           <label className={styles.label} htmlFor="card-desc">Description</label>

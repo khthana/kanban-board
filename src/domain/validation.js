@@ -37,6 +37,13 @@ export function validatePassword(password) {
   return null;
 }
 
+export const validateSubtaskTitle = (title) => validateName(title, 'Subtask title', 100);
+
+export function validateSubtaskCount(count) {
+  if (count >= 20) return 'Maximum 20 subtasks per card';
+  return null;
+}
+
 export function validateDisplayName(name) {
   if (!name || name.trim().length === 0) return 'Display name is required';
   if (name.length > 100) return 'Display name must be 100 characters or fewer';

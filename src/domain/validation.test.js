@@ -1,4 +1,4 @@
-import { validateBoardName, validateColumnName, validateCardTitle, validateCardDescription, validateLabelColor, validateInviteEmail, validateEmail, validatePassword, validateDisplayName, validatePasswordChange } from './validation';
+import { validateBoardName, validateColumnName, validateCardTitle, validateCardDescription, validateLabelColor, validateInviteEmail, validateEmail, validatePassword, validateDisplayName, validatePasswordChange, validateSubtaskTitle, validateSubtaskCount } from './validation';
 
 describe('validateBoardName', () => {
   test('rejects empty string', () => {
@@ -140,6 +140,38 @@ describe('validatePasswordChange', () => {
     const result = validatePasswordChange({ newPassword: 'newpass456', confirmPassword: 'different' });
     expect(result).not.toBeNull();
     expect(result.field).toBe('confirmPassword');
+  });
+});
+
+describe('validateSubtaskTitle', () => {
+  test('rejects empty string', () => {
+    expect(validateSubtaskTitle('')).not.toBeNull();
+  });
+
+  test('rejects title longer than 100 characters', () => {
+    expect(validateSubtaskTitle('a'.repeat(101))).not.toBeNull();
+  });
+
+  test('accepts title of exactly 100 characters', () => {
+    expect(validateSubtaskTitle('a'.repeat(100))).toBeNull();
+  });
+
+  test('accepts valid title', () => {
+    expect(validateSubtaskTitle('Fix login bug')).toBeNull();
+  });
+});
+
+describe('validateSubtaskCount', () => {
+  test('accepts count of 0', () => {
+    expect(validateSubtaskCount(0)).toBeNull();
+  });
+
+  test('accepts count of 19', () => {
+    expect(validateSubtaskCount(19)).toBeNull();
+  });
+
+  test('rejects count of 20 (at limit)', () => {
+    expect(validateSubtaskCount(20)).not.toBeNull();
   });
 });
 

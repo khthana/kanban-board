@@ -308,6 +308,31 @@ const useBoardStore = create((set, get) => ({
       throw err;
     }
   },
+
+  // ── subtasks ─────────────────────────────────────────────────────────────────
+
+  createSubtask: async (cardId, { title }) => {
+    const tempId = uuidv4();
+    const currentSubtasks = get().board?.subtasks ?? [];
+    const cardSubtasks = currentSubtasks.filter(s => s.cardId === cardId);
+    const maxPos = cardSubtasks.length > 0 ? Math.max(...cardSubtasks.map(s => s.position)) : 0;
+    const placeholder = { id: tempId, cardId, title, checked: false, position: maxPos + 1 };
+    const snapshot = get().board;
+    set(s => ({ board: { ...s.board, subtasks: [...(s.board.subtasks ?? []), placeholder] }, error: null }));
+    try {
+      const subtask = await client.createSubtask(cardId, { title });
+      set(s => ({
+        board: {
+          ...s.board,
+          subtasks: s.board.subtasks.map(st => st.id === tempId ? subtask : st),
+        },
+      }));
+      return subtask;
+    } catch (err) {
+      set({ board: snapshot, error: err.message });
+      throw err;
+    }
+  },
 }));
 
 export default useBoardStore;

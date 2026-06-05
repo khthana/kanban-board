@@ -89,8 +89,18 @@ function normalizeCard(c) {
   };
 }
 
+function normalizeSubtask(s) {
+  return {
+    id: s.id,
+    cardId: s.card_id,
+    title: s.title,
+    checked: s.checked,
+    position: s.position,
+  };
+}
+
 function normalizeBoard(raw) {
-  // raw.columns is nested: [{...col, cards: [{...card, label_ids: [...]}]}]
+  // raw.columns is nested: [{...col, cards: [{...card, label_ids: [...], subtasks: [...]}]}]
   const columns = (raw.columns ?? []).map(col => ({
     id: col.id,
     boardId: raw.id,
@@ -100,11 +110,15 @@ function normalizeBoard(raw) {
 
   const cards = [];
   const cardLabels = [];
+  const subtasks = [];
   for (const col of raw.columns ?? []) {
     for (const c of col.cards ?? []) {
       cards.push(normalizeCard(c));
       for (const labelId of c.label_ids ?? []) {
         cardLabels.push({ cardId: c.id, labelId });
+      }
+      for (const s of c.subtasks ?? []) {
+        subtasks.push(normalizeSubtask(s));
       }
     }
   }
@@ -124,7 +138,7 @@ function normalizeBoard(raw) {
 
   const members = raw.members ?? [];
 
-  return { board, columns, cards, labels, members, cardLabels };
+  return { board, columns, cards, labels, members, cardLabels, subtasks };
 }
 
 // ── auth ─────────────────────────────────────────────────────────────────────
@@ -208,3 +222,7 @@ export const patchLabel   = (id, _uid, patch)              => apiFetch('PATCH', 
 export const deleteLabel  = (id)                           => apiFetch('DELETE', `/labels/${id}`);
 export const attachLabel  = (cardId, labelId, _uid)        => apiFetch('PUT',    `/cards/${cardId}/labels/${labelId}`);
 export const detachLabel  = (cardId, labelId, _uid)        => apiFetch('DELETE', `/cards/${cardId}/labels/${labelId}`);
+
+// ── subtasks ─────────────────────────────────────────────────────────────────
+
+export const createSubtask = (cardId, data)    => apiFetch('POST',   `/cards/${cardId}/subtasks`, data).then(normalizeSubtask);
