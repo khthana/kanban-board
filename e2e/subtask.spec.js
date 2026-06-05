@@ -8,17 +8,29 @@ async function setupBoard(page) {
   await register(page, `user-${uid()}@test.com`, PW, 'Test User');
 
   await page.fill('input[placeholder="New board name…"]', 'Subtask Board');
-  await page.click('button:has-text("Create Board")');
+  // Wait for board creation to confirm so link has real UUID (not optimistic tempId)
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/boards') && r.request().method() === 'POST' && r.status() === 201),
+    page.click('button:has-text("Create Board")'),
+  ]);
   await page.getByRole('link', { name: 'Subtask Board' }).click();
   await expect(page).toHaveURL(/\/boards\//);
 
+  // Wait for column creation to confirm before adding a card
   await page.click('text=+ Add column');
   await page.fill('input[placeholder="Column name…"]', 'To Do');
-  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/columns') && r.request().method() === 'POST' && r.status() === 201),
+    page.getByRole('button', { name: 'Add', exact: true }).click(),
+  ]);
 
+  // Wait for card creation to confirm so activeCard has real UUID
   await page.click('text=+ Add card');
   await page.fill('textarea[placeholder="Card title…"]', cardTitle);
-  await page.getByRole('button', { name: 'Add card', exact: true }).click();
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/cards') && r.request().method() === 'POST' && r.status() === 201),
+    page.getByRole('button', { name: 'Add card', exact: true }).click(),
+  ]);
   await expect(page.getByText(cardTitle)).toBeVisible();
 
   return { cardTitle };
