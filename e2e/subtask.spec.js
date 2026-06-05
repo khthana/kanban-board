@@ -30,13 +30,16 @@ async function openCard(page, cardTitle) {
   await expect(page.locator('aside')).toBeVisible();
 }
 
-// Add one subtask and press Escape to leave the input closed afterwards
+// Add one subtask and wait for the POST to confirm (real id in store before returning)
 async function addSubtask(page, title) {
   const btn = page.locator('button:has-text("+ Add subtask")');
   if (await btn.isVisible()) await btn.click();
   const input = page.locator('input[placeholder="Subtask title…"]');
   await input.fill(title);
-  await input.press('Enter');
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/subtasks') && r.request().method() === 'POST' && r.status() === 201),
+    input.press('Enter'),
+  ]);
   await expect(page.locator('aside').getByText(title)).toBeVisible();
   await page.keyboard.press('Escape'); // close add-input so panel is clean
 }
@@ -57,7 +60,11 @@ test('toggle checkbox → card preview shows ✓ n/total → persists after relo
   await openCard(page, cardTitle);
   await addSubtask(page, 'Step one');
 
-  await page.locator('aside input[type="checkbox"]').check();
+  // Wait for PATCH to confirm so checked state persists on reload
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/subtasks') && r.request().method() === 'PATCH' && r.status() === 200),
+    page.locator('aside input[type="checkbox"]').check(),
+  ]);
 
   await page.locator('button[title="Close panel"]').click();
   await expect(page.getByText('✓ 1 / 1')).toBeVisible();
@@ -74,11 +81,14 @@ test('rename subtask inline — new title persists after reload', async ({ page 
   await openCard(page, cardTitle);
   await addSubtask(page, 'Original title');
 
-  // Click title span → edit input appears (no placeholder; exclude checkboxes)
-  await page.locator('aside').getByText('Original title').click();
-  const editInput = page.locator('aside input:not([type="checkbox"])');
+  // Click title span → edit input appears (exclude checkbox and date inputs)
+  await page.locator('aside').getByText('Original title', { exact: true }).click();
+  const editInput = page.locator('aside input:not([type="checkbox"]):not([type="date"])');
   await editInput.fill('Renamed title');
-  await editInput.press('Enter');
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/subtasks') && r.request().method() === 'PATCH' && r.status() === 200),
+    editInput.press('Enter'),
+  ]);
   await expect(page.locator('aside').getByText('Renamed title')).toBeVisible();
   await expect(page.locator('aside').getByText('Original title')).not.toBeVisible();
 
@@ -95,25 +105,30 @@ test('reorder subtasks with ↑ button → order persists after reload', async (
 
   const panel = page.locator('aside');
 
-  // Subtask A should be above Subtask B initially
-  const aBoxBefore = await panel.getByText('Subtask A').boundingBox();
-  const bBoxBefore = await panel.getByText('Subtask B').boundingBox();
+  // Initial order: A above B
+  const aBoxBefore = await panel.getByText('Subtask A', { exact: true }).boundingBox();
+  const bBoxBefore = await panel.getByText('Subtask B', { exact: true }).boundingBox();
   expect(aBoxBefore.y).toBeLessThan(bBoxBefore.y);
 
-  // Move Subtask B up (only one enabled ↑ button)
-  await panel.locator('button[title="Move up"]:not([disabled])').click();
+  // Move B up — wait for PATCH to confirm
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/subtasks') && r.request().method() === 'PATCH' && r.status() === 200),
+    panel.locator('button[title="Move up"]:not([disabled])').click(),
+  ]);
 
-  // Subtask B should now be above Subtask A
-  const aBoxAfter = await panel.getByText('Subtask A').boundingBox();
-  const bBoxAfter = await panel.getByText('Subtask B').boundingBox();
-  expect(bBoxAfter.y).toBeLessThan(aBoxAfter.y);
+  // Verify B is now above A (retry to handle render delay)
+  await expect(async () => {
+    const bBox = await panel.getByText('Subtask B', { exact: true }).boundingBox();
+    const aBox = await panel.getByText('Subtask A', { exact: true }).boundingBox();
+    expect(bBox.y).toBeLessThan(aBox.y);
+  }).toPass({ timeout: 3000 });
 
   // Reload — order persists
   await page.reload();
   await openCard(page, cardTitle);
   const panelAfter = page.locator('aside');
-  const aBoxReload = await panelAfter.getByText('Subtask A').boundingBox();
-  const bBoxReload = await panelAfter.getByText('Subtask B').boundingBox();
+  const bBoxReload = await panelAfter.getByText('Subtask B', { exact: true }).boundingBox();
+  const aBoxReload = await panelAfter.getByText('Subtask A', { exact: true }).boundingBox();
   expect(bBoxReload.y).toBeLessThan(aBoxReload.y);
 });
 
@@ -122,7 +137,11 @@ test('delete subtask → removed from list, progress indicator disappears', asyn
   await openCard(page, cardTitle);
   await addSubtask(page, 'Step to delete');
 
-  await page.locator('button[title="Delete subtask"]').click();
+  // Wait for DELETE to confirm so rollback doesn't restore the subtask
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/subtasks') && r.request().method() === 'DELETE' && r.status() === 204),
+    page.locator('button[title="Delete subtask"]').click(),
+  ]);
   await expect(page.locator('aside').getByText('Step to delete')).not.toBeVisible();
 
   await page.locator('button[title="Close panel"]').click();
@@ -133,7 +152,7 @@ test('max 20 subtasks — add button hidden, hint shown', async ({ page }) => {
   const { cardTitle } = await setupBoard(page);
   await openCard(page, cardTitle);
 
-  // Add 20 subtasks — click button once then reuse the open input for all
+  // Add 20 subtasks — click button once then reuse the open input
   await page.locator('button:has-text("+ Add subtask")').click();
   for (let i = 1; i <= 20; i++) {
     const input = page.locator('input[placeholder="Subtask title…"]');
@@ -141,8 +160,10 @@ test('max 20 subtasks — add button hidden, hint shown', async ({ page }) => {
     await input.press('Enter');
   }
 
-  // Close input — at 20 subtasks the button should be gone
+  // Wait for the 20th to appear (optimistic update) before closing
+  await expect(page.locator('aside').getByText('Step 20')).toBeVisible();
   await page.keyboard.press('Escape');
+
   await expect(page.locator('button:has-text("+ Add subtask")')).not.toBeVisible();
   await expect(page.getByText('Maximum 20 subtasks per card')).toBeVisible();
 });
