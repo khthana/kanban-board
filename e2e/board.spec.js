@@ -45,7 +45,7 @@ test('member cannot delete board', async ({ page, browser }) => {
   await page.getByRole('link', { name: 'Owner Board' }).click();
   await page.click('button:has-text("+ Invite")');
   await page.fill('#invite-email', memberEmail);
-  await page.click('button:has-text("Invite")');
+  await page.locator('[role="dialog"] button:has-text("Invite")').click();
   await page.keyboard.press('Escape');
 
   // Member opens board — should not see Delete button

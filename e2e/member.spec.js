@@ -24,7 +24,7 @@ test('invite member → member sees board', async ({ page, browser }) => {
   // Owner invites member
   await page.click('button:has-text("+ Invite")');
   await page.fill('#invite-email', memberEmail);
-  await page.click('button:has-text("Invite")');
+  await page.locator('[role="dialog"] button:has-text("Invite")').click();
   await expect(page.getByText(memberEmail)).toBeVisible(); // appears in member list
 
   // Member logs in and sees the board
