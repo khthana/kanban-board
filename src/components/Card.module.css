@@ -2,12 +2,11 @@
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
-  padding: 0.625rem 0.75rem;
   cursor: pointer;
   transition: box-shadow 0.15s;
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  overflow: hidden;
 }
 
 .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
@@ -22,6 +21,18 @@
 .overdue {
   border-left: 3px solid #ef4444;
   background: #fff5f5;
+}
+
+.colorBand {
+  height: 10px;
+  flex-shrink: 0;
+}
+
+.cardBody {
+  padding: 0.625rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
 }
 
 .labelBar {
@@ -75,7 +86,6 @@
 .overdueText {
   font-size: 0.65rem;
 }
-
 
 .subtaskProgress {
   font-size: 0.7rem;

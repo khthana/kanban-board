@@ -8,6 +8,12 @@ function isOverdue(dueDate) {
   return new Date(dueDate) < new Date(new Date().toDateString());
 }
 
+function formatDueDate(dateStr) {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 export default function Card({ card, onClick, labels = [], members = [], subtasks = [], dragOverlay = false }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
@@ -37,32 +43,38 @@ export default function Card({ card, onClick, labels = [], members = [], subtask
       tabIndex={0}
     >
       {labels.length > 0 && (
-        <div className={styles.labelBar}>
-          {labels.map(l => (
-            <span key={l.id} className={styles.labelDot} style={{ background: l.color }} title={l.name} />
-          ))}
-        </div>
+        <div className={styles.colorBand} style={{ background: labels[0].color }} />
       )}
 
-      <p className={styles.title}>{card.title}</p>
+      <div className={styles.cardBody}>
+        {labels.length > 1 && (
+          <div className={styles.labelBar}>
+            {labels.slice(1).map(l => (
+              <span key={l.id} className={styles.labelDot} style={{ background: l.color }} title={l.name} />
+            ))}
+          </div>
+        )}
 
-      {(assignee || card.dueDate || totalCount > 0) && (
-        <div className={styles.meta}>
-          {card.dueDate && (
-            <span className={`${styles.dueChip} ${overdue ? styles.overdueChip : ''}`}>
-              {overdue && <span className={styles.overdueIcon} aria-label="Overdue">⚠</span>}
-              {card.dueDate}
-              {overdue && <span className={styles.overdueText}> · Overdue</span>}
-            </span>
-          )}
-          {totalCount > 0 && (
-            <span className={styles.subtaskProgress}>
-              ✓ {checkedCount} / {totalCount}
-            </span>
-          )}
-          {assignee && <Avatar user={assignee} size="sm" />}
-        </div>
-      )}
+        <p className={styles.title}>{card.title}</p>
+
+        {(assignee || card.dueDate || totalCount > 0) && (
+          <div className={styles.meta}>
+            {card.dueDate && (
+              <span className={`${styles.dueChip} ${overdue ? styles.overdueChip : ''}`}>
+                {overdue && <span className={styles.overdueIcon} aria-label="Overdue">⚠</span>}
+                {formatDueDate(card.dueDate)}
+                {overdue && <span className={styles.overdueText}> · Overdue</span>}
+              </span>
+            )}
+            {totalCount > 0 && (
+              <span className={styles.subtaskProgress}>
+                ✓ {checkedCount} / {totalCount}
+              </span>
+            )}
+            {assignee && <Avatar user={assignee} size="sm" />}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

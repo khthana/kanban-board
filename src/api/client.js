@@ -84,7 +84,7 @@ function normalizeCard(c) {
     title: c.title,
     description: c.description ?? '',
     assigneeId: c.assignee_id ?? null,
-    dueDate: c.due_date ?? null,
+    dueDate: c.due_date ? String(c.due_date).slice(0, 10) : null,
     position: c.position,
   };
 }
