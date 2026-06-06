@@ -71,7 +71,54 @@
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
+  width: 100%;
 }
+
+.swatchRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: outline-color 0.1s;
+}
+
+.swatchSelected { outline-color: #1e293b; }
+
+.swatchCustom {
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.swatchClear {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #94a3b8;
+  font-size: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.swatchClear:hover { color: #dc2626; background: #fee2e2; }
+
+.hiddenColorInput { display: none; }
 
 .renameInput {
   width: 100%;

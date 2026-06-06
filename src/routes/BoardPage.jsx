@@ -190,7 +190,7 @@ export default function BoardPage() {
                   cardLabels={cardLabels}
                   members={members}
                   subtasks={allSubtasks}
-                  onRename={(colId, name) => renameColumn(colId, currentUserId, { name })}
+                  onRename={(colId, name, color) => renameColumn(colId, currentUserId, { name, color })}
                   onDelete={(colId) => deleteColumn(colId, currentUserId)}
                   onCardClick={setActiveCard}
                   onAddCard={(colId, title) => createCard(colId, currentUserId, { title })}

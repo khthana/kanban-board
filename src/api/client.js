@@ -106,6 +106,7 @@ function normalizeBoard(raw) {
     boardId: raw.id,
     name: col.name,
     position: col.position,
+    color: col.color ?? null,
   }));
 
   const cards = [];

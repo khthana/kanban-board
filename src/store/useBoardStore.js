@@ -99,16 +99,18 @@ const useBoardStore = create((set, get) => ({
     }
   },
 
-  renameColumn: async (columnId, userId, { name }) => {
+  renameColumn: async (columnId, userId, { name, color }) => {
     const snapshot = get().board;
     set(s => ({
-      board: { ...s.board, columns: s.board.columns.map(c => c.id === columnId ? { ...c, name } : c) },
+      board: { ...s.board, columns: s.board.columns.map(c => c.id === columnId ? { ...c, name, color: color !== undefined ? color : c.color } : c) },
       error: null,
     }));
     try {
-      const col = await client.patchColumn(columnId, userId, { name });
+      const patch = { name };
+      if (color !== undefined) patch.color = color;
+      const col = await client.patchColumn(columnId, userId, patch);
       set(s => ({
-        board: { ...s.board, columns: s.board.columns.map(c => c.id === columnId ? col : c) },
+        board: { ...s.board, columns: s.board.columns.map(c => c.id === columnId ? { ...c, ...col } : c) },
       }));
       return col;
     } catch (err) {
