@@ -61,6 +61,10 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 - **Profile endpoints**: `GET /auth/me`, `PATCH /auth/me`, `PATCH /auth/me/password` in `kanban-board-api`
 - **Refresh tokens**: 60-minute access token + 7-day refresh token. On 401, `client.js` attempts silent refresh with single in-flight promise; failure clears both tokens and redirects to `/login`
 - **Subtasks**: Nested per card, limit 20 per card, stored with float position (not array index). Support toggle (checked), rename, reorder (↑/↓), delete. Progress indicator "✓ n / total" shown on card preview when present.
+- **Column colors**: `color VARCHAR(7) NULL` on `columns` table. `PATCH /columns/:id` accepts `color` (hex or null). `renameColumn(id, userId, { name, color })` in store — optimistic update uses `color !== undefined ? color : c.color` to correctly handle null (clear). Column header applies `style={{ background: column.color }}` when set. Edit form shows 8 pastel presets + "+" custom + "✕" clear using `data-swatch` attributes.
+- **Card color bands**: 10px band at card top sourced from first label's color. `normalizeCard()` in client.js uses `.slice(0,10)` to normalize node-pg ISO timestamp DATE columns to YYYY-MM-DD.
+- **Due date picker**: react-datepicker replaces native `<input type="date">` (fixes Firefox UX). Format `dd/MM/yyyy`. Thai locale incompatible with date-fns v4 — omitted.
+- **Label color picker**: 8 pastel preset swatches + "+" custom (hidden `<input type="color">` triggered by ref). Selection ring via CSS `outline`. Default `#fca5a5`.
 
 ### Validation Constraints
 
@@ -68,7 +72,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 - `card.title`: non-empty, ≤ 255 chars
 - `card.description`: ≤ 5,000 chars
 - `subtask.title`: non-empty, ≤ 100 chars; max 20 subtasks per card
-- `label.color`: valid hex (`#rgb` or `#rrggbb`)
+- `label.color`, `column.color`: valid hex (`#rgb` or `#rrggbb`), or `null` to clear column color
 - Invite target must already be a registered user
 - `displayName`: non-empty, ≤ 100 chars
 - `newPassword`: ≥ 8 chars; `confirmPassword` must match
@@ -86,7 +90,7 @@ Not unit-tested: `useBoardStore`, components — covered by E2E.
 
 ### E2E tests (Playwright)
 
-`e2e/` — 18 tests across 7 files. Require the full stack (`docker compose up`).
+`e2e/` — 22 tests across 8 files. Require the full stack (`docker compose up`).
 
 | File | Flows covered | Status |
 |---|---|---|
@@ -97,6 +101,7 @@ Not unit-tested: `useBoardStore`, components — covered by E2E.
 | `subtask.spec.js` | create, toggle, rename, reorder, delete subtasks; max 20 limit | ✅ |
 | `board.spec.js` | create/rename/delete board; member cannot delete | ✅ |
 | `member.spec.js` | invite member → member sees board | ✅ |
+| `column-color.spec.js` | set column color, persist after reload, clear color | ✅ |
 
 Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode)
 
@@ -105,6 +110,8 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode)
 **Profile E2E note**: Use `page.click('a:has-text("← Boards")')` for SPA navigation back to boards. Avoid `page.goBack()` to board pages — Chromium's history navigation sends a non-HTML Accept header that bypasses the proxy fix, returning API JSON.
 
 **Subtask E2E note**: `setupBoard()` waits for board/column/card POST responses before proceeding to prevent tempId races. E2E subtask tests wait for POST 201 on create/add and PATCH 200 on toggle/rename/reorder to ensure real server IDs are in store before assertions.
+
+**Column color E2E note**: `data-swatch` attributes on swatch buttons enable stable selectors — `button[data-swatch="#fca5a5"]` for presets, `button[data-swatch="clear"]` for clear, `button[data-swatch="custom"]` for the "+" picker. Background color assertions use `getComputedStyle(el).backgroundColor`; when no color is set the header is transparent (`rgba(0, 0, 0, 0)`), not the column's gray (which comes from `.column` background, not `.header`).
 
 ### CI (GitHub Actions)
 
