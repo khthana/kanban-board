@@ -16,7 +16,7 @@ function CalIcon() {
   );
 }
 
-export default function Card({ card, onClick, labels = [], members = [], subtasks = [], dragOverlay = false }) {
+export default function Card({ card, onClick, labels = [], members = [], assigneeIds = [], subtasks = [], dragOverlay = false }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
     data: { type: 'card', card, columnId: card.columnId },
@@ -34,8 +34,12 @@ export default function Card({ card, onClick, labels = [], members = [], subtask
   const accent   = cardAccent(category?.color ?? null);
 
   const overdue  = isOverdue(card.dueDate);
-  const assignee = members.find(m => m.userId === card.assigneeId)?.user ?? null;
-  const assignees = assignee ? [{ userId: card.assigneeId, displayName: assignee.displayName }] : [];
+  const assignees = assigneeIds
+    .map(uid => {
+      const user = members.find(m => m.userId === uid)?.user;
+      return user && { userId: uid, displayName: user.displayName };
+    })
+    .filter(Boolean);
 
   const total = subtasks.length;
   const done  = subtasks.filter(s => s.checked).length;

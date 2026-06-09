@@ -3,6 +3,32 @@ import { v4 as uuidv4 } from 'uuid';
 import * as client from '../api/client';
 import { positionBetween } from '../domain/ordering';
 
+// Optimistic-update helper for mutations on the active `board`:
+//   1. snapshot current board
+//   2. apply(board) optimistically
+//   3. await commit() — the API call
+//   4. settle(board, result) to replace placeholders / merge server data
+//   5. on error, roll back to the snapshot (and rethrow unless rethrow:false)
+// Returns the commit() result so callers can return server records.
+async function optimistic(get, set, { apply, commit, settle, rethrow = true }) {
+  const snapshot = get().board;
+  set(s => ({ board: apply(s.board), error: null }));
+  try {
+    const result = await commit();
+    if (settle) set(s => ({ board: settle(s.board, result) }));
+    return result;
+  } catch (err) {
+    set({ board: snapshot, error: err.message });
+    if (rethrow) throw err;
+  }
+}
+
+// position after the last item in a collection (or first slot when empty)
+const nextPosition = (items, getPos = i => i.position) =>
+  positionBetween(items.length > 0 ? Math.max(...items.map(getPos)) : null, null);
+
+const mapById = (arr, id, fn) => arr.map(x => x.id === id ? fn(x) : x);
+
 const useBoardStore = create((set, get) => ({
   boards: [],
   board: null,
@@ -42,7 +68,7 @@ const useBoardStore = create((set, get) => ({
     set({ boards: [...snapshot, placeholder], error: null });
     try {
       const board = await client.createBoard(userId, { name });
-      set(s => ({ boards: s.boards.map(b => b.id === tempId ? board : b) }));
+      set(s => ({ boards: mapById(s.boards, tempId, () => board) }));
       return board;
     } catch (err) {
       set({ boards: snapshot, error: err.message });
@@ -52,10 +78,10 @@ const useBoardStore = create((set, get) => ({
 
   renameBoard: async (boardId, userId, { name }) => {
     const snapshot = get().boards;
-    set(s => ({ boards: s.boards.map(b => b.id === boardId ? { ...b, name } : b), error: null }));
+    set(s => ({ boards: mapById(s.boards, boardId, b => ({ ...b, name })), error: null }));
     try {
       const board = await client.patchBoard(boardId, userId, { name });
-      set(s => ({ boards: s.boards.map(b => b.id === boardId ? board : b) }));
+      set(s => ({ boards: mapById(s.boards, boardId, () => board) }));
       return board;
     } catch (err) {
       set({ boards: snapshot, error: err.message });
@@ -77,207 +103,112 @@ const useBoardStore = create((set, get) => ({
   // ── columns ─────────────────────────────────────────────────────────────────
 
   createColumn: async (boardId, userId, { name }) => {
-    const cols = get().board?.columns ?? [];
-    const lastPos = cols.length > 0
-      ? Math.max(...cols.map(c => c.position))
-      : null;
-    const position = positionBetween(lastPos, null);
-
+    const position = nextPosition(get().board?.columns ?? []);
     const tempId = uuidv4();
     const placeholder = { id: tempId, boardId, name, position };
-    const snapshot = get().board;
-    set(s => ({ board: { ...s.board, columns: [...(s.board?.columns ?? []), placeholder] }, error: null }));
-    try {
-      const col = await client.createColumn(boardId, userId, { name, position });
-      set(s => ({
-        board: { ...s.board, columns: s.board.columns.map(c => c.id === tempId ? col : c) },
-      }));
-      return col;
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-      throw err;
-    }
+    return optimistic(get, set, {
+      apply: b => ({ ...b, columns: [...(b?.columns ?? []), placeholder] }),
+      commit: () => client.createColumn(boardId, userId, { name, position }),
+      settle: (b, col) => ({ ...b, columns: mapById(b.columns, tempId, () => col) }),
+    });
   },
 
   renameColumn: async (columnId, userId, { name, color }) => {
-    const snapshot = get().board;
-    set(s => ({
-      board: { ...s.board, columns: s.board.columns.map(c => c.id === columnId ? { ...c, name, color: color !== undefined ? color : c.color } : c) },
-      error: null,
-    }));
-    try {
-      const patch = { name };
-      if (color !== undefined) patch.color = color;
-      const col = await client.patchColumn(columnId, userId, patch);
-      set(s => ({
-        board: { ...s.board, columns: s.board.columns.map(c => c.id === columnId ? { ...c, ...col } : c) },
-      }));
-      return col;
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-      throw err;
-    }
+    const patch = { name };
+    if (color !== undefined) patch.color = color;
+    return optimistic(get, set, {
+      apply: b => ({ ...b, columns: mapById(b.columns, columnId, c => ({ ...c, name, color: color !== undefined ? color : c.color })) }),
+      commit: () => client.patchColumn(columnId, userId, patch),
+      settle: (b, col) => ({ ...b, columns: mapById(b.columns, columnId, c => ({ ...c, ...col })) }),
+    });
   },
 
-  deleteColumn: async (columnId, userId) => {
-    const snapshot = get().board;
-    set(s => ({
-      board: {
-        ...s.board,
-        columns: s.board.columns.filter(c => c.id !== columnId),
-        cards: s.board.cards.filter(c => c.columnId !== columnId),
-      },
-      error: null,
-    }));
-    try {
-      await client.deleteColumn(columnId, userId);
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-      throw err;
-    }
-  },
+  deleteColumn: async (columnId, userId) => optimistic(get, set, {
+    apply: b => ({
+      ...b,
+      columns: b.columns.filter(c => c.id !== columnId),
+      cards: b.cards.filter(c => c.columnId !== columnId),
+    }),
+    commit: () => client.deleteColumn(columnId, userId),
+  }),
 
   // ── cards ────────────────────────────────────────────────────────────────────
 
   createCard: async (columnId, userId, { title }) => {
-    const cards = get().board?.cards.filter(c => c.columnId === columnId) ?? [];
-    const lastPos = cards.length > 0 ? Math.max(...cards.map(c => c.position)) : null;
-    const position = positionBetween(lastPos, null);
-
+    const position = nextPosition(get().board?.cards.filter(c => c.columnId === columnId) ?? []);
     const tempId = uuidv4();
-    const placeholder = { id: tempId, columnId, title, description: '', assigneeId: null, dueDate: null, position };
-    const snapshot = get().board;
-    set(s => ({ board: { ...s.board, cards: [...s.board.cards, placeholder] }, error: null }));
-    try {
-      const card = await client.createCard(columnId, userId, { title, position });
-      set(s => ({ board: { ...s.board, cards: s.board.cards.map(c => c.id === tempId ? card : c) } }));
-      return card;
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-      throw err;
-    }
+    const placeholder = { id: tempId, columnId, title, description: '', categoryLabelId: null, dueDate: null, position };
+    return optimistic(get, set, {
+      apply: b => ({ ...b, cards: [...b.cards, placeholder] }),
+      commit: () => client.createCard(columnId, userId, { title, position }),
+      settle: (b, card) => ({ ...b, cards: mapById(b.cards, tempId, () => card) }),
+    });
   },
 
-  patchCard: async (cardId, userId, patch) => {
-    const snapshot = get().board;
-    set(s => ({
-      board: { ...s.board, cards: s.board.cards.map(c => c.id === cardId ? { ...c, ...patch } : c) },
-      error: null,
-    }));
-    try {
-      const card = await client.patchCard(cardId, userId, patch);
-      set(s => ({ board: { ...s.board, cards: s.board.cards.map(c => c.id === cardId ? card : c) } }));
-      return card;
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-      throw err;
-    }
-  },
+  patchCard: async (cardId, userId, patch) => optimistic(get, set, {
+    apply: b => ({ ...b, cards: mapById(b.cards, cardId, c => ({ ...c, ...patch })) }),
+    commit: () => client.patchCard(cardId, userId, patch),
+    settle: (b, card) => ({ ...b, cards: mapById(b.cards, cardId, () => card) }),
+  }),
 
-  deleteCard: async (cardId, userId) => {
-    const snapshot = get().board;
-    set(s => ({ board: { ...s.board, cards: s.board.cards.filter(c => c.id !== cardId) }, error: null }));
-    try {
-      await client.deleteCard(cardId, userId);
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-      throw err;
-    }
-  },
+  deleteCard: async (cardId, userId) => optimistic(get, set, {
+    apply: b => ({ ...b, cards: b.cards.filter(c => c.id !== cardId) }),
+    commit: () => client.deleteCard(cardId, userId),
+  }),
 
-  moveCard: async (cardId, userId, { columnId, position }) => {
-    const snapshot = get().board;
-    set(s => ({
-      board: { ...s.board, cards: s.board.cards.map(c => c.id === cardId ? { ...c, columnId, position } : c) },
-      error: null,
-    }));
-    try {
-      const card = await client.moveCard(cardId, userId, { columnId, position });
-      set(s => ({ board: { ...s.board, cards: s.board.cards.map(c => c.id === cardId ? card : c) } }));
-      return card;
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-      throw err;
-    }
-  },
+  moveCard: async (cardId, userId, { columnId, position }) => optimistic(get, set, {
+    apply: b => ({ ...b, cards: mapById(b.cards, cardId, c => ({ ...c, columnId, position })) }),
+    commit: () => client.moveCard(cardId, userId, { columnId, position }),
+    settle: (b, card) => ({ ...b, cards: mapById(b.cards, cardId, () => card) }),
+  }),
 
-  moveColumn: async (columnId, userId, { position }) => {
-    const snapshot = get().board;
-    set(s => ({
-      board: { ...s.board, columns: s.board.columns.map(c => c.id === columnId ? { ...c, position } : c) },
-      error: null,
-    }));
-    try {
-      const col = await client.patchColumn(columnId, userId, { position });
-      set(s => ({ board: { ...s.board, columns: s.board.columns.map(c => c.id === columnId ? col : c) } }));
-      return col;
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-      throw err;
-    }
-  },
+  moveColumn: async (columnId, userId, { position }) => optimistic(get, set, {
+    apply: b => ({ ...b, columns: mapById(b.columns, columnId, c => ({ ...c, position })) }),
+    commit: () => client.patchColumn(columnId, userId, { position }),
+    settle: (b, col) => ({ ...b, columns: mapById(b.columns, columnId, () => col) }),
+  }),
 
   // ── labels ───────────────────────────────────────────────────────────────────
 
   createLabel: async (boardId, userId, { name, color }) => {
-    const snapshot = get().board;
     const tempId = uuidv4();
-    set(s => ({ board: { ...s.board, labels: [...s.board.labels, { id: tempId, boardId, name, color }] }, error: null }));
-    try {
-      const label = await client.createLabel(boardId, userId, { name, color });
-      set(s => ({ board: { ...s.board, labels: s.board.labels.map(l => l.id === tempId ? label : l) } }));
-      return label;
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-      throw err;
-    }
+    return optimistic(get, set, {
+      apply: b => ({ ...b, labels: [...b.labels, { id: tempId, boardId, name, color }] }),
+      commit: () => client.createLabel(boardId, userId, { name, color }),
+      settle: (b, label) => ({ ...b, labels: mapById(b.labels, tempId, () => label) }),
+    });
   },
 
-  deleteLabel: async (labelId, userId) => {
-    const snapshot = get().board;
-    set(s => ({
-      board: {
-        ...s.board,
-        labels: s.board.labels.filter(l => l.id !== labelId),
-        cardLabels: s.board.cardLabels.filter(cl => cl.labelId !== labelId),
-      },
-      error: null,
-    }));
-    try {
-      await client.deleteLabel(labelId, userId);
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-      throw err;
-    }
-  },
+  deleteLabel: async (labelId, userId) => optimistic(get, set, {
+    apply: b => ({
+      ...b,
+      labels: b.labels.filter(l => l.id !== labelId),
+      cardLabels: b.cardLabels.filter(cl => cl.labelId !== labelId),
+    }),
+    commit: () => client.deleteLabel(labelId, userId),
+  }),
 
-  attachLabel: async (cardId, labelId, userId) => {
-    const snapshot = get().board;
-    set(s => ({
-      board: { ...s.board, cardLabels: [...s.board.cardLabels, { cardId, labelId }] },
-      error: null,
-    }));
-    try {
-      await client.attachLabel(cardId, labelId, userId);
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-      throw err;
-    }
-  },
+  attachLabel: async (cardId, labelId, userId) => optimistic(get, set, {
+    apply: b => ({ ...b, cardLabels: [...b.cardLabels, { cardId, labelId }] }),
+    commit: () => client.attachLabel(cardId, labelId, userId),
+  }),
 
-  detachLabel: async (cardId, labelId, userId) => {
-    const snapshot = get().board;
-    set(s => ({
-      board: { ...s.board, cardLabels: s.board.cardLabels.filter(cl => !(cl.cardId === cardId && cl.labelId === labelId)) },
-      error: null,
-    }));
-    try {
-      await client.detachLabel(cardId, labelId, userId);
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-      throw err;
-    }
-  },
+  detachLabel: async (cardId, labelId, userId) => optimistic(get, set, {
+    apply: b => ({ ...b, cardLabels: b.cardLabels.filter(cl => !(cl.cardId === cardId && cl.labelId === labelId)) }),
+    commit: () => client.detachLabel(cardId, labelId, userId),
+  }),
+
+  // ── assignees ────────────────────────────────────────────────────────────────
+
+  attachAssignee: async (cardId, userId) => optimistic(get, set, {
+    apply: b => ({ ...b, cardAssignees: [...b.cardAssignees, { cardId, userId }] }),
+    commit: () => client.attachAssignee(cardId, userId),
+  }),
+
+  detachAssignee: async (cardId, userId) => optimistic(get, set, {
+    apply: b => ({ ...b, cardAssignees: b.cardAssignees.filter(ca => !(ca.cardId === cardId && ca.userId === userId)) }),
+    commit: () => client.detachAssignee(cardId, userId),
+  }),
 
   // ── members ──────────────────────────────────────────────────────────────────
 
@@ -294,151 +225,74 @@ const useBoardStore = create((set, get) => ({
     }
   },
 
-  removeMember: async (boardId, userId, { memberId }) => {
-    const snapshot = get().board;
-    set(s => ({
-      board: {
-        ...s.board,
-        members: s.board.members.filter(m => m.userId !== memberId),
-      },
-      error: null,
-    }));
-    try {
-      await client.removeMember(boardId, userId, { memberId });
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-      throw err;
-    }
-  },
+  removeMember: async (boardId, userId, { memberId }) => optimistic(get, set, {
+    apply: b => ({ ...b, members: b.members.filter(m => m.userId !== memberId) }),
+    commit: () => client.removeMember(boardId, userId, { memberId }),
+  }),
 
   // ── subtasks ─────────────────────────────────────────────────────────────────
 
-  moveSubtaskUp: async (subtaskId) => {
-    const subtasks = get().board?.subtasks ?? [];
-    const sorted = [...subtasks].sort((a, b) => a.position - b.position);
+  // dir: -1 moves up, +1 moves down. Recomputes a float position from neighbours.
+  moveSubtask: async (subtaskId, dir) => {
+    const sorted = [...(get().board?.subtasks ?? [])].sort((a, b) => a.position - b.position);
     const idx = sorted.findIndex(s => s.id === subtaskId);
-    if (idx <= 0) return;
+    if (idx < 0) return;
+    const swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= sorted.length) return;
 
-    const prev = sorted[idx - 2] ?? null;
-    const target = sorted[idx - 1];
-    const newPos = positionBetween(prev?.position ?? null, target.position);
+    // neighbours of the slot we are moving into
+    const lo = Math.min(idx, swapIdx);
+    const before = sorted[lo - 1] ?? null;
+    const target = sorted[swapIdx];
+    const newPos = dir < 0
+      ? positionBetween(before?.position ?? null, target.position)
+      : positionBetween(target.position, sorted[swapIdx + 1]?.position ?? null);
 
-    const snapshot = get().board;
-    set(s => ({
-      board: {
-        ...s.board,
-        subtasks: s.board.subtasks.map(st => st.id === subtaskId ? { ...st, position: newPos } : st),
-      },
-      error: null,
-    }));
-    try {
-      const updated = await client.patchSubtask(subtaskId, { position: newPos });
-      set(s => ({
-        board: { ...s.board, subtasks: s.board.subtasks.map(st => st.id === subtaskId ? updated : st) },
-      }));
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-    }
+    return optimistic(get, set, {
+      rethrow: false,
+      apply: b => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, st => ({ ...st, position: newPos })) }),
+      commit: () => client.patchSubtask(subtaskId, { position: newPos }),
+      settle: (b, updated) => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, () => updated) }),
+    });
   },
 
-  moveSubtaskDown: async (subtaskId) => {
-    const subtasks = get().board?.subtasks ?? [];
-    const sorted = [...subtasks].sort((a, b) => a.position - b.position);
-    const idx = sorted.findIndex(s => s.id === subtaskId);
-    if (idx < 0 || idx >= sorted.length - 1) return;
-
-    const target = sorted[idx + 1];
-    const next = sorted[idx + 2] ?? null;
-    const newPos = positionBetween(target.position, next?.position ?? null);
-
-    const snapshot = get().board;
-    set(s => ({
-      board: {
-        ...s.board,
-        subtasks: s.board.subtasks.map(st => st.id === subtaskId ? { ...st, position: newPos } : st),
-      },
-      error: null,
-    }));
-    try {
-      const updated = await client.patchSubtask(subtaskId, { position: newPos });
-      set(s => ({
-        board: { ...s.board, subtasks: s.board.subtasks.map(st => st.id === subtaskId ? updated : st) },
-      }));
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-    }
-  },
+  moveSubtaskUp: (subtaskId) => get().moveSubtask(subtaskId, -1),
+  moveSubtaskDown: (subtaskId) => get().moveSubtask(subtaskId, 1),
 
   toggleSubtask: async (subtaskId) => {
     const current = get().board?.subtasks?.find(s => s.id === subtaskId);
     if (!current) return;
     const newChecked = !current.checked;
-    const snapshot = get().board;
-    set(s => ({
-      board: { ...s.board, subtasks: s.board.subtasks.map(st => st.id === subtaskId ? { ...st, checked: newChecked } : st) },
-      error: null,
-    }));
-    try {
-      const updated = await client.patchSubtask(subtaskId, { checked: newChecked });
-      set(s => ({
-        board: { ...s.board, subtasks: s.board.subtasks.map(st => st.id === subtaskId ? updated : st) },
-      }));
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-    }
+    return optimistic(get, set, {
+      rethrow: false,
+      apply: b => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, st => ({ ...st, checked: newChecked })) }),
+      commit: () => client.patchSubtask(subtaskId, { checked: newChecked }),
+      settle: (b, updated) => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, () => updated) }),
+    });
   },
 
-  renameSubtask: async (subtaskId, title) => {
-    const snapshot = get().board;
-    set(s => ({
-      board: { ...s.board, subtasks: s.board.subtasks.map(st => st.id === subtaskId ? { ...st, title } : st) },
-      error: null,
-    }));
-    try {
-      const updated = await client.patchSubtask(subtaskId, { title });
-      set(s => ({
-        board: { ...s.board, subtasks: s.board.subtasks.map(st => st.id === subtaskId ? updated : st) },
-      }));
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-      throw err;
-    }
-  },
+  renameSubtask: async (subtaskId, title) => optimistic(get, set, {
+    apply: b => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, st => ({ ...st, title })) }),
+    commit: () => client.patchSubtask(subtaskId, { title }),
+    settle: (b, updated) => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, () => updated) }),
+  }),
 
-  deleteSubtask: async (subtaskId) => {
-    const snapshot = get().board;
-    set(s => ({
-      board: { ...s.board, subtasks: s.board.subtasks.filter(st => st.id !== subtaskId) },
-      error: null,
-    }));
-    try {
-      await client.deleteSubtask(subtaskId);
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-    }
-  },
+  deleteSubtask: async (subtaskId) => optimistic(get, set, {
+    rethrow: false,
+    apply: b => ({ ...b, subtasks: b.subtasks.filter(st => st.id !== subtaskId) }),
+    commit: () => client.deleteSubtask(subtaskId),
+  }),
 
   createSubtask: async (cardId, { title }) => {
     const tempId = uuidv4();
-    const currentSubtasks = get().board?.subtasks ?? [];
-    const cardSubtasks = currentSubtasks.filter(s => s.cardId === cardId);
-    const maxPos = cardSubtasks.length > 0 ? Math.max(...cardSubtasks.map(s => s.position)) : 0;
-    const placeholder = { id: tempId, cardId, title, checked: false, position: maxPos + 1 };
-    const snapshot = get().board;
-    set(s => ({ board: { ...s.board, subtasks: [...(s.board.subtasks ?? []), placeholder] }, error: null }));
-    try {
-      const subtask = await client.createSubtask(cardId, { title });
-      set(s => ({
-        board: {
-          ...s.board,
-          subtasks: s.board.subtasks.map(st => st.id === tempId ? subtask : st),
-        },
-      }));
-      return subtask;
-    } catch (err) {
-      set({ board: snapshot, error: err.message });
-      throw err;
-    }
+    const cardSubtasks = (get().board?.subtasks ?? []).filter(s => s.cardId === cardId);
+    const position = nextPosition(cardSubtasks);
+    const placeholder = { id: tempId, cardId, title, checked: false, position };
+    return optimistic(get, set, {
+      apply: b => ({ ...b, subtasks: [...(b.subtasks ?? []), placeholder] }),
+      commit: () => client.createSubtask(cardId, { title }),
+      settle: (b, subtask) => ({ ...b, subtasks: mapById(b.subtasks, tempId, () => subtask) }),
+    });
   },
 }));
 

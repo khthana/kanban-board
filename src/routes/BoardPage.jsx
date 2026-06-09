@@ -9,6 +9,7 @@ import useSession from '../store/useSession';
 import useBoardStore from '../store/useBoardStore';
 import { usePolling } from '../hooks/usePolling';
 import { positionBetween } from '../domain/ordering';
+import { DND_ACTIVATION_DISTANCE } from '../constants';
 import TopBar from '../components/TopBar';
 import Column from '../components/Column';
 import ColumnComposer from '../components/ColumnComposer';
@@ -27,6 +28,7 @@ export default function BoardPage() {
     createColumn, renameColumn, deleteColumn, moveColumn,
     createCard, patchCard, deleteCard, moveCard,
     createLabel, deleteLabel, attachLabel, detachLabel,
+    attachAssignee, detachAssignee,
     addMember, removeMember,
     createSubtask, toggleSubtask, renameSubtask, deleteSubtask, moveSubtaskUp, moveSubtaskDown,
   } = useBoardStore();
@@ -37,7 +39,7 @@ export default function BoardPage() {
   const [opError, setOpError]         = useState(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: DND_ACTIVATION_DISTANCE } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
@@ -144,7 +146,7 @@ export default function BoardPage() {
     return <div className={styles.loading}>Loading…</div>;
   }
 
-  const { board: boardData, columns, cards, labels, members, cardLabels, subtasks: allSubtasks = [] } = board;
+  const { board: boardData, columns, cards, labels, members, cardLabels, cardAssignees = [], subtasks: allSubtasks = [] } = board;
   const sortedColumns = [...columns].sort((a, b) => a.position - b.position);
 
   // Active drag overlay data
@@ -188,6 +190,7 @@ export default function BoardPage() {
                   cards={cards.filter(c => c.columnId === col.id).sort((a, b) => a.position - b.position)}
                   labels={labels}
                   cardLabels={cardLabels}
+                  cardAssignees={cardAssignees}
                   members={members}
                   subtasks={allSubtasks}
                   onRename={(colId, name, color) => renameColumn(colId, currentUserId, { name, color })}
@@ -207,6 +210,7 @@ export default function BoardPage() {
                   new Set(cardLabels.filter(cl => cl.cardId === activeCardData.id).map(cl => cl.labelId)).has(l.id)
                 )}
                 members={members}
+                assigneeIds={cardAssignees.filter(ca => ca.cardId === activeCardData.id).map(ca => ca.userId)}
               />
             )}
             {activeColData && (
@@ -234,6 +238,7 @@ export default function BoardPage() {
           card={activeCard}
           allLabels={labels}
           cardLabels={cardLabels}
+          cardAssignees={cardAssignees}
           members={members}
           boardId={boardId}
           userId={currentUserId}
@@ -244,6 +249,8 @@ export default function BoardPage() {
           onDeleteLabel={(labelId, uId) => deleteLabel(labelId, uId)}
           onAttachLabel={(cardId, labelId, uId) => attachLabel(cardId, labelId, uId)}
           onDetachLabel={(cardId, labelId, uId) => detachLabel(cardId, labelId, uId)}
+          onAttachAssignee={(cardId, uId) => attachAssignee(cardId, uId)}
+          onDetachAssignee={(cardId, uId) => detachAssignee(cardId, uId)}
           subtasks={(board?.subtasks ?? []).filter(s => s.cardId === activeCard?.id)}
           onCreateSubtask={title => createSubtask(activeCard.id, { title })}
           onToggleSubtask={toggleSubtask}

@@ -6,9 +6,10 @@ import DueDateField from './DueDateField';
 import styles from './CardPanel.module.css';
 
 export default function CardPanel({
-  card, allLabels, cardLabels, members, boardId,
+  card, allLabels, cardLabels, cardAssignees = [], members, boardId,
   onSave, onDelete, onClose,
   onCreateLabel, onDeleteLabel, onAttachLabel, onDetachLabel,
+  onAttachAssignee, onDetachAssignee,
   userId,
   subtasks = [],
   onCreateSubtask,
@@ -114,8 +115,9 @@ export default function CardPanel({
 
         <AssigneePicker
           members={members}
-          assigneeId={card.assigneeId}
-          onChange={assigneeId => onSave({ assigneeId })}
+          assigneeIds={cardAssignees.filter(ca => ca.cardId === card.id).map(ca => ca.userId)}
+          onAttach={uid => onAttachAssignee(card.id, uid)}
+          onDetach={uid => onDetachAssignee(card.id, uid)}
         />
 
         <DueDateField

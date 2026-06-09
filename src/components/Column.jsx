@@ -1,24 +1,17 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { validateColumnName } from '../domain/validation';
 import Card from './Card';
 import CardComposer from './CardComposer';
+import ColorPicker from './common/ColorPicker';
 import styles from './Column.module.css';
-
-const PRESET_COLORS = [
-  '#fca5a5', '#fdba74', '#fde047', '#86efac',
-  '#67e8f9', '#93c5fd', '#c4b5fd', '#f9a8d4',
-];
 
 function RenameForm({ column, onSave, onCancel }) {
   const [name, setName]   = useState(column.name);
   const [color, setColor] = useState(column.color ?? null);
   const [error, setError] = useState(null);
-  const colorInputRef     = useRef(null);
-
-  const isPreset = color !== null && PRESET_COLORS.includes(color);
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -38,43 +31,7 @@ function RenameForm({ column, onSave, onCancel }) {
       />
       {error && <span className={styles.fieldError}>{error}</span>}
 
-      <div className={styles.swatchRow}>
-        {PRESET_COLORS.map(c => (
-          <button
-            key={c}
-            type="button"
-            data-swatch={c}
-            className={`${styles.swatch} ${color === c ? styles.swatchSelected : ''}`}
-            style={{ background: c }}
-            onClick={() => setColor(c)}
-            title={c}
-          />
-        ))}
-        <button
-          type="button"
-          data-swatch="custom"
-          className={`${styles.swatch} ${styles.swatchCustom} ${color !== null && !isPreset ? styles.swatchSelected : ''}`}
-          style={color !== null && !isPreset ? { background: color } : {}}
-          onClick={() => colorInputRef.current?.click()}
-          title="Custom color"
-        >
-          {(color === null || isPreset) && '+'}
-        </button>
-        <button
-          type="button"
-          data-swatch="clear"
-          className={`${styles.swatch} ${styles.swatchClear} ${color === null ? styles.swatchSelected : ''}`}
-          onClick={() => setColor(null)}
-          title="No color"
-        >✕</button>
-        <input
-          ref={colorInputRef}
-          type="color"
-          value={color !== null && !isPreset ? color : '#ffffff'}
-          onChange={e => setColor(e.target.value)}
-          className={styles.hiddenColorInput}
-        />
-      </div>
+      <ColorPicker value={color} onChange={setColor} allowClear />
 
       <div className={styles.renameRow}>
         <button className={styles.btnSave} type="submit">Save</button>
@@ -85,7 +42,7 @@ function RenameForm({ column, onSave, onCancel }) {
 }
 
 export default function Column({
-  column, cards, labels = [], cardLabels = [], members = [], subtasks = [],
+  column, cards, labels = [], cardLabels = [], cardAssignees = [], members = [], subtasks = [],
   onRename, onDelete, onCardClick, onAddCard,
   dragOverlay = false,
 }) {
@@ -112,11 +69,13 @@ export default function Column({
   }
 
   const cardIds = cards.map(c => c.id);
-  const headerStyle = column.color ? { background: column.color } : {};
+  const accent = column.color || null;
+  const rootClass = `${styles.column} ${accent ? styles.accented : ''}`;
+  const rootStyle = accent ? { ...style, '--accent': accent } : style;
 
   return (
-    <div ref={setSortableRef} className={styles.column} style={style} data-testid="column" {...attributes}>
-      <div className={styles.header} style={headerStyle} data-testid="column-header">
+    <div ref={setSortableRef} className={rootClass} style={rootStyle} data-testid="column" {...attributes}>
+      <div className={styles.header} data-testid="column-header">
         {renaming ? (
           <RenameForm
             column={column}
@@ -126,16 +85,14 @@ export default function Column({
         ) : (
           <>
             <div className={styles.dragHandle} {...listeners} title="Drag to reorder column">⋮⋮</div>
-            <span className={styles.name}>{column.name}</span>
-            <div className={styles.headerRight}>
-              <span className={styles.count}>{cards.length}</span>
-              {!dragOverlay && (
-                <>
-                  <button className={styles.btnIcon} title="Rename column" onClick={() => setRenaming(true)}>✏️</button>
-                  <button className={`${styles.btnIcon} ${styles.btnDanger}`} title="Delete column" onClick={handleDelete}>🗑️</button>
-                </>
-              )}
-            </div>
+            <span className={styles.nameChip} data-testid="column-chip">{column.name}</span>
+            <span className={styles.count}>{cards.length}</span>
+            {!dragOverlay && (
+              <div className={styles.headerRight}>
+                <button className={styles.btnIcon} title="Rename column" aria-label={`Rename column ${column.name}`} onClick={() => setRenaming(true)}>✏️</button>
+                <button className={`${styles.btnIcon} ${styles.btnDanger}`} title="Delete column" aria-label={`Delete column ${column.name}`} onClick={handleDelete}>🗑️</button>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -148,14 +105,15 @@ export default function Column({
           {cards.map(card => {
             const attachedIds = new Set(cardLabels.filter(cl => cl.cardId === card.id).map(cl => cl.labelId));
             const cardLabelObjs = labels.filter(l => attachedIds.has(l.id));
+            const assigneeIds = cardAssignees.filter(ca => ca.cardId === card.id).map(ca => ca.userId);
             return (
               <Card key={card.id} card={card} onClick={onCardClick}
-                labels={cardLabelObjs} members={members}
+                labels={cardLabelObjs} members={members} assigneeIds={assigneeIds}
                 subtasks={subtasks.filter(s => s.cardId === card.id)} />
             );
           })}
         </SortableContext>
-        {!dragOverlay && <CardComposer onAdd={title => onAddCard(column.id, title)} />}
+        {!dragOverlay && <CardComposer accent={accent} onAdd={title => onAddCard(column.id, title)} />}
       </div>
     </div>
   );
