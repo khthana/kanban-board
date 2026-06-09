@@ -25,7 +25,7 @@ async function setupBoard(page) {
   ]);
 
   // Wait for card creation to confirm so activeCard has real UUID
-  await page.click('text=+ Add card');
+  await page.click('text=+ New card');
   await page.fill('textarea[placeholder="Card title…"]', cardTitle);
   await Promise.all([
     page.waitForResponse(r => r.url().includes('/cards') && r.request().method() === 'POST' && r.status() === 201),
@@ -67,7 +67,7 @@ test('create subtask → persists after reload', async ({ page }) => {
   await expect(page.locator('aside').getByText('Write tests')).toBeVisible();
 });
 
-test('toggle checkbox → card preview shows ✓ n/total → persists after reload', async ({ page }) => {
+test('toggle checkbox → card preview shows n/total → persists after reload', async ({ page }) => {
   const { cardTitle } = await setupBoard(page);
   await openCard(page, cardTitle);
   await addSubtask(page, 'Step one');
@@ -79,10 +79,10 @@ test('toggle checkbox → card preview shows ✓ n/total → persists after relo
   ]);
 
   await page.locator('button[title="Close panel"]').click();
-  await expect(page.getByText('✓ 1 / 1')).toBeVisible();
+  await expect(page.locator('[data-testid="card-progress"]').getByText('1/1')).toBeVisible();
 
   await page.reload();
-  await expect(page.getByText('✓ 1 / 1')).toBeVisible();
+  await expect(page.locator('[data-testid="card-progress"]').getByText('1/1')).toBeVisible();
 
   await openCard(page, cardTitle);
   await expect(page.locator('aside input[type="checkbox"]')).toBeChecked();
@@ -157,7 +157,7 @@ test('delete subtask → removed from list, progress indicator disappears', asyn
   await expect(page.locator('aside').getByText('Step to delete')).not.toBeVisible();
 
   await page.locator('button[title="Close panel"]').click();
-  await expect(page.getByText(/✓ \d+ \/ \d+/)).not.toBeVisible();
+  await expect(page.locator('[data-testid="card-progress"]')).not.toBeVisible();
 });
 
 test('max 20 subtasks — add button hidden, hint shown', async ({ page }) => {

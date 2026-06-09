@@ -1,18 +1,22 @@
 .column {
   width: 300px;
   flex-shrink: 0;
-  background: #f1f5f9;
-  border-radius: 10px;
+  background: oklch(0.978 0.004 265);
+  border-radius: 16px;
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 120px);
+}
+
+/* Accent model: column.color themes the whole column via a faint wash. */
+.accented {
+  background: color-mix(in srgb, var(--accent) 12%, white);
 }
 
 .header {
   display: flex;
   align-items: center;
   padding: 0.5rem 0.75rem 0.5rem 0.5rem;
-  border-bottom: 1px solid #e2e8f0;
   min-height: 44px;
   gap: 0.375rem;
 }
@@ -32,24 +36,36 @@
   display: flex;
   align-items: center;
   gap: 0.125rem;
+  margin-left: auto;
 }
 
-.name {
-  font-size: 0.875rem;
+/* Title sits in a pastel pill (the accent at full strength). */
+.nameChip {
+  font-size: 13px;
   font-weight: 600;
   color: #1e293b;
-  flex: 1;
+  background: #e2e8f0;
+  border-radius: 8px;
+  padding: 3px 11px;
+  max-width: 170px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.accented .nameChip {
+  background: var(--accent);
 }
 
 .count {
-  font-size: 0.75rem;
+  font-size: 13px;
   font-weight: 600;
-  background: #e2e8f0;
-  color: #64748b;
-  border-radius: 999px;
-  padding: 0.1rem 0.5rem;
-  min-width: 1.5rem;
-  text-align: center;
+  color: var(--ink-faint);
+  padding: 0 0.15rem;
+}
+
+.accented .count {
+  color: color-mix(in srgb, var(--accent), black 38%);
 }
 
 .btnIcon {
@@ -73,52 +89,6 @@
   gap: 0.375rem;
   width: 100%;
 }
-
-.swatchRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  align-items: center;
-}
-
-.swatch {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  flex-shrink: 0;
-  outline: 2px solid transparent;
-  outline-offset: 2px;
-  transition: outline-color 0.1s;
-}
-
-.swatchSelected { outline-color: #1e293b; }
-
-.swatchCustom {
-  background: #e2e8f0;
-  color: #64748b;
-  font-size: 0.85rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.swatchClear {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #94a3b8;
-  font-size: 0.65rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.swatchClear:hover { color: #dc2626; background: #fee2e2; }
-
-.hiddenColorInput { display: none; }
 
 .renameInput {
   width: 100%;

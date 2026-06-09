@@ -1,10 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+/* Editorial design tokens (ADR-0002, card_ui_spec §2). */
+:root {
+  --font: 'IBM Plex Sans Thai', 'IBM Plex Sans', system-ui, sans-serif;
+
+  /* ink / neutral palette */
+  --ink: oklch(0.27 0.02 265);
+  --ink-soft: oklch(0.50 0.02 265);
+  --ink-faint: oklch(0.62 0.015 265);
+  --line: oklch(0.92 0.006 265);
+  --board-bg: oklch(0.995 0.002 265);
+  --card-shadow: 0 1px 2px oklch(0.4 0.03 265 / 0.06), 0 1px 1px oklch(0.4 0.03 265 / 0.04);
+  --card-shadow-hover: 0 4px 12px oklch(0.4 0.03 265 / 0.10);
+
+  /* status accents */
+  --due-overdue: oklch(0.54 0.16 22);
+  --complete: oklch(0.58 0.12 155);
+  --track: oklch(0.91 0.006 265);
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color: var(--ink);
 }
 
 code {

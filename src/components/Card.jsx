@@ -1,17 +1,19 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import Avatar from './Avatar';
+import { isOverdue, formatDueDate } from '../domain/dates';
+import { progressView } from '../domain/progress';
+import { cardAccent } from '../domain/accent';
+import AvatarStack from './common/AvatarStack';
 import styles from './Card.module.css';
 
-function isOverdue(dueDate) {
-  if (!dueDate) return false;
-  return new Date(dueDate) < new Date(new Date().toDateString());
-}
-
-function formatDueDate(dateStr) {
-  if (!dateStr) return null;
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+function CalIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+         strokeWidth="2" strokeLinecap="round">
+      <rect x="3" y="4.5" width="18" height="17" rx="3" />
+      <path d="M3 9h18M8 2.5v4M16 2.5v4" />
+    </svg>
+  );
 }
 
 export default function Card({ card, onClick, labels = [], members = [], subtasks = [], dragOverlay = false }) {
@@ -26,10 +28,18 @@ export default function Card({ card, onClick, labels = [], members = [], subtask
     opacity: isDragging ? 0 : 1,
   };
 
-  const overdue      = isOverdue(card.dueDate);
-  const assignee     = members.find(m => m.userId === card.assigneeId)?.user ?? null;
-  const checkedCount = subtasks.filter(s => s.checked).length;
-  const totalCount   = subtasks.length;
+  // Interim (slice #31): the Category is the card's first label. #32 makes it
+  // a selectable primary label via category_label_id.
+  const category = labels[0] ?? null;
+  const accent   = cardAccent(category?.color ?? null);
+
+  const overdue  = isOverdue(card.dueDate);
+  const assignee = members.find(m => m.userId === card.assigneeId)?.user ?? null;
+  const assignees = assignee ? [{ userId: card.assigneeId, displayName: assignee.displayName }] : [];
+
+  const total = subtasks.length;
+  const done  = subtasks.filter(s => s.checked).length;
+  const progress = total > 0 ? progressView(done, total) : null;
 
   return (
     <div
@@ -37,42 +47,56 @@ export default function Card({ card, onClick, labels = [], members = [], subtask
       style={dragOverlay ? {} : style}
       {...attributes}
       {...listeners}
-      className={`${styles.card} ${overdue ? styles.overdue : ''} ${dragOverlay ? styles.overlay : ''}`}
-      onClick={e => { if (!isDragging) onClick?.(card); }}
+      className={`${styles.card} ${dragOverlay ? styles.overlay : ''}`}
+      onClick={() => { if (!isDragging) onClick?.(card); }}
+      onKeyDown={e => {
+        if (!isDragging && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onClick?.(card);
+        }
+      }}
       role="button"
       tabIndex={0}
     >
-      {labels.length > 0 && (
-        <div className={styles.colorBand} style={{ background: labels[0].color }} />
-      )}
+      <div className={styles.top}>
+        {category ? (
+          <span className={styles.label} style={{ color: accent.text }} data-testid="card-category">
+            <span className={styles.dot} style={{ background: accent.solid }} />
+            {category.name}
+          </span>
+        ) : <span />}
+        <AvatarStack users={assignees} size={24} />
+      </div>
 
-      <div className={styles.cardBody}>
-        {labels.length > 1 && (
-          <div className={styles.labelBar}>
-            {labels.slice(1).map(l => (
-              <span key={l.id} className={styles.labelDot} style={{ background: l.color }} title={l.name} />
-            ))}
-          </div>
+      <p className={styles.title}>{card.title}</p>
+
+      <div className={styles.rule} />
+
+      <div className={styles.foot}>
+        {card.dueDate ? (
+          <span className={`${styles.due} ${overdue ? styles.overdueDue : ''}`} data-testid="card-due">
+            <CalIcon />
+            {formatDueDate(card.dueDate)}
+          </span>
+        ) : (
+          <span className={`${styles.due} ${styles.muted}`}>ไม่มีกำหนด</span>
         )}
 
-        <p className={styles.title}>{card.title}</p>
-
-        {(assignee || card.dueDate || totalCount > 0) && (
-          <div className={styles.meta}>
-            {card.dueDate && (
-              <span className={`${styles.dueChip} ${overdue ? styles.overdueChip : ''}`}>
-                {overdue && <span className={styles.overdueIcon} aria-label="Overdue">⚠</span>}
-                {formatDueDate(card.dueDate)}
-                {overdue && <span className={styles.overdueText}> · Overdue</span>}
+        {progress && (
+          <span className={styles.check} data-testid="card-progress">
+            {progress.mode === 'segments' ? (
+              <span className={styles.segs}>
+                {progress.segments.map((on, i) => (
+                  <span key={i} className={styles.seg} style={on ? { background: accent.solid } : undefined} />
+                ))}
+              </span>
+            ) : (
+              <span className={styles.minibar}>
+                <span className={styles.minifill} style={{ width: `${progress.pct}%`, background: accent.solid }} />
               </span>
             )}
-            {totalCount > 0 && (
-              <span className={styles.subtaskProgress}>
-                ✓ {checkedCount} / {totalCount}
-              </span>
-            )}
-            {assignee && <Avatar user={assignee} size="sm" />}
-          </div>
+            <span className={`${styles.count} ${progress.complete ? styles.countDone : ''}`}>{done}/{total}</span>
+          </span>
         )}
       </div>
     </div>
