@@ -32,16 +32,10 @@ test('set a label as category → card face shows the category', async ({ page }
     page.getByRole('button', { name: 'Create', exact: true }).click(),
   ]);
 
-  // Attach it to the card
-  await Promise.all([
-    page.waitForResponse(r => /\/labels\//.test(r.url()) && r.request().method() === 'PUT' && r.status() === 200),
-    page.locator('aside button', { hasText: 'Backend' }).first().click(),
-  ]);
-
-  // Mark it as the category, waiting for the category PATCH to persist
+  // Attach it → the first label is auto-set as the Category (category PATCH fires)
   await Promise.all([
     page.waitForResponse(r => /\/cards\/[^/]+$/.test(r.url()) && r.request().method() === 'PATCH'),
-    page.locator('[data-testid="set-category"]').click(),
+    page.locator('aside button', { hasText: 'Backend' }).first().click(),
   ]);
 
   await page.locator('button[title="Close panel"]').click();

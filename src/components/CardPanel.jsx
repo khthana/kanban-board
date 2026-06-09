@@ -103,10 +103,19 @@ export default function CardPanel({
           allLabels={allLabels}
           attachedLabelIds={attachedIds}
           categoryLabelId={card.categoryLabelId}
-          onAttach={labelId => onAttachLabel(card.id, labelId, userId)}
+          onAttach={labelId => {
+            onAttachLabel(card.id, labelId, userId);
+            // Auto-set the first attached label as the Category so a label
+            // shows on the card immediately; the ★ overrides which is primary.
+            if (!card.categoryLabelId) onSave({ categoryLabelId: labelId });
+          }}
           onDetach={labelId => {
             onDetachLabel(card.id, labelId, userId);
-            if (labelId === card.categoryLabelId) onSave({ categoryLabelId: null });
+            // If we removed the Category label, promote the next remaining one.
+            if (labelId === card.categoryLabelId) {
+              const remaining = [...attachedIds].filter(id => id !== labelId);
+              onSave({ categoryLabelId: remaining[0] ?? null });
+            }
           }}
           onSetCategory={labelId => onSave({ categoryLabelId: labelId })}
           onCreateLabel={onCreateLabel}
