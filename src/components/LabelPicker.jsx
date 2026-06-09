@@ -4,8 +4,44 @@ import { PRESET_COLORS } from '../domain/colors';
 import ColorPicker from './common/ColorPicker';
 import styles from './LabelPicker.module.css';
 
-export default function LabelPicker({ boardId, userId, allLabels, attachedLabelIds, categoryLabelId, onAttach, onDetach, onSetCategory, onCreateLabel, onDeleteLabel }) {
+function EditForm({ label, onSave, onCancel }) {
+  const [name, setName]   = useState(label.name);
+  const [color, setColor] = useState(label.color);
+  const [err, setErr]     = useState(null);
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    const ne = validateLabelName(name);
+    const ce = validateLabelColor(color);
+    if (ne) { setErr(ne); return; }
+    if (ce) return;
+    onSave({ name: name.trim(), color });
+  }
+
+  return (
+    <form className={styles.createForm} onSubmit={handleSubmit}>
+      <input
+        className={styles.input}
+        value={name}
+        autoFocus
+        maxLength={101}
+        onChange={e => { setName(e.target.value); setErr(null); }}
+      />
+      {err && <span className={styles.err}>{err}</span>}
+
+      <ColorPicker value={color} onChange={setColor} />
+
+      <div className={styles.btnRow}>
+        <button className={styles.btnCreate} type="submit">Save</button>
+        <button className={styles.btnCancel} type="button" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
+export default function LabelPicker({ boardId, userId, allLabels, attachedLabelIds, categoryLabelId, onAttach, onDetach, onSetCategory, onCreateLabel, onPatchLabel, onDeleteLabel }) {
   const [creating, setCreating]     = useState(false);
+  const [editingId, setEditingId]   = useState(null);
   const [name, setName]             = useState('');
   const [color, setColor]           = useState(PRESET_COLORS[0]);
   const [nameErr, setNameErr]       = useState(null);
@@ -26,6 +62,17 @@ export default function LabelPicker({ boardId, userId, allLabels, attachedLabelI
 
       <div className={styles.list}>
         {allLabels.map(label => {
+          if (editingId === label.id) {
+            return (
+              <div key={label.id} className={styles.row}>
+                <EditForm
+                  label={label}
+                  onSave={patch => { onPatchLabel(label.id, userId, patch); setEditingId(null); }}
+                  onCancel={() => setEditingId(null)}
+                />
+              </div>
+            );
+          }
           const attached = attachedLabelIds.has(label.id);
           const isCategory = attached && categoryLabelId === label.id;
           return (
@@ -39,6 +86,13 @@ export default function LabelPicker({ boardId, userId, allLabels, attachedLabelI
                 {label.name}
                 {attached && <span className={styles.check}>✓</span>}
               </button>
+              <button
+                className={styles.editLabel}
+                title="Edit label"
+                aria-label={`Edit label ${label.name}`}
+                data-testid="edit-label"
+                onClick={() => setEditingId(label.id)}
+              >✎</button>
               {attached && (
                 <button
                   className={`${styles.star} ${isCategory ? styles.starActive : ''}`}

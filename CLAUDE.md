@@ -71,6 +71,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 - **Multiple assignees** (ADR-0002): modeled like labels — a `cardAssignees: [{cardId,userId}]` join in the store, optimistic `attachAssignee`/`detachAssignee` (`PUT`/`DELETE /cards/:id/assignees/:userId`). Replaced the single `assignee_id`. `AssigneePicker` is a multi-toggle list; the card face shows up to 3 overlapping avatars then `+N` via `common/AvatarStack`.
 - **Due date picker**: react-datepicker replaces native `<input type="date">` (fixes Firefox UX). Format `dd/MM/yyyy`. Thai locale incompatible with date-fns v4 — omitted.
 - **Label color picker**: 8 pastel preset swatches + "+" custom (hidden `<input type="color">` triggered by ref). Selection ring via CSS `outline`. Default `#fca5a5`.
+- **Label edit**: existing labels are editable (name + color) via the ✎ button per row in `LabelPicker` → inline edit form (mirrors Column `RenameForm`). Optimistic `patchLabel(labelId, userId, patch)` updates `board.labels` in place, so any card using that label as its Category re-renders with the new name/color instantly. Backend `PATCH /labels/:id` + client `patchLabel` already existed.
 - **Shared `ColorPicker`**: `src/components/common/ColorPicker.jsx` is the single swatch picker used by both the column-color (`allowClear` → renders "✕" clear, value can be `null`) and label-color editors. Palette lives in `src/domain/colors.js` (`PRESET_COLORS`). Keeps `data-swatch` attrs (`<hex>` / `custom` / `clear`) that the column-color E2E selectors depend on.
 - **Date helpers**: `src/domain/dates.js` — `fromYMD`/`toYMD` (timezone-safe local-day conversion for the `YYYY-MM-DD` due-date strings), `formatDueDate` (th-TH), `isOverdue`. Used by `Card.jsx` and `DueDateField.jsx`.
 - **Store optimistic helper**: `useBoardStore.js` wraps every `board`-scoped mutation in an `optimistic(get, set, { apply, commit, settle, rethrow })` helper (snapshot → apply → await commit → settle → rollback on error). Some subtask mutations pass `rethrow: false` (fire-and-forget). `moveSubtaskUp/Down` delegate to one `moveSubtask(id, dir)`.
@@ -90,7 +91,7 @@ Validation runs client-side (UX) and is enforced by the backend (authoritative).
 
 ## Tests
 
-### Unit tests (94)
+### Unit tests (96)
 `src/domain/` (incl. `progress.test.js`, `accent.test.js`, `dates.test.js`), `src/hooks/`, `src/store/useSession.test.js`, `src/store/useBoardStore.test.js`. Run: `npm test -- --watchAll=false`
 
 Not unit-tested: components — covered by E2E.
@@ -99,7 +100,7 @@ Not unit-tested: components — covered by E2E.
 
 ### E2E tests (Playwright)
 
-`e2e/` — 24 tests across 10 files. Require the full stack (`docker compose up`).
+`e2e/` — 25 tests across 10 files. Require the full stack (`docker compose up`).
 
 | File | Flows covered | Status |
 |---|---|---|
@@ -111,7 +112,7 @@ Not unit-tested: components — covered by E2E.
 | `board.spec.js` | create/rename/delete board; member cannot delete | ✅ |
 | `member.spec.js` | invite member → member sees board | ✅ |
 | `column-color.spec.js` | set column color, persist after reload, clear color | ✅ |
-| `category.spec.js` | attach label → auto-set as category → shows on card, persists | ✅ |
+| `category.spec.js` | attach label → auto-set as category → shows on card; rename label → card reflects it | ✅ |
 | `assignee.spec.js` | assign two members → stack of two avatars, persists | ✅ |
 
 Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **Flaky under parallel** (single shared Postgres → contention; tests time out waiting for elements). Re-run, or use `npx playwright test --workers=1` for a deterministic pass.
@@ -126,4 +127,4 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs the 94 unit tests on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs the 96 unit tests on every push/PR to `main`.

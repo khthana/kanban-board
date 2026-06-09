@@ -27,7 +27,7 @@ export default function BoardPage() {
     fetchBoard, reconcileBoard,
     createColumn, renameColumn, deleteColumn, moveColumn,
     createCard, patchCard, deleteCard, moveCard,
-    createLabel, deleteLabel, attachLabel, detachLabel,
+    createLabel, patchLabel, deleteLabel, attachLabel, detachLabel,
     attachAssignee, detachAssignee,
     addMember, removeMember,
     createSubtask, toggleSubtask, renameSubtask, deleteSubtask, moveSubtaskUp, moveSubtaskDown,
@@ -246,6 +246,7 @@ export default function BoardPage() {
           onDelete={cardId => deleteCard(cardId, currentUserId)}
           onClose={() => setActiveCard(null)}
           onCreateLabel={(bId, uId, data) => createLabel(bId, uId, data)}
+          onPatchLabel={(labelId, uId, patch) => patchLabel(labelId, uId, patch)}
           onDeleteLabel={(labelId, uId) => deleteLabel(labelId, uId)}
           onAttachLabel={(cardId, labelId, uId) => attachLabel(cardId, labelId, uId)}
           onDetachLabel={(cardId, labelId, uId) => detachLabel(cardId, labelId, uId)}

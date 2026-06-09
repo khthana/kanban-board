@@ -25,6 +25,36 @@ beforeEach(() => {
   useBoardStore.setState({ boards: [], board: makeBoard(), loading: false, error: null });
 });
 
+describe('patchLabel', () => {
+  function withLabel() {
+    useBoardStore.setState({
+      board: {
+        ...useBoardStore.getState().board,
+        labels: [{ id: 'l1', boardId: 'b1', name: 'Old', color: '#fca5a5' }],
+      },
+    });
+  }
+
+  test('updates the label optimistically and settles with the server record', async () => {
+    withLabel();
+    client.patchLabel.mockResolvedValue({ id: 'l1', name: 'New', color: '#93c5fd' });
+
+    await useBoardStore.getState().patchLabel('l1', 'u1', { name: 'New', color: '#93c5fd' });
+
+    expect(useBoardStore.getState().board.labels[0]).toMatchObject({ name: 'New', color: '#93c5fd' });
+    expect(client.patchLabel).toHaveBeenCalledWith('l1', 'u1', { name: 'New', color: '#93c5fd' });
+  });
+
+  test('rolls back on API failure', async () => {
+    withLabel();
+    client.patchLabel.mockRejectedValue(new Error('boom'));
+
+    await expect(useBoardStore.getState().patchLabel('l1', 'u1', { name: 'New' })).rejects.toThrow('boom');
+
+    expect(useBoardStore.getState().board.labels[0].name).toBe('Old');
+  });
+});
+
 describe('attachAssignee', () => {
   test('adds the assignee optimistically and commits', async () => {
     client.attachAssignee.mockResolvedValue({ card_id: 'card1', user_id: 'u2' });

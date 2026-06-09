@@ -8,7 +8,7 @@ import styles from './CardPanel.module.css';
 export default function CardPanel({
   card, allLabels, cardLabels, cardAssignees = [], members, boardId,
   onSave, onDelete, onClose,
-  onCreateLabel, onDeleteLabel, onAttachLabel, onDetachLabel,
+  onCreateLabel, onPatchLabel, onDeleteLabel, onAttachLabel, onDetachLabel,
   onAttachAssignee, onDetachAssignee,
   userId,
   subtasks = [],
@@ -119,6 +119,7 @@ export default function CardPanel({
           }}
           onSetCategory={labelId => onSave({ categoryLabelId: labelId })}
           onCreateLabel={onCreateLabel}
+          onPatchLabel={onPatchLabel}
           onDeleteLabel={onDeleteLabel}
         />
 

@@ -179,6 +179,12 @@ const useBoardStore = create((set, get) => ({
     });
   },
 
+  patchLabel: async (labelId, userId, patch) => optimistic(get, set, {
+    apply: b => ({ ...b, labels: mapById(b.labels, labelId, l => ({ ...l, ...patch })) }),
+    commit: () => client.patchLabel(labelId, userId, patch),
+    settle: (b, label) => ({ ...b, labels: mapById(b.labels, labelId, l => ({ ...l, ...label })) }),
+  }),
+
   deleteLabel: async (labelId, userId) => optimistic(get, set, {
     apply: b => ({
       ...b,
