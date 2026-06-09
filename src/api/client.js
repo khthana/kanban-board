@@ -84,6 +84,7 @@ function normalizeCard(c) {
     title: c.title,
     description: c.description ?? '',
     assigneeId: c.assignee_id ?? null,
+    categoryLabelId: c.category_label_id ?? null,
     dueDate: c.due_date ? String(c.due_date).slice(0, 10) : null,
     position: c.position,
   };
@@ -196,6 +197,7 @@ function cardPatchToApi(patch) {
   if (patch.title       !== undefined) out.title        = patch.title;
   if (patch.description !== undefined) out.description  = patch.description;
   if (patch.assigneeId  !== undefined) out.assignee_id  = patch.assigneeId;
+  if (patch.categoryLabelId !== undefined) out.category_label_id = patch.categoryLabelId;
   if (patch.dueDate     !== undefined) out.due_date      = patch.dueDate;
   if (patch.columnId    !== undefined) out.column_id     = patch.columnId;
   if (patch.position    !== undefined) out.position      = patch.position;

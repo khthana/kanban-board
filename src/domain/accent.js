@@ -6,6 +6,13 @@
 const NEUTRAL_SOLID = '#cbd5e1';
 const NEUTRAL_TEXT = '#64748b';
 
+// Resolve a card's Category — the label flagged by categoryLabelId among the
+// card's labels. Returns null when unset, or when that label is gone
+// (deleted / detached), so the card falls back to a neutral accent.
+export function categoryLabel(categoryLabelId, labels = []) {
+  return labels.find(l => l.id === categoryLabelId) ?? null;
+}
+
 export function cardAccent(baseColor) {
   if (!baseColor) {
     return { solid: NEUTRAL_SOLID, text: NEUTRAL_TEXT, neutral: true };

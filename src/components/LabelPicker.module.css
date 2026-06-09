@@ -56,44 +56,6 @@
 }
 .input:focus { outline: 2px solid #3b82f6; outline-offset: 1px; }
 
-.swatchRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.375rem;
-  align-items: center;
-}
-
-.swatch {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  flex-shrink: 0;
-  outline: 2px solid transparent;
-  outline-offset: 2px;
-  transition: outline-color 0.1s;
-}
-
-.swatchSelected {
-  outline-color: #1e293b;
-}
-
-.swatchCustom {
-  background: #e2e8f0;
-  color: #64748b;
-  font-size: 0.9rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.hiddenColorInput {
-  display: none;
-}
-
 .err { font-size: 0.75rem; color: #dc2626; }
 
 .btnRow { display: flex; gap: 0.375rem; }
@@ -131,3 +93,15 @@
   padding: 0.25rem 0;
 }
 .addLabelBtn:hover { color: #1e293b; }
+
+.star {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0.1rem 0.2rem;
+  color: #cbd5e1;
+}
+.star:hover { color: #f59e0b; }
+.starActive { color: #f59e0b; }

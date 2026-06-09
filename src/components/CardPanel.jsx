@@ -101,8 +101,13 @@ export default function CardPanel({
           userId={userId}
           allLabels={allLabels}
           attachedLabelIds={attachedIds}
+          categoryLabelId={card.categoryLabelId}
           onAttach={labelId => onAttachLabel(card.id, labelId, userId)}
-          onDetach={labelId => onDetachLabel(card.id, labelId, userId)}
+          onDetach={labelId => {
+            onDetachLabel(card.id, labelId, userId);
+            if (labelId === card.categoryLabelId) onSave({ categoryLabelId: null });
+          }}
+          onSetCategory={labelId => onSave({ categoryLabelId: labelId })}
           onCreateLabel={onCreateLabel}
           onDeleteLabel={onDeleteLabel}
         />

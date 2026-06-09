@@ -2,7 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { isOverdue, formatDueDate } from '../domain/dates';
 import { progressView } from '../domain/progress';
-import { cardAccent } from '../domain/accent';
+import { cardAccent, categoryLabel } from '../domain/accent';
 import AvatarStack from './common/AvatarStack';
 import styles from './Card.module.css';
 
@@ -28,9 +28,9 @@ export default function Card({ card, onClick, labels = [], members = [], subtask
     opacity: isDragging ? 0 : 1,
   };
 
-  // Interim (slice #31): the Category is the card's first label. #32 makes it
-  // a selectable primary label via category_label_id.
-  const category = labels[0] ?? null;
+  // The Category is the label flagged by category_label_id; its color is the
+  // card's accent. Falls back to neutral when unset (categoryLabel → null).
+  const category = categoryLabel(card.categoryLabelId, labels);
   const accent   = cardAccent(category?.color ?? null);
 
   const overdue  = isOverdue(card.dueDate);
