@@ -1,5 +1,7 @@
 # PRD: Column Header Colors
 
+> **Superseded by [ADR-0001](../docs/adr/0001-column-accent-model.md).** The "header strip only" model below is replaced by the column **Accent** model (title chip + column-wide wash). The backend schema (`color VARCHAR(7)`), validation, and persistence still apply; only the frontend rendering described here is obsolete.
+
 ## Problem Statement
 
 Columns on the board all look identical — the same gray header regardless of their meaning or stage in the workflow. Users who manage boards with many columns have no visual way to distinguish them at a glance or convey status through color (e.g., red for "Blocked", green for "Done"). Setting a color currently requires manually editing the database.

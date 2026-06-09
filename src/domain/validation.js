@@ -6,6 +6,7 @@ function validateName(name, label, maxLen) {
 
 export const validateBoardName  = (name) => validateName(name, 'Board name',  100);
 export const validateColumnName = (name) => validateName(name, 'Column name', 100);
+export const validateLabelName  = (name) => validateName(name, 'Label name',  100);
 export const validateCardTitle  = (title) => validateName(title, 'Card title', 255);
 
 export function validateCardDescription(desc) {

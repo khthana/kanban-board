@@ -18,7 +18,7 @@ test('create column + card → persist on refresh', async ({ page }) => {
   await expect(page.getByText('Todo')).toBeVisible();
 
   // Add card
-  await page.click('text=+ Add card');
+  await page.click('text=+ New card');
   await page.fill('textarea[placeholder="Card title…"]', 'My Task');
   await page.getByRole('button', { name: 'Add card', exact: true }).click();
   await expect(page.getByText('My Task')).toBeVisible();

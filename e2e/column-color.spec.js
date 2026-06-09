@@ -32,7 +32,8 @@ test('edit form shows 10 color swatches', async ({ page }) => {
   await expect(swatches).toHaveCount(10);
 });
 
-test('pick preset color → header background changes', async ({ page }) => {
+// Accent model: column.color paints the title chip (pastel pill), not the header strip.
+test('pick preset color → title chip background changes', async ({ page }) => {
   await setupBoard(page);
 
   await page.click('button[title="Rename column"]');
@@ -43,8 +44,8 @@ test('pick preset color → header background changes', async ({ page }) => {
     page.click('button:has-text("Save")'),
   ]);
 
-  const header = page.locator('[data-testid="column-header"]').first();
-  const bg = await header.evaluate(el => getComputedStyle(el).backgroundColor);
+  const chip = page.locator('[data-testid="column-chip"]').first();
+  const bg = await chip.evaluate(el => getComputedStyle(el).backgroundColor);
   // #fca5a5 = rgb(252, 165, 165)
   expect(bg).toBe('rgb(252, 165, 165)');
 });
@@ -62,12 +63,12 @@ test('color persists after reload', async ({ page }) => {
   await page.reload();
   await page.waitForSelector('[data-testid="column"]');
 
-  const header = page.locator('[data-testid="column-header"]').first();
-  const bg = await header.evaluate(el => getComputedStyle(el).backgroundColor);
+  const chip = page.locator('[data-testid="column-chip"]').first();
+  const bg = await chip.evaluate(el => getComputedStyle(el).backgroundColor);
   expect(bg).toBe('rgb(252, 165, 165)');
 });
 
-test('clear color → header reverts to default', async ({ page }) => {
+test('clear color → chip reverts to neutral default', async ({ page }) => {
   await setupBoard(page);
 
   // Set color first
@@ -86,8 +87,8 @@ test('clear color → header reverts to default', async ({ page }) => {
     page.click('button:has-text("Save")'),
   ]);
 
-  const header = page.locator('[data-testid="column-header"]').first();
-  const bg = await header.evaluate(el => getComputedStyle(el).backgroundColor);
-  // No inline color → header is transparent (gray comes from .column background)
-  expect(bg).toBe('rgba(0, 0, 0, 0)');
+  const chip = page.locator('[data-testid="column-chip"]').first();
+  const bg = await chip.evaluate(el => getComputedStyle(el).backgroundColor);
+  // No accent → chip falls back to the neutral gray #e2e8f0 = rgb(226, 232, 240)
+  expect(bg).toBe('rgb(226, 232, 240)');
 });

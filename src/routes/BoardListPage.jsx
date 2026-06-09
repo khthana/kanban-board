@@ -134,6 +134,7 @@ export default function BoardListPage() {
                           <button
                             className={styles.btnIcon}
                             title="Rename"
+                            aria-label={`Rename board ${board.name}`}
                             onClick={() => setRenamingId(board.id)}
                           >
                             ✏️
@@ -141,6 +142,7 @@ export default function BoardListPage() {
                           <button
                             className={`${styles.btnIcon} ${styles.btnDanger}`}
                             title="Delete"
+                            aria-label={`Delete board ${board.name}`}
                             onClick={() => handleDelete(board.id)}
                           >
                             🗑️

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Avatar from './Avatar';
+import Avatar from './common/Avatar';
 import useSession from '../store/useSession';
 import styles from './TopBar.module.css';
 
@@ -26,6 +26,7 @@ export default function TopBar({ board, members, currentUserId, onInvite, onRemo
                 <button
                   className={styles.removeBtn}
                   title={`Remove ${m.user.displayName}`}
+                  aria-label={`Remove ${m.user.displayName}`}
                   onClick={() => onRemoveMember(m.userId)}
                 >
                   ✕

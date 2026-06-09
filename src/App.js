@@ -1,11 +1,10 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import RequireAuth from './components/RequireAuth';
+import RequireAuth from './routes/RequireAuth';
 import LoginPage from './routes/LoginPage';
 import RegisterPage from './routes/RegisterPage';
 import BoardListPage from './routes/BoardListPage';
 import BoardPage from './routes/BoardPage';
 import ProfilePage from './routes/ProfilePage';
-import './App.css';
 
 function App() {
   return (

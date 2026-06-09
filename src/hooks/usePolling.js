@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { getBoard } from '../api/client';
+import { POLLING_INTERVAL_MS } from '../constants';
 
-export function usePolling({ boardId, userId, intervalMs = 10_000, onReconcile, onForbidden, onNotFound }) {
+export function usePolling({ boardId, userId, intervalMs = POLLING_INTERVAL_MS, onReconcile, onForbidden, onNotFound }) {
   useEffect(() => {
     async function reconcile() {
       try {

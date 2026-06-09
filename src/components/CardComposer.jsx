@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { validateCardTitle } from '../domain/validation';
 import styles from './CardComposer.module.css';
 
-export default function CardComposer({ onAdd }) {
+export default function CardComposer({ onAdd, accent = null }) {
   const [open, setOpen]   = useState(false);
   const [title, setTitle] = useState('');
   const [error, setError] = useState(null);
@@ -18,9 +18,10 @@ export default function CardComposer({ onAdd }) {
   }
 
   if (!open) {
+    const accentStyle = accent ? { color: `color-mix(in srgb, ${accent}, black 30%)` } : undefined;
     return (
-      <button className={styles.addBtn} onClick={() => setOpen(true)}>
-        + Add card
+      <button className={styles.addBtn} style={accentStyle} onClick={() => setOpen(true)}>
+        + New card
       </button>
     );
   }

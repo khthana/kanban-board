@@ -1,4 +1,4 @@
-import { validateBoardName, validateColumnName, validateCardTitle, validateCardDescription, validateLabelColor, validateInviteEmail, validateEmail, validatePassword, validateDisplayName, validatePasswordChange, validateSubtaskTitle, validateSubtaskCount } from './validation';
+import { validateBoardName, validateColumnName, validateLabelName, validateCardTitle, validateCardDescription, validateLabelColor, validateInviteEmail, validateEmail, validatePassword, validateDisplayName, validatePasswordChange, validateSubtaskTitle, validateSubtaskCount } from './validation';
 
 describe('validateBoardName', () => {
   test('rejects empty string', () => {
@@ -29,6 +29,20 @@ describe('validateColumnName', () => {
 
   test('accepts valid name', () => {
     expect(validateColumnName('In Progress')).toBeNull();
+  });
+});
+
+describe('validateLabelName', () => {
+  test('rejects empty string', () => {
+    expect(validateLabelName('')).not.toBeNull();
+  });
+
+  test('rejects name longer than 100 characters', () => {
+    expect(validateLabelName('a'.repeat(101))).not.toBeNull();
+  });
+
+  test('accepts valid name', () => {
+    expect(validateLabelName('urgent')).toBeNull();
   });
 });
 

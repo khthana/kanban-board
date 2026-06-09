@@ -21,7 +21,7 @@ test('drag card cross-column → persist on refresh', async ({ page }) => {
 
   // Add card to Column A
   const colA = page.locator('[data-testid="column"]').filter({ hasText: 'Column A' });
-  await colA.getByText('+ Add card').click();
+  await colA.getByText('+ New card').click();
   await page.fill('textarea[placeholder="Card title…"]', 'Drag Me');
   await page.getByRole('button', { name: 'Add card', exact: true }).click();
   await expect(colA.getByText('Drag Me')).toBeVisible();

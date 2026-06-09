@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import useSession from '../store/useSession';
 import { validatePasswordChange } from '../domain/validation';
 import { patchMePassword } from '../api/client';
-import Toast from '../components/Toast';
+import Toast from '../components/common/Toast';
 import styles from './ProfilePage.module.css';
 
 function isValidEmail(v) {
