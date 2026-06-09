@@ -93,9 +93,9 @@ test('rename subtask inline — new title persists after reload', async ({ page 
   await openCard(page, cardTitle);
   await addSubtask(page, 'Original title');
 
-  // Click title span → edit input appears (exclude checkbox and date inputs)
+  // Click title span → inline edit input appears (autofocused)
   await page.locator('aside').getByText('Original title', { exact: true }).click();
-  const editInput = page.locator('aside input:not([type="checkbox"]):not([type="date"])');
+  const editInput = page.locator('aside input:focus');
   await editInput.fill('Renamed title');
   await Promise.all([
     page.waitForResponse(r => r.url().includes('/subtasks') && r.request().method() === 'PATCH' && r.status() === 200),
