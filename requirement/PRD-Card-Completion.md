@@ -1,6 +1,6 @@
 # PRD — Card Completion (Per-card Done State)
 
-**สถานะ:** Draft v1.0 — _planned, ยังไม่ implement_
+**สถานะ:** Implemented (#35–#37)
 **ขอบเขต:** New Feature — ต่อจาก Editorial card redesign
 **วันที่:** 15 มิถุนายน 2026
 **Tracking:** [issue #34](https://github.com/khthana/kanban-board/issues/34) · [ADR-0003](../docs/adr/0003-card-completion-model.md)

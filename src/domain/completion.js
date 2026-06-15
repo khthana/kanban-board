@@ -13,3 +13,9 @@ export function isDone(card) {
 export function completionPatch(done) {
   return { completedAt: done ? toYMD(new Date()) : null };
 }
+
+// How many of a card's subtasks are still unchecked — drives the soft warning
+// shown before completing a card with unfinished subtasks.
+export function incompleteSubtasks(subtasks = []) {
+  return subtasks.filter(s => !s.checked).length;
+}

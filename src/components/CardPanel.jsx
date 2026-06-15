@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { validateCardDescription, validateSubtaskTitle, validateSubtaskCount } from '../domain/validation';
-import { isDone, completionPatch } from '../domain/completion';
+import { isDone, completionPatch, incompleteSubtasks } from '../domain/completion';
 import { formatDueDate } from '../domain/dates';
 import LabelPicker from './LabelPicker';
 import AssigneePicker from './AssigneePicker';
@@ -89,6 +89,15 @@ export default function CardPanel({
     onClose();
   }
 
+  function handleComplete() {
+    const remaining = incompleteSubtasks(subtasks);
+    if (remaining > 0 &&
+        !window.confirm(`ยังมี subtask ที่ยังไม่เสร็จ ${remaining}/${subtasks.length} — ทำเครื่องหมายว่าเสร็จเลยไหม?`)) {
+      return;
+    }
+    onSave(completionPatch(true));
+  }
+
   const attachedIds = new Set(cardLabels.filter(cl => cl.cardId === card.id).map(cl => cl.labelId));
 
   return (
@@ -112,7 +121,7 @@ export default function CardPanel({
           <button
             className={styles.completeBtn}
             data-testid="complete-toggle"
-            onClick={() => onSave(completionPatch(true))}
+            onClick={handleComplete}
           >✓ ทำเครื่องหมายว่าเสร็จ</button>
         )}
 
