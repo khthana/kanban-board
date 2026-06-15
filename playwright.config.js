@@ -5,7 +5,7 @@ module.exports = defineConfig({
   timeout: 30_000,
   retries: process.env.CI ? 1 : 0,
   use: {
-    baseURL: process.env.BASE_URL || 'http://localhost:3500',
+    baseURL: process.env.BASE_URL || 'http://localhost:3600',
     headless: true,
     screenshot: 'only-on-failure',
   },

@@ -39,7 +39,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     ports:
-      - "3500:3000"
+      - "3600:3000"
     environment:
       API_PROXY_TARGET: http://api:4000
       CHOKIDAR_USEPOLLING: "true"

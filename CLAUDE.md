@@ -16,7 +16,7 @@ npm run test:e2e                         # Run Playwright E2E tests (requires ap
 ### Docker (recommended for full-stack dev)
 
 ```bash
-docker compose up                        # Start postgres + api + frontend (frontend on :3500)
+docker compose up                        # Start postgres + api + frontend (frontend on :3600)
 docker compose down                      # Stop all
 docker compose down -v                   # Stop and delete database volume
 ```
