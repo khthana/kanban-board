@@ -17,6 +17,15 @@ function CalIcon() {
   );
 }
 
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+         strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
 export default function Card({ card, onClick, labels = [], members = [], assigneeIds = [], subtasks = [], dragOverlay = false }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
@@ -83,7 +92,12 @@ export default function Card({ card, onClick, labels = [], members = [], assigne
       <div className={styles.rule} />
 
       <div className={styles.foot}>
-        {card.dueDate ? (
+        {cardDone ? (
+          <span className={`${styles.due} ${styles.completed}`} data-testid="card-completed">
+            <CheckIcon />
+            เสร็จ {formatDueDate(card.completedAt)}
+          </span>
+        ) : card.dueDate ? (
           <span className={`${styles.due} ${overdue ? styles.overdueDue : ''}`} data-testid="card-due">
             <CalIcon />
             {formatDueDate(card.dueDate)}

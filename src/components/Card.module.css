@@ -152,3 +152,8 @@
   font-weight: 700;
   flex-shrink: 0;
 }
+
+.completed {
+  color: var(--complete);
+  font-weight: 600;
+}

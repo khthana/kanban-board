@@ -31,6 +31,9 @@ test('mark a card done → badge + persists → unmark', async ({ page }) => {
 
   await page.locator('button[title="Close panel"]').click();
   await expect(page.locator('[data-testid="card-done-badge"]')).toBeVisible();
+  // Footer shows the completion date in place of the due date
+  await expect(page.locator('[data-testid="card-completed"]')).toContainText('เสร็จ');
+  await expect(page.locator('[data-testid="card-due"]')).toHaveCount(0);
 
   // Persists after reload
   await page.reload();
@@ -44,4 +47,6 @@ test('mark a card done → badge + persists → unmark', async ({ page }) => {
   ]);
   await page.locator('button[title="Close panel"]').click();
   await expect(page.locator('[data-testid="card-done-badge"]')).toHaveCount(0);
+  // Footer reverts: no completion date, the "no due date" placeholder is back
+  await expect(page.locator('[data-testid="card-completed"]')).toHaveCount(0);
 });
