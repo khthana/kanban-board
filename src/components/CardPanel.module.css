@@ -183,3 +183,44 @@
   color: #94a3b8;
   margin-top: 0.25rem;
 }
+
+/* Card completion (ADR-0003) — toggle at the top of the panel body */
+.completeBtn {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #15803d;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.completeBtn:hover { background: #dcfce7; }
+
+.completionDone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+}
+.completionLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #15803d;
+}
+.unmarkBtn {
+  background: transparent;
+  border: none;
+  font-size: 0.75rem;
+  color: #64748b;
+  cursor: pointer;
+  text-decoration: underline;
+  flex-shrink: 0;
+}
+.unmarkBtn:hover { color: #1e293b; }

@@ -110,6 +110,26 @@ describe('patchCard', () => {
   });
 });
 
+describe('card completion', () => {
+  test('marking done applies completedAt optimistically and settles with the server card', async () => {
+    client.patchCard.mockResolvedValue({ id: 'card1', columnId: 'c1', title: 'Old', position: 1, completedAt: '2026-06-15' });
+
+    await useBoardStore.getState().patchCard('card1', 'u1', { completedAt: '2026-06-15' });
+
+    expect(useBoardStore.getState().board.cards[0].completedAt).toBe('2026-06-15');
+    expect(client.patchCard).toHaveBeenCalledWith('card1', 'u1', { completedAt: '2026-06-15' });
+  });
+
+  test('a newly created card starts not completed', async () => {
+    client.createCard.mockResolvedValue({ id: 'real', columnId: 'c1', title: 'X', position: 2, completedAt: null });
+
+    await useBoardStore.getState().createCard('c1', 'u1', { title: 'X' });
+
+    const created = useBoardStore.getState().board.cards.find(c => c.id === 'real');
+    expect(created.completedAt).toBeNull();
+  });
+});
+
 describe('deleteColumn', () => {
   test('removes column and its cards, rolls back on failure', async () => {
     client.deleteColumn.mockRejectedValue(new Error('nope'));

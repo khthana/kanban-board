@@ -3,6 +3,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { isOverdue, formatDueDate } from '../domain/dates';
 import { progressView } from '../domain/progress';
 import { cardAccent, categoryLabel } from '../domain/accent';
+import { isDone } from '../domain/completion';
 import AvatarStack from './common/AvatarStack';
 import styles from './Card.module.css';
 
@@ -22,10 +23,12 @@ export default function Card({ card, onClick, labels = [], members = [], assigne
     data: { type: 'card', card, columnId: card.columnId },
   });
 
+  const cardDone = isDone(card);
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0 : 1,
+    opacity: isDragging ? 0 : (cardDone ? 0.6 : 1),
   };
 
   // The Category is the label flagged by category_label_id; its color is the
@@ -63,12 +66,15 @@ export default function Card({ card, onClick, labels = [], members = [], assigne
       tabIndex={0}
     >
       <div className={styles.top}>
-        {category ? (
-          <span className={styles.label} style={{ color: accent.text }} data-testid="card-category">
-            <span className={styles.dot} style={{ background: accent.solid }} />
-            {category.name}
-          </span>
-        ) : <span />}
+        <span className={styles.topLeft}>
+          {cardDone && <span className={styles.doneBadge} data-testid="card-done-badge" title="เสร็จแล้ว">✓</span>}
+          {category && (
+            <span className={styles.label} style={{ color: accent.text }} data-testid="card-category">
+              <span className={styles.dot} style={{ background: accent.solid }} />
+              {category.name}
+            </span>
+          )}
+        </span>
         <AvatarStack users={assignees} size={24} />
       </div>
 

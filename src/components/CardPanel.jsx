@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { validateCardDescription, validateSubtaskTitle, validateSubtaskCount } from '../domain/validation';
+import { isDone, completionPatch } from '../domain/completion';
+import { formatDueDate } from '../domain/dates';
 import LabelPicker from './LabelPicker';
 import AssigneePicker from './AssigneePicker';
 import DueDateField from './DueDateField';
@@ -97,6 +99,23 @@ export default function CardPanel({
       </div>
 
       <div className={styles.body}>
+        {isDone(card) ? (
+          <div className={styles.completionDone}>
+            <span className={styles.completionLabel}>✓ เสร็จเมื่อ {formatDueDate(card.completedAt)}</span>
+            <button
+              className={styles.unmarkBtn}
+              data-testid="complete-toggle"
+              onClick={() => onSave(completionPatch(false))}
+            >เลิกทำเครื่องหมาย</button>
+          </div>
+        ) : (
+          <button
+            className={styles.completeBtn}
+            data-testid="complete-toggle"
+            onClick={() => onSave(completionPatch(true))}
+          >✓ ทำเครื่องหมายว่าเสร็จ</button>
+        )}
+
         <LabelPicker
           boardId={boardId}
           userId={userId}

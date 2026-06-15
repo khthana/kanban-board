@@ -86,6 +86,7 @@ function normalizeCard(c) {
     categoryLabelId: c.category_label_id ?? null,
     dueDate: c.due_date ? String(c.due_date).slice(0, 10) : null,
     position: c.position,
+    completedAt: c.completed_at ? String(c.completed_at).slice(0, 10) : null,
   };
 }
 
@@ -201,6 +202,7 @@ function cardPatchToApi(patch) {
   if (patch.description !== undefined) out.description  = patch.description;
   if (patch.categoryLabelId !== undefined) out.category_label_id = patch.categoryLabelId;
   if (patch.dueDate     !== undefined) out.due_date      = patch.dueDate;
+  if (patch.completedAt !== undefined) out.completed_at  = patch.completedAt;
   if (patch.columnId    !== undefined) out.column_id     = patch.columnId;
   if (patch.position    !== undefined) out.position      = patch.position;
   return out;

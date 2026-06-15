@@ -137,7 +137,7 @@ const useBoardStore = create((set, get) => ({
   createCard: async (columnId, userId, { title }) => {
     const position = nextPosition(get().board?.cards.filter(c => c.columnId === columnId) ?? []);
     const tempId = uuidv4();
-    const placeholder = { id: tempId, columnId, title, description: '', categoryLabelId: null, dueDate: null, position };
+    const placeholder = { id: tempId, columnId, title, description: '', categoryLabelId: null, dueDate: null, completedAt: null, position };
     return optimistic(get, set, {
       apply: b => ({ ...b, cards: [...b.cards, placeholder] }),
       commit: () => client.createCard(columnId, userId, { title, position }),

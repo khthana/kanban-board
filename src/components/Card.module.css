@@ -130,3 +130,25 @@
   height: 100%;
   border-radius: 2px;
 }
+
+/* Card completion (ADR-0003) — ✓ badge in the top row; fade handled inline */
+.topLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.doneBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--complete);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
