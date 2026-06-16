@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { validateCardDescription, validateSubtaskTitle, validateSubtaskCount } from '../domain/validation';
+import { resolveTitleCommit } from '../domain/titleEdit';
 import { isDone, completionPatch, incompleteSubtasks } from '../domain/completion';
 import { formatDueDate } from '../domain/dates';
 import LabelPicker from './LabelPicker';
@@ -24,6 +25,12 @@ export default function CardPanel({
   const [desc, setDesc]           = useState(card.description ?? '');
   const [dirty, setDirty]         = useState(false);
   const [error, setError]         = useState(null);
+  const [editingTitle, setEditingTitle]   = useState(false);
+  const [titleInput, setTitleInput]       = useState(card.title);
+  const [titleError, setTitleError]       = useState(null);
+  // A keyboard commit (Enter/Escape) closes the editor, which unmounts the
+  // focused input and can fire onBlur — skip that follow-up blur commit.
+  const skipTitleBlur = useRef(false);
   const [addingSubtask, setAddingSubtask]   = useState(false);
   const [subtaskInput, setSubtaskInput]     = useState('');
   const [subtaskError, setSubtaskError]     = useState(null);
@@ -36,6 +43,38 @@ export default function CardPanel({
     setDirty(false);
     setError(null);
   }, [card.id, card.description]);
+
+  // Discard any half-typed title edit when switching to a different card.
+  useEffect(() => {
+    setEditingTitle(false);
+    setTitleInput(card.title);
+    setTitleError(null);
+  }, [card.id]);
+
+  function startTitleEdit() {
+    setTitleInput(card.title);
+    setTitleError(null);
+    setEditingTitle(true);
+  }
+
+  function commitTitle(trigger) {
+    const result = resolveTitleCommit({ trigger, value: titleInput, current: card.title });
+    if (result.action === 'error') { setTitleError(result.message); return; }
+    if (result.action === 'save') onSave({ title: result.title });
+    skipTitleBlur.current = true;
+    setEditingTitle(false);
+    setTitleError(null);
+  }
+
+  function handleTitleBlur() {
+    if (skipTitleBlur.current) { skipTitleBlur.current = false; return; }
+    commitTitle('blur');
+  }
+
+  function handleTitleKeyDown(e) {
+    if (e.key === 'Enter') { e.preventDefault(); commitTitle('enter'); }
+    else if (e.key === 'Escape') { skipTitleBlur.current = true; setEditingTitle(false); setTitleError(null); }
+  }
 
   function handleDescChange(e) {
     const val = e.target.value;
@@ -103,7 +142,28 @@ export default function CardPanel({
   return (
     <aside className={styles.panel}>
       <div className={styles.header}>
-        <h2 className={styles.title}>{card.title}</h2>
+        {editingTitle ? (
+          <div className={styles.titleEditRow}>
+            <input
+              className={styles.titleInput}
+              data-testid="card-title-input"
+              autoFocus
+              value={titleInput}
+              onFocus={e => e.target.select()}
+              onChange={e => { setTitleInput(e.target.value); setTitleError(null); }}
+              onKeyDown={handleTitleKeyDown}
+              onBlur={handleTitleBlur}
+            />
+            {titleError && <p className={styles.fieldError}>{titleError}</p>}
+          </div>
+        ) : (
+          <h2
+            className={styles.title}
+            data-testid="card-title"
+            onClick={startTitleEdit}
+            title="คลิกเพื่อแก้ไข"
+          >{card.title}</h2>
+        )}
         <button className={styles.closeBtn} onClick={onClose} title="Close panel">✕</button>
       </div>
 
