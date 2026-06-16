@@ -131,3 +131,17 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 ### CI (GitHub Actions)
 
 `.github/workflows/ci.yml` — runs the 111 unit tests on every push/PR to `main`.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs live in GitHub Issues (`khthana/kanban-board`) via the `gh` CLI; API-specific issues go in the `kanban-board-api` repo. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical triage roles; `ready-for-human` maps to the existing `hitl` label, the rest use their default names (`needs-triage`, `needs-info` not yet created). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
