@@ -16,7 +16,7 @@ npm run test:e2e                         # Run Playwright E2E tests (requires ap
 ### Docker (recommended for full-stack dev)
 
 ```bash
-docker compose up                        # Start postgres + api + frontend (frontend on :3600)
+docker compose up                        # Start postgres + api + frontend (frontend on :3700)
 docker compose down                      # Stop all
 docker compose down -v                   # Stop and delete database volume
 ```
@@ -27,8 +27,8 @@ First run only: `npm install && npx playwright install chromium`
 
 A Kanban board SPA for small teams (2–15 people). **Fully implemented** — React frontend connected to a real Node.js/PostgreSQL backend. Includes User Profile page (view/edit displayName, email, password) and Subtasks with progress tracking.
 
-- **Frontend** (this repo): React + Zustand + dnd-kit
-- **Backend** (separate repo: `kanban-board-api`): Node.js + Express + PostgreSQL, runs on port 4000
+- **Frontend** (`src/`): React + Zustand + dnd-kit
+- **Backend** (`api/`): Node.js + Express + PostgreSQL, runs on port 4000
 - **Full PRD**: [requirement/Kanban-Board-PRD.md](requirement/Kanban-Board-PRD.md)
 - **User Profile PRD**: [requirement/PRD-User-Profile.md](requirement/PRD-User-Profile.md)
 
@@ -62,7 +62,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 - **Optimistic UI**: snapshot → apply → API → rollback on error
 - **Board snapshot**: `GET /boards/:id` returns nested shape; `client.js` flattens to `{ board, columns[], cards[], labels[], members[], cardLabels[], cardAssignees[], subtasks[] }`
 - **snake_case ↔ camelCase**: `normalizeCard()` / `normalizeSubtask()` / `cardPatchToApi()` in `client.js` handle conversion
-- **Profile endpoints**: `GET /auth/me`, `PATCH /auth/me`, `PATCH /auth/me/password` in `kanban-board-api`
+- **Profile endpoints**: `GET /auth/me`, `PATCH /auth/me`, `PATCH /auth/me/password` — implemented in `api/src/routes/auth.js`
 - **Refresh tokens**: 60-minute access token + 7-day refresh token. On 401, `client.js` attempts silent refresh with single in-flight promise; failure clears both tokens and redirects to `/login`
 - **Subtasks**: Nested per card, limit 20 per card, stored with float position (not array index). Support toggle (checked), rename, reorder (↑/↓), delete. Progress shown on the card via `domain/progress.js` `progressView(done,total)` — adaptive **segments** (≤ 8 subtasks) vs continuous **mini-bar** (> 8) + `done/total` count (turns green when complete).
 - **Column Accent** (see [ADR-0001](docs/adr/0001-column-accent-model.md)): `color VARCHAR(7) NULL` on `columns` table is the column's **Accent** — it themes the whole column, not just the header strip (which superseded [PRD-Column-Colors](requirement/PRD-Column-Colors.md)). `PATCH /columns/:id` accepts `color` (hex or null); `renameColumn(id, userId, { name, color })` optimistic update uses `color !== undefined ? color : c.color` to handle null (clear). In `Column.jsx`, when `color` is set the column root gets `className .accented` + inline `--accent` CSS var; CSS derives: title chip background = `var(--accent)`, column wash = `color-mix(--accent 12%, white)`, count = `color-mix(--accent, black 38%)`, "New card" button text = `color-mix(--accent, black 30%)` (passed to `CardComposer` via `accent` prop). Chip text stays `#1e293b`. When `color` is null, all fall back to neutral gray. Edit form shows 8 pastel presets + "+" custom + "✕" clear using `data-swatch` attributes.
