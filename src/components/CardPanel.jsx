@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { validateCardDescription, validateSubtaskTitle, validateSubtaskCount } from '../domain/validation';
 import { resolveTitleCommit } from '../domain/titleEdit';
 import { isDone, completionPatch, incompleteSubtasks } from '../domain/completion';
+import { resolveAttach, resolveDetach } from '../domain/category';
 import { formatDueDate } from '../domain/dates';
 import LabelPicker from './LabelPicker';
 import AssigneePicker from './AssigneePicker';
@@ -193,17 +194,13 @@ export default function CardPanel({
           categoryLabelId={card.categoryLabelId}
           onAttach={labelId => {
             onAttachLabel(card.id, labelId, userId);
-            // Auto-set the first attached label as the Category so a label
-            // shows on the card immediately; the ★ overrides which is primary.
-            if (!card.categoryLabelId) onSave({ categoryLabelId: labelId });
+            const newCat = resolveAttach(card.categoryLabelId, labelId);
+            if (newCat !== card.categoryLabelId) onSave({ categoryLabelId: newCat });
           }}
           onDetach={labelId => {
             onDetachLabel(card.id, labelId, userId);
-            // If we removed the Category label, promote the next remaining one.
-            if (labelId === card.categoryLabelId) {
-              const remaining = [...attachedIds].filter(id => id !== labelId);
-              onSave({ categoryLabelId: remaining[0] ?? null });
-            }
+            const newCat = resolveDetach(attachedIds, labelId, card.categoryLabelId);
+            if (newCat !== card.categoryLabelId) onSave({ categoryLabelId: newCat });
           }}
           onSetCategory={labelId => onSave({ categoryLabelId: labelId })}
           onCreateLabel={onCreateLabel}

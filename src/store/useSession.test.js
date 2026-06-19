@@ -1,7 +1,9 @@
 import useSession from './useSession';
 import * as client from '../api/client';
+import * as auth from '../api/auth';
 
 jest.mock('../api/client');
+jest.mock('../api/auth');
 
 function makeToken(sub) {
   const payload = btoa(JSON.stringify({ sub, exp: Math.floor(Date.now() / 1000) + 3600 }));
@@ -10,7 +12,7 @@ function makeToken(sub) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  client.getToken.mockReturnValue(null);
+  auth.getToken.mockReturnValue(null);
   client.login.mockResolvedValue({ token: makeToken('user-1') });
   client.register.mockResolvedValue({ token: makeToken('user-1') });
   client.getMe.mockResolvedValue({ id: 'user-1', displayName: 'Alice', email: 'alice@example.com' });

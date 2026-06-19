@@ -1,14 +1,6 @@
 import { create } from 'zustand';
-import {
-  login as apiLogin,
-  register as apiRegister,
-  getMe,
-  patchMe,
-  clearToken,
-  clearRefreshToken,
-  getToken,
-  getRefreshToken,
-} from '../api/client';
+import { login as apiLogin, register as apiRegister, getMe, patchMe } from '../api/client';
+import { clearToken, clearRefreshToken, getToken, getRefreshToken } from '../api/auth';
 
 function decodeJwt(token) {
   try {
