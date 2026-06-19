@@ -1,6 +1,6 @@
-const request = require('supertest');
-const app = require('../app');
-const pool = require('../db/pool');
+import request from 'supertest';
+import app from '../app.js';
+import pool from '../db/pool.js';
 
 async function createUser({ email = 'alice@example.com', password = 'secret123', displayName = 'Alice' } = {}) {
   const res = await request(app).post('/auth/register').send({ email, password, displayName });
@@ -14,4 +14,4 @@ async function clearDb() {
   );
 }
 
-module.exports = { createUser, clearDb };
+export { createUser, clearDb };

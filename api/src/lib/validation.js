@@ -4,4 +4,4 @@ function isValidHex(color) {
   return HEX_COLOR_RE.test(color);
 }
 
-module.exports = { isValidHex };
+export { isValidHex };

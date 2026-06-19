@@ -1,6 +1,6 @@
-const request = require('supertest');
-const app = require('../app');
-const { clearDb } = require('../test/helpers');
+import request from 'supertest';
+import app from '../app.js';
+import { clearDb } from '../test/helpers.js';
 
 beforeAll(clearDb);
 beforeEach(clearDb);

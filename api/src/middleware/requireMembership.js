@@ -1,9 +1,5 @@
-const pool = require('../db/pool');
+import pool from '../db/pool.js';
 
-// Resolves board_id from req.params.boardId (or req.boardId set by caller),
-// checks board_members, and attaches req.memberRole ('owner' | 'member').
-// Usage: router.use('/:boardId/...', requireMembership('boardId'))
-//   or set req.boardId before calling and use requireMembership()
 function requireMembership(paramName = 'boardId') {
   return async (req, res, next) => {
     const boardId = req.params[paramName] ?? req.boardId;
@@ -39,4 +35,4 @@ function requireOwner(paramName = 'boardId') {
   };
 }
 
-module.exports = { requireMembership, requireOwner };
+export { requireMembership, requireOwner };

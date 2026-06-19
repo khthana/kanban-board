@@ -1,4 +1,5 @@
-const { Pool, types } = require('pg');
+import pg from 'pg';
+const { Pool, types } = pg;
 
 // DATE (OID 1082): return the raw 'YYYY-MM-DD' string instead of a JS Date.
 // node-pg's default parses to a Date at the server's local midnight, which JSON
@@ -15,4 +16,4 @@ if (!url) {
 
 const pool = new Pool({ connectionString: url });
 
-module.exports = pool;
+export default pool;

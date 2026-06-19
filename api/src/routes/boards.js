@@ -1,9 +1,10 @@
-const router = require('express').Router();
-const pool = require('../db/pool');
-const requireAuth = require('../middleware/requireAuth');
-const { requireMembership, requireOwner } = require('../middleware/requireMembership');
-const { isValidHex } = require('../lib/validation');
+import express from 'express';
+import pool from '../db/pool.js';
+import requireAuth from '../middleware/requireAuth.js';
+import { requireMembership, requireOwner } from '../middleware/requireMembership.js';
+import { isValidHex } from '../lib/validation.js';
 
+const router = express.Router();
 router.use(requireAuth);
 
 router.post('/', async (req, res) => {
@@ -225,4 +226,4 @@ router.delete('/:id/members/:userId', requireOwner('id'), async (req, res) => {
   return res.sendStatus(204);
 });
 
-module.exports = router;
+export default router;

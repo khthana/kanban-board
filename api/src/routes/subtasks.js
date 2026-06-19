@@ -1,7 +1,8 @@
-const router = require('express').Router();
-const pool = require('../db/pool');
-const requireAuth = require('../middleware/requireAuth');
+import express from 'express';
+import pool from '../db/pool.js';
+import requireAuth from '../middleware/requireAuth.js';
 
+const router = express.Router();
 router.use(requireAuth);
 
 async function getMembershipViaCard(cardId, userId) {
@@ -109,4 +110,4 @@ router.delete('/subtasks/:id', async (req, res) => {
   return res.sendStatus(204);
 });
 
-module.exports = router;
+export default router;

@@ -1,14 +1,15 @@
 {
   "name": "kanban-board-api",
   "version": "1.0.0",
+  "type": "module",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "migrate": "node src/db/migrate.js",
     "migrate:test": "NODE_ENV=test node src/db/migrate.js",
-    "test": "jest --maxWorkers=1 --forceExit",
-    "test:watch": "jest --maxWorkers=1 --forceExit --watch"
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --maxWorkers=1 --forceExit",
+    "test:watch": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --maxWorkers=1 --forceExit --watch"
   },
   "jest": {
     "testEnvironment": "node",
@@ -17,7 +18,7 @@
     "setupFilesAfterEnv": [
       "./src/test/setup.js"
     ],
-    "testPathPattern": "\\.test\\.js$"
+    "testPathPatterns": ["\\.test\\.js$"]
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -29,6 +30,7 @@
     "pg": "^8.21.0"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "jest": "^30.4.2",
     "supertest": "^7.2.2"
   }

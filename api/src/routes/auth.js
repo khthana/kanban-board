@@ -1,11 +1,12 @@
-const router = require('express').Router();
-const bcrypt = require('bcrypt');
-const crypto = require('crypto');
-const jwt = require('jsonwebtoken');
-const rateLimit = require('express-rate-limit');
-const pool = require('../db/pool');
-const requireAuth = require('../middleware/requireAuth');
+import express from 'express';
+import bcrypt from 'bcrypt';
+import { randomBytes, createHash } from 'crypto';
+import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
+import pool from '../db/pool.js';
+import requireAuth from '../middleware/requireAuth.js';
 
+const router = express.Router();
 const BCRYPT_ROUNDS = 12;
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -24,8 +25,8 @@ function signToken(userId) {
 }
 
 async function createRefreshToken(userId) {
-  const raw = crypto.randomBytes(32).toString('hex');
-  const hash = crypto.createHash('sha256').update(raw).digest('hex');
+  const raw = randomBytes(32).toString('hex');
+  const hash = createHash('sha256').update(raw).digest('hex');
   const expiresAt = new Date(Date.now() + REFRESH_TTL_MS);
   await pool.query(
     'INSERT INTO refresh_tokens(user_id, token_hash, expires_at) VALUES($1, $2, $3)',
@@ -99,7 +100,7 @@ router.post('/refresh', async (req, res) => {
     return res.status(400).json({ error: 'refreshToken is required' });
   }
 
-  const hash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+  const hash = createHash('sha256').update(refreshToken).digest('hex');
   const { rows } = await pool.query(
     'SELECT user_id FROM refresh_tokens WHERE token_hash = $1 AND expires_at > now()',
     [hash]
@@ -176,4 +177,4 @@ router.get('/me', requireAuth, async (req, res) => {
   return res.json({ id: req.user.id, email: rows[0].email, displayName: rows[0].display_name });
 });
 
-module.exports = router;
+export default router;

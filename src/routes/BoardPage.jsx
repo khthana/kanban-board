@@ -4,11 +4,11 @@ import {
   DndContext, DragOverlay, closestCenter, PointerSensor,
   KeyboardSensor, useSensor, useSensors,
 } from '@dnd-kit/core';
-import { SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
+import { SortableContext, horizontalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import useSession from '../store/useSession';
 import useBoardStore from '../store/useBoardStore';
 import { usePolling } from '../hooks/usePolling';
-import { positionBetween } from '../domain/ordering';
+import { resolveDrag } from '../domain/dragDrop';
 import { DND_ACTIVATION_DISTANCE } from '../constants';
 import TopBar from '../components/TopBar';
 import Column from '../components/Column';
@@ -74,70 +74,13 @@ export default function BoardPage() {
 
   function handleDragEnd({ active, over }) {
     setActiveDrag(null);
-    if (!over || active.id === over.id) return;
-
-    const { columns, cards } = board;
-    const sortedCols = [...columns].sort((a, b) => a.position - b.position);
-
-    const activeType = active.data.current?.type;
-
-    // ── Column reorder ────────────────────────────────────────────────────────
-    if (activeType === 'column') {
-      const fromIdx = sortedCols.findIndex(c => c.id === active.id);
-
-      // over.id may be a column id, a col:xxx droppable, or a card id (dropped on card in target column)
-      let toIdx = sortedCols.findIndex(c => c.id === over.id);
-      if (toIdx < 0) {
-        const overCard = board.cards.find(c => c.id === over.id);
-        if (overCard) toIdx = sortedCols.findIndex(c => c.id === overCard.columnId);
-      }
-      if (toIdx < 0 && typeof over.id === 'string' && over.id.startsWith('col:')) {
-        toIdx = sortedCols.findIndex(c => c.id === over.id.slice(4));
-      }
-      if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
-
-      const reordered = arrayMove(sortedCols, fromIdx, toIdx);
-      const newIdx = reordered.findIndex(c => c.id === active.id);
-      const prev = reordered[newIdx - 1];
-      const next = reordered[newIdx + 1];
-      const position = positionBetween(prev?.position ?? null, next?.position ?? null);
-      moveColumn(active.id, currentUserId, { position }).catch(err => setOpError(err.message));
-      return;
-    }
-
-    // ── Card move ─────────────────────────────────────────────────────────────
-    if (activeType === 'card') {
-      const overType = over.data.current?.type;
-
-      // Determine target column
-      let targetColumnId;
-      if (overType === 'column') {
-        targetColumnId = over.id;
-      } else if (overType === 'card') {
-        targetColumnId = over.data.current.columnId;
-      } else if (typeof over.id === 'string' && over.id.startsWith('col:')) {
-        targetColumnId = over.id.slice(4); // useDroppable id format
-      } else {
-        return;
-      }
-
-      // Cards in target column excluding the active card, sorted
-      const colCards = cards
-        .filter(c => c.columnId === targetColumnId && c.id !== active.id)
-        .sort((a, b) => a.position - b.position);
-
-      let position;
-      if (overType === 'column' || (typeof over.id === 'string' && over.id.startsWith('col:'))) {
-        position = positionBetween(colCards.at(-1)?.position ?? null, null);
-      } else {
-        const overIdx = colCards.findIndex(c => c.id === over.id);
-        position = positionBetween(
-          colCards[overIdx - 1]?.position ?? null,
-          colCards[overIdx]?.position ?? null,
-        );
-      }
-
-      moveCard(active.id, currentUserId, { columnId: targetColumnId, position })
+    const outcome = resolveDrag(board, { active, over });
+    if (!outcome) return;
+    if (outcome.type === 'column') {
+      moveColumn(outcome.columnId, currentUserId, { position: outcome.position })
+        .catch(err => setOpError(err.message));
+    } else {
+      moveCard(outcome.cardId, currentUserId, { columnId: outcome.toColumnId, position: outcome.position })
         .catch(err => setOpError(err.message));
     }
   }

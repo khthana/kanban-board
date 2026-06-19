@@ -1,19 +1,26 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const errorHandler = require('./middleware/errorHandler');
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import errorHandler from './middleware/errorHandler.js';
+import authRouter from './routes/auth.js';
+import boardsRouter from './routes/boards.js';
+import columnsRouter from './routes/columns.js';
+import cardsRouter from './routes/cards.js';
+import subtasksRouter from './routes/subtasks.js';
+import labelsRouter from './routes/labels.js';
+
 const app = express();
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:3000' }));
 app.use(express.json());
 
-app.use('/auth', require('./routes/auth'));
-app.use('/boards', require('./routes/boards'));
-app.use('/columns', require('./routes/columns'));
-app.use('/cards', require('./routes/cards'));
-app.use('/', require('./routes/subtasks'));
-app.use('/labels', require('./routes/labels'));
+app.use('/auth', authRouter);
+app.use('/boards', boardsRouter);
+app.use('/columns', columnsRouter);
+app.use('/cards', cardsRouter);
+app.use('/', subtasksRouter);
+app.use('/labels', labelsRouter);
 
 app.use(errorHandler);
 
-module.exports = app;
+export default app;

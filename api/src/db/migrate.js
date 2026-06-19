@@ -1,7 +1,11 @@
-require('dotenv').config();
-const fs = require('fs');
-const path = require('path');
-const { Pool } = require('pg');
+import 'dotenv/config';
+import { readFileSync, readdirSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import pg from 'pg';
+const { Pool } = pg;
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function migrate(connectionString) {
   const pool = new Pool({ connectionString });
@@ -13,8 +17,8 @@ async function migrate(connectionString) {
       )
     `);
 
-    const dir = path.join(__dirname, 'migrations');
-    const files = fs.readdirSync(dir).filter(f => f.endsWith('.sql')).sort();
+    const dir = join(__dirname, 'migrations');
+    const files = readdirSync(dir).filter(f => f.endsWith('.sql')).sort();
 
     for (const file of files) {
       const { rows } = await pool.query(
@@ -23,7 +27,7 @@ async function migrate(connectionString) {
       );
       if (rows.length > 0) continue;
 
-      const sql = fs.readFileSync(path.join(dir, file), 'utf8');
+      const sql = readFileSync(join(dir, file), 'utf8');
       await pool.query('BEGIN');
       try {
         await pool.query(sql);
@@ -40,11 +44,12 @@ async function migrate(connectionString) {
   }
 }
 
-if (require.main === module) {
+const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+if (isMain) {
   const url = process.env.NODE_ENV === 'test'
     ? process.env.TEST_DATABASE_URL
     : process.env.DATABASE_URL;
   migrate(url).catch(err => { console.error(err); process.exit(1); });
 }
 
-module.exports = { migrate };
+export { migrate };

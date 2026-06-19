@@ -1,8 +1,9 @@
-const router = require('express').Router();
-const pool = require('../db/pool');
-const requireAuth = require('../middleware/requireAuth');
-const { isValidHex } = require('../lib/validation');
+import express from 'express';
+import pool from '../db/pool.js';
+import requireAuth from '../middleware/requireAuth.js';
+import { isValidHex } from '../lib/validation.js';
 
+const router = express.Router();
 router.use(requireAuth);
 
 router.patch('/:id', async (req, res) => {
@@ -58,4 +59,4 @@ router.delete('/:id', async (req, res) => {
   return res.sendStatus(204);
 });
 
-module.exports = router;
+export default router;
