@@ -84,7 +84,7 @@ For production set `REACT_APP_API_URL` to your backend URL before building.
 ```bash
 npm start                                # dev server (http://localhost:3000)
 npm test                                 # watch mode
-npm test -- --watchAll=false             # run unit tests once (111 tests)
+npm test -- --watchAll=false             # run unit tests once (132 tests)
 npm test -- --testPathPattern="polling"  # run a single test file
 npm run build                            # production build
 npm run test:e2e                         # Playwright E2E (28 tests, requires docker compose up)
@@ -95,7 +95,7 @@ npm run test:e2e                         # Playwright E2E (28 tests, requires do
 ```bash
 cd api && npm run dev                    # API server with --watch at localhost:4000
 cd api && npm run migrate               # run DB migrations
-cd api && npm test                       # 116 integration tests (requires local postgres)
+cd api && npm test                       # 109 integration tests (requires local postgres)
 ```
 
 E2E tests are flaky under parallel (single shared Postgres → contention). Use `npx playwright test --workers=1` for a deterministic pass, or `npx playwright test --ui` for interactive mode.
@@ -107,14 +107,17 @@ E2E tests are flaky under parallel (single shared Postgres → contention). Use 
 ```
 src/
 ├── api/
-│   └── client.js          # fetch client — JWT header, 401 silent refresh, snake_case↔camelCase
+│   ├── auth.js            # token storage, silent-refresh, apiFetch (auth seam)
+│   └── client.js          # 35 CRUD functions — calls apiFetch, normalises snake_case↔camelCase
 ├── store/
 │   ├── useSession.js      # JWT auth (login / register / logout / profile)
 │   └── useBoardStore.js   # board state + optimistic mutations (optimistic() helper)
 ├── hooks/
 │   └── usePolling.js      # 10s polling for cross-tab sync
 ├── domain/                # pure, unit-tested logic
-│   ├── ordering.js        # positionBetween, needsRebalance, rebalance
+│   ├── ordering.js        # positionBetween, needsRebalance, rebalance (shared with api/)
+│   ├── dragDrop.js        # resolveDrag — pure drag-and-drop outcome resolver
+│   ├── category.js        # resolveAttach / resolveDetach — Category auto-promotion
 │   ├── validation.js      # client-side field validation
 │   ├── dates.js           # timezone-safe YYYY-MM-DD helpers, overdue check
 │   ├── colors.js          # preset swatch palette
@@ -148,13 +151,13 @@ src/
 
 **Optimistic UI** — every mutation snapshots state, applies the change locally, then calls the API. On failure the snapshot is restored.
 
-**JWT auth with refresh tokens** — 60-minute access token + 7-day refresh token in `localStorage`. A 401 triggers a single in-flight silent refresh; failure clears both tokens and redirects to `/login`.
+**Auth seam** — token storage, silent-refresh logic, and `apiFetch` live in `src/api/auth.js`; `client.js` imports only `apiFetch`. A 401 triggers a single in-flight silent refresh; failure clears both tokens and redirects to `/login`. 60-minute access token + 7-day refresh token in `localStorage`.
 
 **Polling** — `GET /boards/:id` runs every 10 seconds to reconcile state across tabs. A 403 ejects to the board list; a 404 navigates away.
 
 **Editorial card** ([ADR-0002](docs/adr/0002-card-editorial-model.md)) — a type-forward card face: category dot + uppercase label, hero title, due date, and adaptive subtask progress.
 
-**Category** ([ADR-0002](docs/adr/0002-card-editorial-model.md)) — one label per card is the **category**, the only label shown on the card face; its colour becomes the card accent. Other labels are managed in the panel.
+**Category** ([ADR-0002](docs/adr/0002-card-editorial-model.md)) — one label per card is the **category**, the only label shown on the card face; its colour becomes the card accent. Auto-promotion rules (`resolveAttach` / `resolveDetach`) live in `domain/category.js`. Other labels are managed in the panel.
 
 **Column accent** ([ADR-0001](docs/adr/0001-column-accent-model.md)) — an optional colour that themes the whole column (chip, wash, count, new-card button), not just a header strip.
 

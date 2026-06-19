@@ -12,12 +12,12 @@
 - **React Router v7** — client-side routing
 - **react-datepicker** — ตัวเลือกวันครบกำหนด (`dd/MM/yyyy`)
 
-Backend ([kanban-board-api](https://github.com/khthana/kanban-board-api)) เป็นบริการแยกต่างหาก Node.js + Express + PostgreSQL รันบน port 4000
+Backend อยู่ใน `api/` — Node.js + Express + PostgreSQL รันบน port 4000
 
 ## สิ่งที่ต้องติดตั้งก่อน
 
 - Node.js 18+
-- Docker (แนะนำสำหรับ dev แบบ full-stack) **หรือ** backend [kanban-board-api](https://github.com/khthana/kanban-board-api) ที่รันอยู่บน port 4000
+- Docker (แนะนำสำหรับ dev แบบ full-stack) **หรือ** PostgreSQL รันอยู่ใน local
 
 ## เริ่มต้นใช้งาน
 
@@ -29,7 +29,7 @@ Backend ([kanban-board-api](https://github.com/khthana/kanban-board-api)) เป
 # ครั้งแรกเท่านั้น
 npm install && npx playwright install chromium
 
-docker compose up           # postgres + api + frontend (http://localhost:3600)
+docker compose up           # postgres + api + frontend (http://localhost:3700)
 docker compose down         # หยุดทั้งหมด
 docker compose down -v      # หยุดและลบ volume ของฐานข้อมูล
 ```
@@ -59,7 +59,7 @@ REACT_APP_API_URL=http://localhost:4000
 ```bash
 npm start                                # dev server (http://localhost:3000)
 npm test                                 # watch mode
-npm test -- --watchAll=false             # รัน unit tests ครั้งเดียว (111 tests)
+npm test -- --watchAll=false             # รัน unit tests ครั้งเดียว (132 tests)
 npm test -- --testPathPattern="polling"  # รัน test ไฟล์เดียว
 npm run build                            # production build
 npm run test:e2e                         # Playwright E2E (28 tests, ต้องใช้ full stack)
@@ -74,14 +74,17 @@ E2E tests มีโอกาส flaky เมื่อรันแบบ parallel
 ```
 src/
 ├── api/
-│   └── client.js          # fetch client — JWT header, 401 silent refresh, แปลง snake_case↔camelCase
+│   ├── auth.js            # เก็บ token, silent-refresh, apiFetch (auth seam)
+│   └── client.js          # 35 CRUD functions — เรียก apiFetch, แปลง snake_case↔camelCase
 ├── store/
 │   ├── useSession.js      # JWT auth (login / register / logout / profile)
 │   └── useBoardStore.js   # board state + optimistic mutations (ตัวช่วย optimistic())
 ├── hooks/
 │   └── usePolling.js      # polling ทุก 10 วินาทีสำหรับ cross-tab sync
 ├── domain/                # logic บริสุทธิ์ มี unit test
-│   ├── ordering.js        # positionBetween, needsRebalance, rebalance
+│   ├── ordering.js        # positionBetween, needsRebalance, rebalance (แชร์กับ api/)
+│   ├── dragDrop.js        # resolveDrag — คำนวณผล drag-and-drop แบบ pure
+│   ├── category.js        # resolveAttach / resolveDetach — กฎ auto-promotion Category
 │   ├── validation.js      # client-side field validation
 │   ├── dates.js           # ตัวช่วยวันที่ YYYY-MM-DD แบบ timezone-safe, ตรวจ overdue
 │   ├── colors.js          # ชุดสี swatch สำเร็จรูป
@@ -115,13 +118,13 @@ src/
 
 **Optimistic UI** — ทุก mutation จะ snapshot state, อัปเดต local ทันที แล้วเรียก API ถ้าเกิด error จะ restore snapshot
 
-**JWT auth with refresh tokens** — access token 60 นาที + refresh token 7 วัน เก็บใน `localStorage` เมื่อได้รับ 401 จะ refresh เงียบๆ (single in-flight) ถ้าล้มเหลวจะล้างทั้งสอง token และ redirect ไป `/login`
+**Auth seam** — เก็บ token, silent-refresh, และ `apiFetch` รวมอยู่ใน `src/api/auth.js`; `client.js` import เฉพาะ `apiFetch` เมื่อได้รับ 401 จะ refresh เงียบๆ (single in-flight) ถ้าล้มเหลวจะล้างทั้งสอง token และ redirect ไป `/login` access token 60 นาที + refresh token 7 วัน เก็บใน `localStorage`
 
 **Polling** — เรียก `GET /boards/:id` ทุก 10 วินาทีเพื่อ sync ข้อมูลระหว่าง tab ถ้าได้รับ 403 จะกลับไปหน้ารายการ board ถ้า 404 จะนำทางออก
 
 **Editorial card** ([ADR-0002](docs/adr/0002-card-editorial-model.md)) — หน้าการ์ดแบบ type-forward: จุด category + ชื่อพิมพ์ใหญ่, ชื่อเรื่องเด่น, วันครบกำหนด, และความคืบหน้างานย่อยแบบ adaptive
 
-**Category** ([ADR-0002](docs/adr/0002-card-editorial-model.md)) — ป้ายกำกับหนึ่งตัวต่อการ์ดเป็น **category** ซึ่งเป็นป้ายเดียวที่แสดงบนหน้าการ์ด และสีของมันกลายเป็นสี accent ของการ์ด ส่วนป้ายอื่นจัดการใน panel
+**Category** ([ADR-0002](docs/adr/0002-card-editorial-model.md)) — ป้ายกำกับหนึ่งตัวต่อการ์ดเป็น **category** ซึ่งเป็นป้ายเดียวที่แสดงบนหน้าการ์ด และสีของมันกลายเป็นสี accent กฎ auto-promotion (`resolveAttach` / `resolveDetach`) อยู่ใน `domain/category.js` ส่วนป้ายอื่นจัดการใน panel
 
 **Column accent** ([ADR-0001](docs/adr/0001-column-accent-model.md)) — สี (optional) ที่ธีมทั้งคอลัมน์ (chip, พื้นจาง, ตัวเลขนับ, ปุ่มเพิ่มการ์ด) ไม่ใช่แค่แถบ header
 
