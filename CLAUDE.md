@@ -36,11 +36,13 @@ A Kanban board SPA for small teams (2–15 people). **Fully implemented** — Re
 
 ### Layout
 
-`src/` is layered: `api/` (fetch client), `domain/` (pure logic — `ordering`, `validation`, `dates`, `colors`, `progress`, `accent` — unit-tested where there's real logic), `store/` (Zustand), `hooks/`, `components/`, `routes/` (route components + `RequireAuth` guard). Generic, reusable presentational primitives live in `components/common/` (`Avatar`, `AvatarStack`, `Toast`, `ColorPicker`); the rest of `components/` is board-feature-specific. App-wide tunables (polling interval, toast duration, dnd activation distance) live in `src/constants.js`. CSS modules and `.test.js` are co-located with their source.
+`src/` is layered: `api/` (fetch client), `domain/` (pure logic — `ordering`, `validation`, `dates`, `colors`, `progress`, `accent`, `dragDrop`, `category`, `completion`, `titleEdit` — unit-tested where there's real logic), `store/` (Zustand), `hooks/`, `components/`, `routes/` (route components + `RequireAuth` guard). Generic, reusable presentational primitives live in `components/common/` (`Avatar`, `AvatarStack`, `Toast`, `ColorPicker`); the rest of `components/` is board-feature-specific. App-wide tunables (polling interval, toast duration, dnd activation distance) live in `src/constants.js`. CSS modules and `.test.js` are co-located with their source.
 
 ### API Client
 
-`src/api/client.js` — real `fetch()` client. All functions attach `Authorization: Bearer <token>` from localStorage. 401 response clears token and redirects to `/login`. Normalizes backend snake_case responses to camelCase for the store.
+`src/api/auth.js` — token storage (6 functions), silent-refresh logic (single in-flight promise), and `apiFetch(method, path, body)`. This is the auth seam: `apiFetch` is the only export callers need for requests. 401 clears both tokens and redirects to `/login`. `useSession.js` imports token helpers directly from here.
+
+`src/api/client.js` — 35 CRUD functions, each calling `apiFetch` + normalizing responses. No token knowledge. Normalizes backend snake_case responses to camelCase for the store.
 
 In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/columns`, `/cards`, `/labels`, `/subtasks`) to `API_PROXY_TARGET` (default `http://localhost:4000`). **Proxy skips requests with `Accept: text/html`** so browser navigation to `/boards/:id` etc. is handled by React's historyApiFallback (serves `index.html`), not forwarded to the API.
 
@@ -63,11 +65,11 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 - **Board snapshot**: `GET /boards/:id` returns nested shape; `client.js` flattens to `{ board, columns[], cards[], labels[], members[], cardLabels[], cardAssignees[], subtasks[] }`
 - **snake_case ↔ camelCase**: `normalizeCard()` / `normalizeSubtask()` / `cardPatchToApi()` in `client.js` handle conversion
 - **Profile endpoints**: `GET /auth/me`, `PATCH /auth/me`, `PATCH /auth/me/password` — implemented in `api/src/routes/auth.js`
-- **Refresh tokens**: 60-minute access token + 7-day refresh token. On 401, `client.js` attempts silent refresh with single in-flight promise; failure clears both tokens and redirects to `/login`
+- **Refresh tokens**: 60-minute access token + 7-day refresh token. On 401, `src/api/auth.js` `apiFetch` attempts silent refresh with single in-flight promise; failure clears both tokens and redirects to `/login`
 - **Subtasks**: Nested per card, limit 20 per card, stored with float position (not array index). Support toggle (checked), rename, reorder (↑/↓), delete. Progress shown on the card via `domain/progress.js` `progressView(done,total)` — adaptive **segments** (≤ 8 subtasks) vs continuous **mini-bar** (> 8) + `done/total` count (turns green when complete).
 - **Column Accent** (see [ADR-0001](docs/adr/0001-column-accent-model.md)): `color VARCHAR(7) NULL` on `columns` table is the column's **Accent** — it themes the whole column, not just the header strip (which superseded [PRD-Column-Colors](requirement/PRD-Column-Colors.md)). `PATCH /columns/:id` accepts `color` (hex or null); `renameColumn(id, userId, { name, color })` optimistic update uses `color !== undefined ? color : c.color` to handle null (clear). In `Column.jsx`, when `color` is set the column root gets `className .accented` + inline `--accent` CSS var; CSS derives: title chip background = `var(--accent)`, column wash = `color-mix(--accent 12%, white)`, count = `color-mix(--accent, black 38%)`, "New card" button text = `color-mix(--accent, black 30%)` (passed to `CardComposer` via `accent` prop). Chip text stays `#1e293b`. When `color` is null, all fall back to neutral gray. Edit form shows 8 pastel presets + "+" custom + "✕" clear using `data-swatch` attributes.
 - **Editorial card** (see [ADR-0002](docs/adr/0002-card-editorial-model.md), [spec](requirement/card_ui_spec.md)): type-forward card — category dot + uppercase label, hero title, hairline rule, foot (due / adaptive progress). IBM Plex Sans Thai; tokens in `index.css`. Superseded the old "card color band = first label". `normalizeCard()` in client.js uses `.slice(0,10)` to normalize node-pg ISO timestamp DATE columns to YYYY-MM-DD.
-- **Card Category** (ADR-0002): a card's **Category** is the label flagged by `category_label_id` (nullable FK on `cards`). It's the only label shown on the card face (uppercase name + dot); its color is the **card accent** (`domain/accent.js` — `categoryLabel()` resolves it, `cardAccent()` derives `solid`/`text` shades via `color-mix`, neutral gray when unset). Other labels are managed only in `CardPanel`. Set via the ★ toggle in `LabelPicker`; **auto-set** to the first attached label, and promoted to the next remaining label on detach. No new store action — reuses `patchCard({ categoryLabelId })`.
+- **Card Category** (ADR-0002): a card's **Category** is the label flagged by `category_label_id` (nullable FK on `cards`). It's the only label shown on the card face (uppercase name + dot); its color is the **card accent** (`domain/accent.js` — `categoryLabel()` resolves it, `cardAccent()` derives `solid`/`text` shades via `color-mix`, neutral gray when unset). Other labels are managed only in `CardPanel`. Set via the ★ toggle in `LabelPicker`; **auto-set** to the first attached label, and promoted to the next remaining label on detach. Auto-promotion rules live in `domain/category.js` (`resolveAttach`, `resolveDetach`). No new store action — reuses `patchCard({ categoryLabelId })`.
 - **Multiple assignees** (ADR-0002): modeled like labels — a `cardAssignees: [{cardId,userId}]` join in the store, optimistic `attachAssignee`/`detachAssignee` (`PUT`/`DELETE /cards/:id/assignees/:userId`). Replaced the single `assignee_id`. `AssigneePicker` is a multi-toggle list; the card face shows up to 3 overlapping avatars then `+N` via `common/AvatarStack`.
 - **Card completion** (see [ADR-0003](docs/adr/0003-card-completion-model.md), issues #35–#37): a per-card **done** state independent of column, stored as `completed_at DATE NULL` on `cards`; the boolean is derived (`completedAt !== null`). Toggled only in `CardPanel` (full-width button at the top of the body) — no card-face control. Client stamps the date (`patchCard({ completedAt: toYMD(new Date()) })`; clear with `null`) through the generic card patch — no new store action. Soft client-side guard: marking done with unchecked subtasks fires a `window.confirm`; un-marking and no-subtask cards warn nothing. Card face reflects done with a ✓ badge + ~0.6 opacity; the foot shows the completion date in place of the due date (no overdue styling) while keeping subtask progress; the card stays in place (no move/hide). Logic lives in the new deep module `domain/completion.js` (`isDone`, `completionPatch`, `incompleteSubtasks`). `normalizeCard()`/`cardPatchToApi()` map `completed_at` ↔ `completedAt`.
 - **Card title inline edit** (issue #38): the card title is editable **inline in `CardPanel`** — click the `<h2>` header (hover wash + `cursor: text`) to swap it for an input (`autoFocus` + select-all). **Enter** commits, **Escape** cancels, **blur** commits when valid / reverts when invalid. Empty/over-255 on Enter shows an inline error with the input kept open; no `maxLength` (lets `validateCardTitle` explain). Saves through the generic `patchCard({ title })` (optimistic + rollback) — no new store action. Card face stays read-only; done cards remain editable. The save/revert/error branching lives in the deep module `domain/titleEdit.js` (`resolveTitleCommit({ trigger, value, current })`); a `skipTitleBlur` ref suppresses the unmount-blur that a keyboard commit would otherwise re-fire.
@@ -93,12 +95,12 @@ Validation runs client-side (UX) and is enforced by the backend (authoritative).
 
 ## Tests
 
-### Unit tests (111)
-`src/domain/` (incl. `progress.test.js`, `accent.test.js`, `dates.test.js`, `completion.test.js`, `titleEdit.test.js`), `src/hooks/`, `src/store/useSession.test.js`, `src/store/useBoardStore.test.js`. Run: `npm test -- --watchAll=false`
+### Unit tests (132)
+`src/domain/` (incl. `progress.test.js`, `accent.test.js`, `dates.test.js`, `completion.test.js`, `titleEdit.test.js`, `dragDrop.test.js`, `category.test.js`), `src/hooks/`, `src/store/useSession.test.js`, `src/store/useBoardStore.test.js`. Run: `npm test -- --watchAll=false`
 
 Not unit-tested: components — covered by E2E.
 
-`useSession` and `useBoardStore` are unit-tested with the same pattern: call actions via `useBoardStore.getState()` directly (no renderHook), `jest.mock('../api/client')`, reset with `setState({...})` in `beforeEach`. `useBoardStore.test.js` covers the optimistic-apply → settle → rollback path for representative mutations (incl. the no-rethrow subtask mutations).
+`useSession` and `useBoardStore` are unit-tested with the same pattern: call actions via `useBoardStore.getState()` directly (no renderHook), `jest.mock('../api/client')`, reset with `setState({...})` in `beforeEach`. `useSession.test.js` also mocks `../api/auth` for token helpers. `useBoardStore.test.js` covers the optimistic-apply → settle → rollback path for representative mutations (incl. the no-rethrow subtask mutations).
 
 ### E2E tests (Playwright)
 
@@ -130,7 +132,7 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs both `test-frontend` (111 unit tests) and `test-api` (116 integration tests, postgres:16-alpine service) on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs both `test-frontend` (132 unit tests) and `test-api` (109 integration tests, postgres:16-alpine service) on every push/PR to `main`.
 
 ## API
 
@@ -181,7 +183,7 @@ Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env
 
 ### Tests
 
-116 integration tests across 8 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`).
+109 integration tests across 7 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
 
 **Critical**: use `--maxWorkers=1`, NOT `--runInBand`. Jest 30 runs test files in parallel by default.
 
@@ -193,6 +195,7 @@ Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env
 - **Multiple assignees**: `card_assignees (card_id, user_id)` join. `PUT`/`DELETE /cards/:id/assignees/:userId`.
 - **Authorization**: board membership resolved via FK chain; never trust client-supplied role claims.
 - **Rate limiter**: bypassed when `NODE_ENV === 'development'` or `'test'` to avoid accumulation across test runs.
+- **ESM**: `api/` uses `"type": "module"` (full ESM). `api/src/routes/columns.js` and `cards.js` import `positionBetween`/`needsRebalance`/`rebalance` directly from the shared `src/domain/ordering.js` — there is no separate backend copy. `cross-env` in test scripts ensures `NODE_OPTIONS=--experimental-vm-modules` works on Windows and Linux.
 
 ## Agent skills
 
