@@ -4,32 +4,46 @@
 
 A collaborative Kanban board for small teams (2–15 people). Drag-and-drop cards across columns, assign multiple members, set due dates, organise with labels and a primary **category**, track work with subtasks, and mark cards done — all synced in near real time via polling.
 
+## Monorepo Layout
+
+```
+kanban-board/
+  src/          ← React frontend
+  api/          ← Node.js + Express + PostgreSQL backend
+  e2e/          ← Playwright E2E tests
+  docs/adr/     ← Architecture decision records
+  requirement/  ← Per-feature PRDs
+```
+
 ## Tech Stack
 
-- **React 19** — UI
+**Frontend** (`src/`)
+- **React 19** + **React Router v7**
 - **Zustand** — state management with optimistic updates
 - **dnd-kit** — drag-and-drop (pointer + keyboard)
-- **React Router v7** — client-side routing
 - **react-datepicker** — due-date picker (`dd/MM/yyyy`)
 
-The backend ([kanban-board-api](https://github.com/khthana/kanban-board-api)) is a separate Node.js + Express + PostgreSQL service on port 4000.
+**Backend** (`api/`)
+- **Node.js** + **Express 5**
+- **PostgreSQL** — via `pg` (node-postgres), raw SQL
+- **JWT** — stateless auth (60 min access token + 7 day refresh token)
 
 ## Prerequisites
 
 - Node.js 18+
-- Docker (recommended for full-stack dev), **or** the [kanban-board-api](https://github.com/khthana/kanban-board-api) backend running on port 4000
+- Docker (recommended for full-stack dev), **or** PostgreSQL running locally
 
 ## Getting Started
 
-### Option A — Docker (full stack)
+### Option A — Docker (full stack, recommended)
 
-Runs postgres + api + frontend together. Frontend is served on **port 3600**.
+Runs postgres + api + frontend together. Frontend is served on **port 3700**.
 
 ```bash
 # first run only
 npm install && npx playwright install chromium
 
-docker compose up           # postgres + api + frontend (http://localhost:3600)
+docker compose up           # postgres + api + frontend (http://localhost:3700)
 docker compose down         # stop all
 docker compose down -v      # stop and delete the database volume
 ```
@@ -45,6 +59,15 @@ npm start                   # dev server at http://localhost:3000
 
 In development `src/setupProxy.js` forwards API routes to `http://localhost:4000` automatically — no CORS configuration needed.
 
+### Option C — backend only (native)
+
+```bash
+cp api/.env.example api/.env   # then edit DATABASE_URL, JWT_SECRET
+cd api && npm install
+cd api && npm run migrate       # create tables
+cd api && npm run dev           # API at http://localhost:4000
+```
+
 ## Environment
 
 ```bash
@@ -56,13 +79,23 @@ For production set `REACT_APP_API_URL` to your backend URL before building.
 
 ## Available Scripts
 
+**Frontend** (run from repo root):
+
 ```bash
 npm start                                # dev server (http://localhost:3000)
 npm test                                 # watch mode
 npm test -- --watchAll=false             # run unit tests once (111 tests)
 npm test -- --testPathPattern="polling"  # run a single test file
 npm run build                            # production build
-npm run test:e2e                         # Playwright E2E (28 tests, requires full stack)
+npm run test:e2e                         # Playwright E2E (28 tests, requires docker compose up)
+```
+
+**Backend** (run from `api/`):
+
+```bash
+cd api && npm run dev                    # API server with --watch at localhost:4000
+cd api && npm run migrate               # run DB migrations
+cd api && npm test                       # 116 integration tests (requires local postgres)
 ```
 
 E2E tests are flaky under parallel (single shared Postgres → contention). Use `npx playwright test --workers=1` for a deterministic pass, or `npx playwright test --ui` for interactive mode.

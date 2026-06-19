@@ -130,13 +130,75 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs the 111 unit tests on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs both `test-frontend` (111 unit tests) and `test-api` (116 integration tests, postgres:16-alpine service) on every push/PR to `main`.
+
+## API
+
+The Node.js + Express + PostgreSQL backend lives in `api/`. Run all API commands from the `api/` directory (or prefix with `cd api &&`).
+
+### Commands
+
+```bash
+cd api && npm run dev                              # API server with --watch at localhost:4000
+cd api && npm run migrate                          # Run DB migrations (kanban_dev)
+cd api && npm run migrate:test                     # Run DB migrations (kanban_test)
+cd api && npm test                                 # Run all tests (--maxWorkers=1 --forceExit)
+cd api && npm test -- --testPathPatterns="boards"  # Run a single test file
+```
+
+Docker is the recommended way to run the API in development — `docker compose up` from the repo root starts postgres + API + frontend together.
+
+### Key Files
+
+| File | Purpose |
+|---|---|
+| `api/src/app.js` | Express app — cors, json middleware, route mounts |
+| `api/src/index.js` | HTTP server (PORT=4000) |
+| `api/src/db/pool.js` | pg Pool — `DATABASE_URL` or `TEST_DATABASE_URL` from env |
+| `api/src/db/migrate.js` | Idempotent migration runner (schema_migrations table) |
+| `api/src/db/migrations/` | SQL migration files 001–007 |
+| `api/src/middleware/requireAuth.js` | JWT verify → `req.user.id` |
+| `api/src/routes/auth.js` | POST /auth/register, /auth/login, GET /auth/me, PATCH /auth/me |
+| `api/src/routes/boards.js` | Board CRUD, membership, labels, full snapshot GET /boards/:id |
+| `api/src/routes/columns.js` | Column CRUD + POST /columns/:id/cards |
+| `api/src/routes/cards.js` | Card PATCH/DELETE, assignees, category |
+| `api/src/routes/subtasks.js` | POST/PATCH/DELETE subtasks |
+| `api/src/routes/labels.js` | Label PATCH/DELETE |
+| `api/src/domain/ordering.js` | needsRebalance + rebalance (CJS, ported from frontend) |
+| `api/src/test/helpers.js` | createUser(), clearDb() for integration tests |
+| `api/src/test/globalSetup.js` | Runs migrations on TEST_DATABASE_URL before test run |
+
+### Environment (`api/.env` — gitignored)
+
+```
+DATABASE_URL=postgres://postgres:PASSWORD@127.0.0.1:5432/kanban_dev
+TEST_DATABASE_URL=postgres://postgres:PASSWORD@127.0.0.1:5432/kanban_test
+JWT_SECRET=dev-secret-key-kanban
+PORT=4000
+```
+
+Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env` is only needed for non-Docker local dev and running tests natively.
+
+### Tests
+
+116 integration tests across 8 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`).
+
+**Critical**: use `--maxWorkers=1`, NOT `--runInBand`. Jest 30 runs test files in parallel by default.
+
+### Key Decisions
+
+- **Board snapshot**: `GET /boards/:id` returns `{ board, columns[], cards[], labels[], members[], cardAssignees[], cardLabels[], subtasks[] }` — one call for initial render (flattened by `client.js`).
+- **Card completion**: `cards.completed_at DATE NULL` — null = not done. `PATCH /cards/:id` accepts it. No server-side subtask check (client-side UX guard only).
+- **Card Category**: `cards.category_label_id` (nullable FK → labels, `ON DELETE SET NULL`). Snapshot returns it per card.
+- **Multiple assignees**: `card_assignees (card_id, user_id)` join. `PUT`/`DELETE /cards/:id/assignees/:userId`.
+- **Authorization**: board membership resolved via FK chain; never trust client-supplied role claims.
+- **Rate limiter**: bypassed when `NODE_ENV === 'development'` or `'test'` to avoid accumulation across test runs.
 
 ## Agent skills
 
 ### Issue tracker
 
-Issues and PRDs live in GitHub Issues (`khthana/kanban-board`) via the `gh` CLI; API-specific issues go in the `kanban-board-api` repo. See `docs/agents/issue-tracker.md`.
+Issues and PRDs live in GitHub Issues (`khthana/kanban-board`) via the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
