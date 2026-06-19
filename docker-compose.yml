@@ -17,7 +17,7 @@ services:
 
   api:
     build:
-      context: ../kanban-board-api
+      context: ./api
       dockerfile: Dockerfile.dev
     ports:
       - "4000:4000"
@@ -27,7 +27,7 @@ services:
       PORT: "4000"
       NODE_ENV: development
     volumes:
-      - ../kanban-board-api:/app
+      - ./api:/app
       - /app/node_modules
     depends_on:
       db:
@@ -39,7 +39,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     ports:
-      - "3600:3000"
+      - "3700:3000"
     environment:
       API_PROXY_TARGET: http://api:4000
       CHOKIDAR_USEPOLLING: "true"

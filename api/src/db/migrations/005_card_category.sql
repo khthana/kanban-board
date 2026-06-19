@@ -1,0 +1,3 @@
+ALTER TABLE cards
+  ADD COLUMN IF NOT EXISTS category_label_id UUID NULL
+  REFERENCES labels(id) ON DELETE SET NULL;

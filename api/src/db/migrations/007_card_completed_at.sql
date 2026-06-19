@@ -1,0 +1,2 @@
+ALTER TABLE cards
+  ADD COLUMN IF NOT EXISTS completed_at DATE NULL;
