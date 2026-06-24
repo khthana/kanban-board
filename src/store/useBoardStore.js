@@ -240,7 +240,14 @@ const useBoardStore = create((set, get) => ({
 
   // dir: -1 moves up, +1 moves down. Recomputes a float position from neighbours.
   moveSubtask: async (subtaskId, dir) => {
-    const sorted = [...(get().board?.subtasks ?? [])].sort((a, b) => a.position - b.position);
+    const all = get().board?.subtasks ?? [];
+    const moving = all.find(s => s.id === subtaskId);
+    if (!moving) return;
+    // Neighbours must come from the same card only — board.subtasks holds every
+    // card's subtasks, whose positions overlap (each card starts at 1).
+    const sorted = all
+      .filter(s => s.cardId === moving.cardId)
+      .sort((a, b) => a.position - b.position);
     const idx = sorted.findIndex(s => s.id === subtaskId);
     if (idx < 0) return;
     const swapIdx = idx + dir;

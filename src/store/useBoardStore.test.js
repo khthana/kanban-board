@@ -177,6 +177,31 @@ describe('moveSubtask', () => {
     await useBoardStore.getState().moveSubtaskUp('s1');
     expect(client.patchSubtask).not.toHaveBeenCalled();
   });
+
+  test('reorders within the subtask’s own card, ignoring other cards’ subtasks', async () => {
+    // A second card whose subtask positions overlap card1's (1, 2). The global
+    // list interleaves them; neighbours for s1 must come from card1 only.
+    useBoardStore.setState({
+      board: {
+        ...useBoardStore.getState().board,
+        subtasks: [
+          { id: 's1', cardId: 'card1', title: 'A', checked: false, position: 1 },
+          { id: 's2', cardId: 'card1', title: 'B', checked: false, position: 2 },
+          { id: 's3', cardId: 'card1', title: 'C', checked: false, position: 3 },
+          { id: 'o1', cardId: 'card2', title: 'X', checked: false, position: 1 },
+          { id: 'o2', cardId: 'card2', title: 'Y', checked: false, position: 2 },
+        ],
+      },
+    });
+    client.patchSubtask.mockImplementation((id, patch) => Promise.resolve({ ...patch, id, cardId: 'card1', title: 'A', checked: false }));
+
+    await useBoardStore.getState().moveSubtaskDown('s1');
+
+    // Must land between card1's s2 (2) and s3 (3) — NOT next to card2's subtasks.
+    const s1 = useBoardStore.getState().board.subtasks.find(s => s.id === 's1');
+    expect(s1.position).toBeGreaterThan(2);
+    expect(s1.position).toBeLessThan(3);
+  });
 });
 
 describe('toggleSubtask', () => {
