@@ -29,6 +29,10 @@ services:
     volumes:
       - ./api:/app
       - /app/node_modules
+      # columns.js/cards.js import the shared ../../../src/domain/ordering.js,
+      # which lives at the repo root (outside the ./api build context). Mount it
+      # at the path the import resolves to inside the container (/src/domain).
+      - ./src/domain:/src/domain
     depends_on:
       db:
         condition: service_healthy
