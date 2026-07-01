@@ -72,3 +72,33 @@ test('edit card title inline in the panel → persist on refresh', async ({ page
   await expect(page.getByText('Renamed Task')).toBeVisible();
   await expect(page.getByText(title)).toHaveCount(0);
 });
+
+test('a failed card creation rolls back and shows the error banner', async ({ page }) => {
+  await register(page, `user-${uid()}@test.com`, PW, 'Test User');
+
+  await page.fill('input[placeholder="New board name…"]', 'Fail Board');
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/boards') && r.request().method() === 'POST' && r.status() === 201),
+    page.click('button:has-text("Create Board")'),
+  ]);
+  await page.getByRole('link', { name: 'Fail Board' }).click();
+  await expect(page).toHaveURL(/\/boards\//);
+
+  await page.click('text=+ Add column');
+  await page.fill('input[placeholder="Column name…"]', 'Todo');
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/columns') && r.request().method() === 'POST' && r.status() === 201),
+    page.getByRole('button', { name: 'Add', exact: true }).click(),
+  ]);
+
+  await page.route('**/columns/*/cards', route =>
+    route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Server error' }) })
+  );
+
+  await page.click('text=+ New card');
+  await page.fill('textarea[placeholder="Card title…"]', 'Should Fail');
+  await page.getByRole('button', { name: 'Add card', exact: true }).click();
+
+  await expect(page.getByText('Should Fail')).toHaveCount(0);
+  await expect(page.getByText('Dismiss')).toBeVisible();
+});

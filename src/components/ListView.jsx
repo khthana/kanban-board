@@ -1,18 +1,12 @@
 import ListRow from './ListRow';
 import ColumnComposer from './ColumnComposer';
+import CardComposer from './CardComposer';
 import styles from './ListView.module.css';
 
-export default function ListView({ sortedColumns, cards, labels = [], subtasks = [], onAddColumn, onCardClick, style }) {
-  if (sortedColumns.length === 0) {
-    return (
-      <div className={styles.list} data-testid="list-view" style={style}>
-        <ColumnComposer onAdd={onAddColumn} />
-      </div>
-    );
-  }
-
+export default function ListView({ sortedColumns, cards, labels = [], subtasks = [], onAddColumn, onCardClick, onAddCard, style }) {
   return (
     <div className={styles.list} data-testid="list-view" style={style}>
+      {sortedColumns.length === 0 && <ColumnComposer onAdd={onAddColumn} />}
       {sortedColumns.map(col => {
         const colCards = cards.filter(c => c.columnId === col.id).sort((a, b) => a.position - b.position);
         const accent = col.color || null;
@@ -32,6 +26,7 @@ export default function ListView({ sortedColumns, cards, labels = [], subtasks =
                 subtasks={subtasks.filter(s => s.cardId === card.id)}
                 onClick={onCardClick} />
             ))}
+            <CardComposer accent={accent} onAdd={title => onAddCard(col.id, title)} />
           </section>
         );
       })}

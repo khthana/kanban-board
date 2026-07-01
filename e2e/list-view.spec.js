@@ -3,24 +3,17 @@ const { uid, register, login, pointerDrag } = require('./helpers');
 
 const PW = 'password1';
 
-async function setupBoard(page) {
-  await register(page, `user-${uid()}@test.com`, PW, 'Test User');
+async function openNewBoard(page, boardName, { email = `user-${uid()}@test.com`, displayName = 'Test User' } = {}) {
+  await register(page, email, PW, displayName);
 
-  await page.fill('input[placeholder="New board name…"]', 'List Board');
+  await page.fill('input[placeholder="New board name…"]', boardName);
   await Promise.all([
     page.waitForResponse(r => r.url().includes('/boards') && r.request().method() === 'POST' && r.status() === 201),
     page.click('button:has-text("Create Board")'),
   ]);
-  await page.getByRole('link', { name: 'List Board' }).click();
+  await page.getByRole('link', { name: boardName }).click();
   await expect(page).toHaveURL(/\/boards\//);
-
-  await page.click('text=+ Add column');
-  await page.fill('input[placeholder="Column name…"]', 'To Do');
-  await Promise.all([
-    page.waitForResponse(r => r.url().includes('/columns') && r.request().method() === 'POST' && r.status() === 201),
-    page.getByRole('button', { name: 'Add', exact: true }).click(),
-  ]);
-  await expect(page.locator('[data-testid="column"]')).toBeVisible();
+  return email;
 }
 
 async function addColumn(page, name) {
@@ -40,6 +33,12 @@ async function addCard(page, title) {
     page.waitForResponse(r => r.url().includes('/cards') && r.request().method() === 'POST' && r.status() === 201),
     page.getByRole('button', { name: 'Add card', exact: true }).click(),
   ]);
+}
+
+async function setupBoard(page) {
+  await openNewBoard(page, 'List Board');
+  await addColumn(page, 'To Do');
+  await expect(page.locator('[data-testid="column"]')).toBeVisible();
 }
 
 test('clicking List switches to List view; clicking Board switches back', async ({ page }) => {
@@ -92,15 +91,7 @@ test('cards within a section render as rows, sorted by position', async ({ page 
 });
 
 test('a board with no columns shows the column composer in List view', async ({ page }) => {
-  await register(page, `user-${uid()}@test.com`, PW, 'Test User');
-
-  await page.fill('input[placeholder="New board name…"]', 'Empty Board');
-  await Promise.all([
-    page.waitForResponse(r => r.url().includes('/boards') && r.request().method() === 'POST' && r.status() === 201),
-    page.click('button:has-text("Create Board")'),
-  ]);
-  await page.getByRole('link', { name: 'Empty Board' }).click();
-  await expect(page).toHaveURL(/\/boards\//);
+  await openNewBoard(page, 'Empty Board');
 
   await page.getByRole('tab', { name: 'List' }).click();
 
@@ -253,23 +244,10 @@ test('there is no drag-and-drop in List view — row order does not change and n
 
 test('polling reflects a change made in another tab', async ({ page, browser }) => {
   const email = `poll-${uid()}@test.com`;
-  await register(page, email, PW, 'Poll User');
-
-  await page.fill('input[placeholder="New board name…"]', 'Poll Board');
-  await Promise.all([
-    page.waitForResponse(r => r.url().includes('/boards') && r.request().method() === 'POST' && r.status() === 201),
-    page.click('button:has-text("Create Board")'),
-  ]);
-  await page.getByRole('link', { name: 'Poll Board' }).click();
-  await expect(page).toHaveURL(/\/boards\//);
+  await openNewBoard(page, 'Poll Board', { email, displayName: 'Poll User' });
   const boardUrl = page.url();
 
-  await page.click('text=+ Add column');
-  await page.fill('input[placeholder="Column name…"]', 'To Do');
-  await Promise.all([
-    page.waitForResponse(r => r.url().includes('/columns') && r.request().method() === 'POST' && r.status() === 201),
-    page.getByRole('button', { name: 'Add', exact: true }).click(),
-  ]);
+  await addColumn(page, 'To Do');
 
   // A second tab, same user, viewing the same board in List view
   const ctx2 = await browser.newContext();
@@ -428,4 +406,55 @@ test('the Board/List toggle stays visible while the Card panel is open', async (
 
   await expect(page.getByRole('tab', { name: 'Board' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'List' })).toBeVisible();
+});
+
+test('each section shows a "+ New card" trigger at its foot', async ({ page }) => {
+  await setupBoard(page); // "To Do"
+  await addColumn(page, 'Doing');
+
+  await page.getByRole('tab', { name: 'List' }).click();
+
+  const sections = page.locator('[data-testid="list-section"]');
+  await expect(sections.nth(0).getByText('+ New card')).toBeVisible();
+  await expect(sections.nth(1).getByText('+ New card')).toBeVisible();
+});
+
+test('submitting the section-foot composer creates a card in that column, appearing at the foot immediately', async ({ page }) => {
+  await setupBoard(page); // "To Do"
+  await addColumn(page, 'Doing');
+  await addCardToColumn(page, 0, 'Existing Todo Card');
+
+  await page.getByRole('tab', { name: 'List' }).click();
+
+  const doingSection = page.locator('[data-testid="list-section"]').nth(1);
+  await doingSection.getByText('+ New card').click();
+  await doingSection.locator('textarea[placeholder="Card title…"]').fill('New Doing Card');
+  // Deliberately not waiting for the POST — this proves the row appears optimistically.
+  await doingSection.getByRole('button', { name: 'Add card', exact: true }).click();
+
+  const doingRows = doingSection.locator('[data-testid="list-row"]');
+  await expect(doingRows).toHaveCount(1);
+  await expect(doingRows.last()).toContainText('New Doing Card');
+
+  // It landed in "Doing", not "To Do".
+  const todoSection = page.locator('[data-testid="list-section"]').nth(0);
+  await expect(todoSection.locator('[data-testid="list-row"]')).toHaveCount(1);
+  await expect(todoSection.locator('[data-testid="list-row"]').first()).toContainText('Existing Todo Card');
+});
+
+test('a failed card creation from the section-foot composer rolls back and shows the error banner', async ({ page }) => {
+  await setupBoard(page);
+  await page.getByRole('tab', { name: 'List' }).click();
+
+  await page.route('**/columns/*/cards', route =>
+    route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Server error' }) })
+  );
+
+  const section = page.locator('[data-testid="list-section"]').first();
+  await section.getByText('+ New card').click();
+  await section.locator('textarea[placeholder="Card title…"]').fill('Should Fail');
+  await section.getByRole('button', { name: 'Add card', exact: true }).click();
+
+  await expect(page.locator('[data-testid="list-row"]').filter({ hasText: 'Should Fail' })).toHaveCount(0);
+  await expect(page.getByText('Dismiss')).toBeVisible();
 });

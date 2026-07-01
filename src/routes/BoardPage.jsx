@@ -69,6 +69,10 @@ export default function BoardPage() {
     if (error && (loading === false && !board)) navigate('/boards', { replace: true });
   }, [error, loading, board, navigate]);
 
+  function handleAddCard(colId, title) {
+    return createCard(colId, currentUserId, { title }).catch(err => setOpError(err.message));
+  }
+
   function handleDragStart({ active }) {
     setActiveDrag(active.data.current ?? null);
     setActiveCard(null); // close panel during drag
@@ -144,7 +148,7 @@ export default function BoardPage() {
                     onRename={(colId, name, color) => renameColumn(colId, currentUserId, { name, color })}
                     onDelete={(colId) => deleteColumn(colId, currentUserId)}
                     onCardClick={setActiveCard}
-                    onAddCard={(colId, title) => createCard(colId, currentUserId, { title })}
+                    onAddCard={handleAddCard}
                   />
                 ))}
                 <ColumnComposer onAdd={name => createColumn(boardId, currentUserId, { name })} />
@@ -181,6 +185,7 @@ export default function BoardPage() {
             subtasks={allSubtasks}
             onAddColumn={name => createColumn(boardId, currentUserId, { name })}
             onCardClick={setActiveCard}
+            onAddCard={handleAddCard}
             style={activeCard ? { marginRight: 380 } : {}}
           />
         )}
