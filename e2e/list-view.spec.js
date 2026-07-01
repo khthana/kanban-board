@@ -287,3 +287,72 @@ test('polling reflects a change made in another tab', async ({ page, browser }) 
 
   await ctx2.close();
 });
+
+async function addCardToColumn(page, columnIndex, title) {
+  const column = page.locator('[data-testid="column"]').nth(columnIndex);
+  await column.locator('text=+ New card').click();
+  await column.locator('textarea[placeholder="Card title…"]').fill(title);
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/cards') && r.request().method() === 'POST' && r.status() === 201),
+    column.getByRole('button', { name: 'Add card', exact: true }).click(),
+  ]);
+}
+
+test('section headers stay pinned while scrolling their own section, and hand off to the next section', async ({ page }) => {
+  await setupBoard(page); // "To Do"
+  await addColumn(page, 'Doing');
+  for (let i = 1; i <= 15; i++) await addCardToColumn(page, 0, `Todo Card ${i}`);
+  for (let i = 1; i <= 15; i++) await addCardToColumn(page, 1, `Doing Card ${i}`);
+
+  await page.getByRole('tab', { name: 'List' }).click();
+
+  const list = page.locator('[data-testid="list-view"]');
+  const sections = page.locator('[data-testid="list-section"]');
+  const header1 = sections.nth(0).locator('[data-testid="column-chip"]');
+  const header2 = sections.nth(1).locator('[data-testid="column-chip"]');
+
+  // A tiny scroll is enough to pin the header at its stuck (top: 0) position — use that as baseline,
+  // since the natural (unstuck) position includes the section's margin-top and isn't representative.
+  await list.evaluate(el => el.scrollTo(0, 40));
+  const stuckY = (await header1.boundingBox()).y;
+
+  // Scroll further through "To Do"'s 20 rows — header should stay pinned at the same stuck Y.
+  await list.evaluate(el => el.scrollTo(0, 300));
+  const midScrollY = (await header1.boundingBox()).y;
+  expect(Math.abs(midScrollY - stuckY)).toBeLessThan(2);
+
+  // Scroll all the way past "To Do" into "Doing" — "Doing"'s header should now be the one pinned
+  // at that same stuck Y, and "To Do"'s header should have scrolled up out of the stuck position.
+  await list.evaluate(el => el.scrollTo(0, el.scrollHeight));
+  const doingBox = await header2.boundingBox();
+  expect(Math.abs(doingBox.y - stuckY)).toBeLessThan(2);
+
+  const todoBox = await header1.boundingBox();
+  expect(todoBox.y).toBeLessThan(stuckY - 5);
+});
+
+test('section header shows the Column Accent when set, neutral gray when not set', async ({ page }) => {
+  await setupBoard(page); // "To Do" — no accent
+  await addColumn(page, 'Doing');
+
+  // Set an Accent on "Doing" via Board view's rename form.
+  const doingHeader = page.locator('[data-testid="column"]').nth(1);
+  await doingHeader.locator('button[title="Rename column"]').click();
+  await page.click('button[data-swatch="#fca5a5"]');
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/columns/') && r.request().method() === 'PATCH' && r.status() === 200),
+    page.click('button:has-text("Save")'),
+  ]);
+
+  await page.getByRole('tab', { name: 'List' }).click();
+
+  const sections = page.locator('[data-testid="list-section"]');
+  const todoChip = sections.nth(0).locator('[data-testid="column-chip"]');
+  const doingChip = sections.nth(1).locator('[data-testid="column-chip"]');
+
+  // "To Do" has no Accent → neutral gray default (#e2e8f0), same as Board view.
+  await expect(todoChip).toHaveCSS('background-color', 'rgb(226, 232, 240)');
+
+  // "Doing" has Accent #fca5a5 → chip tinted to match.
+  await expect(doingChip).toHaveCSS('background-color', 'rgb(252, 165, 165)');
+});

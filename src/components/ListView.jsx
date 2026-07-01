@@ -15,10 +15,16 @@ export default function ListView({ sortedColumns, cards, labels = [], subtasks =
     <div className={styles.list} data-testid="list-view">
       {sortedColumns.map(col => {
         const colCards = cards.filter(c => c.columnId === col.id).sort((a, b) => a.position - b.position);
+        const accent = col.color || null;
         return (
           <section key={col.id} className={styles.section} data-testid="list-section">
-            <div className={styles.sectionHeader}>
-              <span className={styles.chip} data-testid="column-chip">{col.name}</span>
+            <div className={styles.sectionHeader} style={accent ? { '--accent': accent } : undefined}>
+              <span
+                className={`${styles.chip} ${accent ? styles.accented : ''}`}
+                data-testid="column-chip"
+              >
+                {col.name}
+              </span>
               <span className={styles.count} data-testid="list-section-count">{colCards.length}</span>
             </div>
             {colCards.map(card => (

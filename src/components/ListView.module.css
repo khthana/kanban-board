@@ -13,6 +13,10 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0;
+  position: sticky;
+  top: 0;
+  background: var(--board-bg);
+  z-index: 1;
 }
 
 .chip {
@@ -22,6 +26,10 @@
   border-radius: 999px;
   background: #e2e8f0;
   color: #1e293b;
+}
+
+.accented {
+  background: var(--accent);
 }
 
 .count {
