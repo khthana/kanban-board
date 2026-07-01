@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="th" xml:lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Kanban-Board-PRD</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <title>PRD หลัก — ระบบ Kanban Board (รวมทุกฟีเจอร์)</title>
+  <style>
+    :root {
+      --bg: #f6f8fa;
+      --surface: #ffffff;
+      --ink: #1f2328;
+      --muted: #57606a;
+      --accent: #0969da;
+      --accent-soft: #ddf4ff;
+      --border: #d0d7de;
+      --green: #1a7f37;
+      --green-soft: #dafbe1;
+      --amber: #9a6700;
+      --amber-soft: #fff8c5;
+      --slate: #57606a;
+      --slate-soft: #eef1f4;
+      --code-bg: #eff1f3;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      max-width: none;
+      padding: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, "Segoe UI", "Sarabun", "IBM Plex Sans Thai", "Noto Sans Thai", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.75;
+      font-size: 16px;
+      hyphens: none;
+    }
+    .level1 > .wrap-body { display: none; } /* unused placeholder */
+    .page-wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 32px 20px 96px;
+    }
+    header.masthead {
+      background: linear-gradient(135deg, #0969da 0%, #0a3069 100%);
+      color: #fff;
+      border-radius: 14px;
+      padding: 34px 38px;
+      margin-bottom: 28px;
+      box-shadow: 0 8px 24px rgba(9,105,218,0.25);
+    }
+    header.masthead h1 {
+      margin: 0 0 6px;
+      font-size: 26px;
+      line-height: 1.35;
+    }
+    header.masthead p.sub {
+      margin: 0 0 16px;
+      font-size: 15px;
+      opacity: 0.92;
+    }
+    .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+    .legend .item {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.28);
+      padding: 5px 13px;
+      border-radius: 999px;
+      font-size: 13px;
+      backdrop-filter: blur(4px);
+    }
+    .legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+    .legend .dot.implemented { background: #4ade80; }
+    .legend .dot.superseded { background: #fbbf24; }
+    .legend .dot.ready { background: #7dd3fc; }
+
+    /* whole document wrapper produced by --section-divs on the single H1 */
+    .page-wrap > .content > .level1 { margin: 0; }
+    .page-wrap > .content > .level1 > h1 { display: none; } /* title already in masthead */
+    .page-wrap > .content > .level1 > blockquote {
+      background: var(--accent-soft);
+      border-left: 4px solid var(--accent);
+      padding: 14px 20px;
+      border-radius: 0 10px 10px 0;
+      margin: 0 0 24px;
+    }
+    .page-wrap > .content > .level1 > blockquote p { margin: 6px 0; }
+
+    /* the "สารบัญ" table-of-contents section, rendered as a plain highlighted block, not a card */
+    section#สารบัญ {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 28px;
+      margin-bottom: 28px;
+    }
+    section#สารบัญ h2 { margin: 0 0 14px; font-size: 15px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); border: none; padding: 0; }
+    section#สารบัญ table { font-size: 14.5px; }
+
+    /* each numbered feature section = a card */
+    .content > .level1 > section.level2 {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 26px 34px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(27,31,36,0.05);
+    }
+    .content > .level1 > section.level2 > h2 {
+      margin: 0 0 18px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--accent-soft);
+      font-size: 22px;
+      line-height: 1.4;
+    }
+    .status-badge {
+      display: inline-block;
+      font-size: 12.5px;
+      font-weight: 700;
+      padding: 3px 11px;
+      border-radius: 999px;
+      margin-left: 10px;
+      vertical-align: middle;
+      letter-spacing: .2px;
+    }
+    .status-badge.implemented { background: var(--green-soft); color: var(--green); }
+    .status-badge.superseded  { background: var(--amber-soft); color: var(--amber); }
+    .status-badge.ready       { background: var(--accent-soft); color: var(--accent); }
+    .status-badge.historical  { background: var(--slate-soft); color: var(--slate); }
+
+    /* nested subsections (h3) inside a card: no extra box, just spacing */
+    section.level3 { margin: 22px 0 0; }
+    section.level3 > h3 { font-size: 17.5px; margin: 0 0 8px; color: #000; }
+    h3 { font-size: 17.5px; margin: 22px 0 8px; }
+    h4 { font-size: 15.5px; margin: 16px 0 6px; color: var(--muted); }
+
+    p { margin: 10px 0; }
+    ul, ol { padding-left: 24px; }
+    li { margin: 6px 0; }
+    strong { color: #000; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 14.5px;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 9px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--accent-soft); font-weight: 600; }
+    tbody tr:nth-child(even) { background: #f9fbfd; }
+
+    code {
+      background: var(--code-bg);
+      padding: 1px 6px;
+      border-radius: 5px;
+      font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+      font-size: 13.5px;
+      word-break: break-word;
+    }
+    pre {
+      background: #0d1117;
+      color: #e6edf3;
+      padding: 18px 20px;
+      border-radius: 10px;
+      overflow-x: auto;
+      line-height: 1.55;
+      font-size: 13px;
+    }
+    pre code { background: none; color: inherit; padding: 0; }
+
+    /* blockquotes used inside cards for "superseded" callouts etc. */
+    section.level2 blockquote {
+      border-left: 4px solid var(--amber);
+      background: var(--amber-soft);
+      padding: 12px 18px;
+      border-radius: 0 8px 8px 0;
+      margin: 0 0 18px;
+    }
+    section.level2 blockquote p { margin: 4px 0; }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 0; display: none; } /* markdown --- separators absorbed by section-divs */
+
+    footer.doc {
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 40px;
+    }
+
+    @media print {
+      body { background: #fff; }
+      section.level2 { box-shadow: none; break-inside: avoid; }
+      header.masthead { box-shadow: none; }
+    }
+
+    @media (max-width: 640px) {
+      .content > .level1 > section.level2 { padding: 20px 18px; }
+      header.masthead { padding: 24px 22px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page-wrap">
+  <header class="masthead">
+    <h1>PRD หลัก — ระบบ Kanban Board<br><span style="font-weight:400;font-size:16px;opacity:.9">รวม PRD ทุกฟีเจอร์เป็นไฟล์เดียว</span></h1>
+    <p class="sub">เอกสารรวมนี้แทนที่ PRD แยกตามฟีเจอร์ 11 ไฟล์เดิม — แต่ละหัวข้อมีสถานะกำกับตามสี่ประเภทด้านล่าง</p>
+    <div class="legend">
+      <span class="item"><span class="dot implemented"></span>Implemented</span>
+      <span class="item"><span class="dot" style="background:#a3b1bd"></span>Implemented (historical)</span>
+      <span class="item"><span class="dot superseded"></span>Superseded</span>
+      <span class="item"><span class="dot ready"></span>ready-for-agent</span>
+    </div>
+  </header>
+  <div class="content">
+<section id="prd-หลัก--ระบบ-kanban-board-รวมทุกฟีเจอร์" class="level1">
+<h1>PRD หลัก — ระบบ Kanban Board (รวมทุกฟีเจอร์)</h1>
+<blockquote>
+<p>เอกสารนี้เป็น <strong>PRD ฉบับรวม</strong> ที่ผนวก PRD แยกตามฟีเจอร์ทั้งหมดของโปรเจกต์เข้าไว้ในไฟล์เดียว เขียนใหม่เป็นภาษาไทยทั้งหมด แทนที่ไฟล์ PRD เดิม 11 ไฟล์ใน <code>requirement/</code> (ไฟล์ต้นฉบับถูกลบหลังรวม) ยกเว้น <a href="card_ui_spec.md">card_ui_spec.md</a> ซึ่งเป็นสเปกการออกแบบ (ไม่ใช่ PRD) จึงยังคงแยกไฟล์ไว้ตามเดิม</p>
+<p>แต่ละหัวข้อด้านล่างมี <strong>สถานะ</strong> กำกับ — <code>Implemented</code> (ทำแล้ว), <code>Superseded</code> (ถูกแทนที่ด้วยการตัดสินใจใหม่กว่า แต่เก็บไว้เป็นประวัติ), หรือ <code>ready-for-agent</code> (ยังไม่ implement) เนื้อหาถูกเก็บไว้ <strong>ครบถ้วนตามต้นฉบับ</strong> ไม่ตัดทอน เพื่อรักษาประวัติการตัดสินใจ (decision trail) ของโปรเจกต์</p>
+<p>Glossary กลางของระบบอยู่ที่ <a href="../CONTEXT.md">CONTEXT.md</a> — ให้ยึดตามนั้นเป็นหลักเมื่อคำศัพท์ในหัวข้อเก่าขัดแย้งกัน (เช่น glossary ในหัวข้อ 1 เป็นฉบับร่างแรกสุด ถูกแทนที่โดย CONTEXT.md ที่ root ไปแล้ว) ADR ที่เกี่ยวข้องอยู่ที่ <code>docs/adr/</code></p>
+</blockquote>
+<section id="สารบัญ" class="level2">
+<h2>สารบัญ</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>ฟีเจอร์</th>
+<th>สถานะ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#1-mvp-เริ่มต้น--kanban-board-full-stack-draft-การอนุมัติขอบเขต-และ-mock-backend-build">1</a></td>
+<td>MVP เริ่มต้น (Full-stack Draft → Mock Backend Build)</td>
+<td>Implemented (historical — ภายหลังถูกแทนที่ด้วย backend จริง)</td>
+</tr>
+<tr>
+<td><a href="#2-column-header-colors-superseded-by-adr-0001">2</a></td>
+<td>Column Header Colors</td>
+<td><strong>Superseded</strong> โดย <a href="../docs/adr/0001-column-accent-model.md">ADR-0001</a></td>
+</tr>
+<tr>
+<td><a href="#3-user-profile">3</a></td>
+<td>User Profile</td>
+<td>Implemented</td>
+</tr>
+<tr>
+<td><a href="#4-subtasks-checklist">4</a></td>
+<td>Subtasks (Checklist)</td>
+<td>Implemented</td>
+</tr>
+<tr>
+<td><a href="#5-card-color-bands-superseded-by-card-editorial-redesign">5</a></td>
+<td>Card Color Bands</td>
+<td><strong>Superseded</strong> โดยหัวข้อ 6 (<a href="../docs/adr/0002-card-editorial-model.md">ADR-0002</a>)</td>
+</tr>
+<tr>
+<td><a href="#6-card-editorial-redesign-option-c">6</a></td>
+<td>Card "Editorial" Redesign (Option C)</td>
+<td>Implemented</td>
+</tr>
+<tr>
+<td><a href="#7-label-color-picker--pastel-presets">7</a></td>
+<td>Label Color Picker — Pastel Presets</td>
+<td>Implemented</td>
+</tr>
+<tr>
+<td><a href="#8-card-completion-per-card-done-state">8</a></td>
+<td>Card Completion (Per-card Done State)</td>
+<td>Implemented (#35–#37)</td>
+</tr>
+<tr>
+<td><a href="#9-card-title-edit-inline-ใน-cardpanel">9</a></td>
+<td>Card Title Edit (Inline ใน CardPanel)</td>
+<td>Implemented (#38)</td>
+</tr>
+<tr>
+<td><a href="#10-monorepo-migration-รวม-api-เข้า-frontend-repo">10</a></td>
+<td>Monorepo Migration</td>
+<td>Implemented</td>
+</tr>
+<tr>
+<td><a href="#11-board-list-view">11</a></td>
+<td>Board "List View"</td>
+<td><strong>ready-for-agent</strong> (ยังไม่ implement — <a href="https://github.com/khthana/kanban-board/issues/44">issue #44</a>)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+</section>
+<section id="1-mvp-เริ่มต้น--kanban-board-full-stack-draft-การอนุมัติขอบเขต-และ-mock-backend-build" class="level2">
+<h2>1. MVP เริ่มต้น — Kanban Board (Full-stack Draft, การอนุมัติขอบเขต, และ Mock-Backend Build)<span class="status-badge historical">Implemented (historical)</span></h2>
+<p><strong>สถานะ:</strong> Implemented (historical) — รอบนี้สร้างเฉพาะ frontend + mock backend ก่อน ภายหลัง backend จริง (Node.js/Express/PostgreSQL) ถูกพัฒนาต่อและมาแทนที่ mock backend ตามที่เอกสารนี้วางเส้นทางไว้ (ดู §1.6 "Seam สำหรับสลับ backend")</p>
+<section id="11-ภาพรวมและปัญหาที่แก้-prd-ต้นฉบับ-draft-v10--30-พฤษภาคม-2026" class="level3">
+<h3>1.1 ภาพรวมและปัญหาที่แก้ (PRD ต้นฉบับ Draft v1.0 — 30 พฤษภาคม 2026)</h3>
+<p><strong>ขอบเขต:</strong> Team MVP (ทีมเล็ก 2–15 คน) · <strong>Tech Stack ที่ตั้งใจไว้ในระยะยาว:</strong> React (frontend), Node.js (backend), PostgreSQL (database)</p>
+<p>Kanban Board เป็น web application สำหรับทีมเล็ก (2–15 คน) ใช้บริหารงานแบบ visual board โดยจัดงานเป็น card ที่เคลื่อนผ่าน column ต่างๆ ตามสถานะของงาน (เช่น To Do → In Progress → Done) ผู้ใช้ลากการ์ด (drag-and-drop) ข้าม column ได้ และมองเห็นภาพรวมความคืบหน้าของทีมในหน้าจอเดียว</p>
+<p>เป้าหมายของ MVP คือทำให้ flow หลัก — สร้าง board, สร้าง card, ลากย้าย card, มอบหมายงาน — ทำงานได้ลื่นไหลและเชื่อถือได้ก่อน โดย<strong>ตัด</strong> real-time collaborative editing แบบ live cursor และระบบ permission ที่ซับซ้อนออกไปเป็น Phase ถัดไป</p>
+<p>ทีมเล็กมักจัดการงานกระจัดกระจายในแชท สเปรดชีต และอีเมล ทำให้ไม่มีจุดเดียวที่เห็นสถานะงานทั้งหมด ไม่รู้ว่าใครทำอะไรอยู่ และงานตกหล่น Kanban Board รวมศูนย์ข้อมูลงานให้เห็นเป็นภาพ พร้อมสถานะและผู้รับผิดชอบที่ชัดเจน</p>
+<p><strong>ขอบเขต MVP (In Scope):</strong> การจัดการบัญชีผู้ใช้และ authentication, การสร้างและจัดการ board, การจัดการ column ภายใน board, การจัดการ card (สร้าง/แก้ไข/ลบ/ลากย้าย), การมอบหมายงานให้สมาชิก, การติด label และกำหนด due date, การเชิญสมาชิกเข้า board, และการ sync ข้อมูลเมื่อผู้ใช้รีเฟรชหรือเปิดหน้าใหม่ (polling-based refresh ไม่ใช่ live websocket)</p>
+<p><strong>นอกขอบเขต MVP (ยกไป Phase ถัดไป):</strong> Real-time live sync ผ่าน WebSocket พร้อม presence/cursor ของผู้ใช้คนอื่น, ระบบ role/permission แบบละเอียด (เช่น viewer/editor/admin ต่อ board), checklist ย่อยใน card (ภายหลังทำจริงในหัวข้อ 4), ไฟล์แนบขนาดใหญ่, การแจ้งเตือนผ่านอีเมล/push, automation rules, swimlanes, การค้นหาขั้นสูงข้าม board, mobile native app และ analytics dashboard</p>
+<p><strong>Non-Functional Requirements:</strong> หน้า board ที่มี card ไม่เกิน 500 ใบควรโหลดเสร็จภายใน 2 วินาทีบนเครือข่ายปกติ การลากย้าย card ต้องตอบสนองทันที (optimistic UI) และ persist ลง backend ภายใน 1 วินาที ระบบต้องรองรับผู้ใช้พร้อมกันต่อ board อย่างน้อย 15 คน รหัสผ่านต้อง hash ด้วย bcrypt/argon2 และทุก API ต้องผ่าน authentication ยกเว้น endpoint สำหรับ login/register UI ต้องใช้งานได้บน desktop browser รุ่นใหม่ (Chrome, Firefox, Safari, Edge) และ responsive พอใช้บนแท็บเล็ต</p>
+</section>
+<section id="12-user-stories-ต้นฉบับ-full-stack" class="level3">
+<h3>1.2 User Stories (ต้นฉบับ full-stack)</h3>
+<p>รูปแบบ: <em>As a [role], I want [feature], so that [benefit]</em></p>
+<p><strong>Authentication &amp; Account</strong></p>
+<ul>
+<li>As a new user, I want to register with email and password, so that I can create my own account and start using the board.</li>
+<li>As a registered user, I want to log in and stay logged in across sessions, so that I don't have to re-enter credentials every time.</li>
+<li>As a user, I want to log out, so that my account is secure on shared computers.</li>
+</ul>
+<p><strong>Board Management</strong></p>
+<ul>
+<li>As a user, I want to create a new board with a name, so that I can organize work for a specific project.</li>
+<li>As a user, I want to see a list of all boards I own or am a member of, so that I can switch between projects easily.</li>
+<li>As a board owner, I want to rename or delete a board, so that I can keep my workspace tidy.</li>
+<li>As a board owner, I want to invite teammates to a board by email, so that we can collaborate on the same project.</li>
+</ul>
+<p><strong>Column Management</strong></p>
+<ul>
+<li>As a board member, I want to create columns with custom names, so that I can model my team's workflow stages.</li>
+<li>As a board member, I want to reorder columns by dragging, so that the board reflects the real sequence of work.</li>
+<li>As a board member, I want to rename or delete a column, so that I can adjust the workflow as it evolves.</li>
+</ul>
+<p><strong>Card Management</strong></p>
+<ul>
+<li>As a board member, I want to create a card with a title inside a column, so that I can capture a task quickly.</li>
+<li>As a board member, I want to open a card to edit its description, assignee, due date, and labels, so that I can capture full task detail.</li>
+<li>As a board member, I want to drag a card to another column or reorder it within a column, so that I can update its status visually.</li>
+<li>As a board member, I want to delete a card, so that I can remove tasks that are no longer relevant.</li>
+</ul>
+<p><strong>Collaboration &amp; Visibility</strong></p>
+<ul>
+<li>As a board member, I want to assign a card to a teammate, so that responsibility is clear.</li>
+<li>As a board member, I want to add colored labels to cards, so that I can categorize tasks (e.g., bug, feature, urgent).</li>
+<li>As a board member, I want to set a due date on a card and see overdue cards highlighted, so that I don't miss deadlines.</li>
+<li>As a board member, I want the board to reflect recent changes when I refresh or reopen it, so that I see up-to-date status from my teammates.</li>
+</ul>
+</section>
+<section id="13-implementation-decisions-ต้นฉบับ-full-stack" class="level3">
+<h3>1.3 Implementation Decisions (ต้นฉบับ full-stack)</h3>
+<blockquote>
+<p>หมายเหตุ: ส่วนนี้บันทึก <strong>การตัดสินใจเชิงสถาปัตยกรรมและสัญญา (contracts)</strong> ไม่ใช่ source code หรือ file path เพื่อให้คงทนต่อการเปลี่ยนแปลง</p>
+</blockquote>
+<p><strong>Architecture &amp; Tech Stack:</strong> ระบบเป็น web application แบบ client-server แยกชั้นชัดเจน Frontend เป็น React single-page application (SPA) สื่อสารกับ backend ผ่าน REST API (JSON) Backend เป็น Node.js (แนะนำ Express หรือ Fastify) ทำหน้าที่ business logic และ authentication ฐานข้อมูลเป็น PostgreSQL การ deploy คาดว่าเป็น stateless backend หลาย instance หลัง load balancer โดยเก็บ session state ไว้ใน token ไม่ใช่ในหน่วยความจำ server</p>
+<p>การ sync ข้อมูลใน MVP ใช้รูปแบบ <strong>polling</strong> — frontend ดึงสถานะ board ใหม่เมื่อเปิดหน้า/รีเฟรช และ poll ซ้ำทุก ~10 วินาทีขณะเปิดอยู่ (ออกแบบ API ให้รองรับการเปลี่ยนไปใช้ WebSocket ใน Phase ถัดไปได้โดยไม่ต้องเปลี่ยน data model)</p>
+<p><strong>Modules ที่จะสร้าง:</strong> Backend แบ่งเป็น module ตาม domain: <strong>Auth module</strong> (register, login, token issuance/verification), <strong>User module</strong> (โปรไฟล์ผู้ใช้, ค้นหาผู้ใช้สำหรับ invite/assign), <strong>Board module</strong> (CRUD board + membership), <strong>Column module</strong> (CRUD column + reordering), <strong>Card module</strong> (CRUD card + การย้าย/reorder ข้าม column), และ <strong>Label module</strong> (CRUD label ระดับ board + ผูก label กับ card) Frontend แบ่งเป็น: <strong>Auth views</strong> (login/register), <strong>Board list view</strong>, <strong>Board detail view</strong> (แสดง column + card พร้อม drag-and-drop), <strong>Card detail modal/panel</strong>, และ <strong>shared API client + state store</strong></p>
+<p><strong>Authentication Contract:</strong> ใช้ JWT (JSON Web Token) แบบ stateless ผู้ใช้ login แล้วได้รับ access token (อายุสั้น เช่น 15–60 นาที) เก็บฝั่ง client ทุก request ที่ต้อง auth ส่ง token ผ่าน header <code>Authorization: Bearer &lt;token&gt;</code> Backend ตรวจสอบ token ทุก request และดึง <code>user_id</code> จาก payload รหัสผ่าน hash ด้วย bcrypt (cost ≥ 10) หรือ argon2 ก่อนเก็บลง DB <strong>ห้าม</strong>เก็บ plaintext password ในกรณีต้องการ "stay logged in" ระยะยาว ให้ออกแบบ refresh token แยก (optional ใน MVP — ภายหลัง implement จริงตามที่บันทึกใน <a href="../CLAUDE.md">CLAUDE.md</a>)</p>
+<p><strong>Authorization Model (MVP — แบบเรียบง่าย):</strong> ใช้โมเดล authorization 2 ระดับเท่านั้น: <strong>owner</strong> (ผู้สร้าง board — ลบ board / จัดการสมาชิกได้) และ <strong>member</strong> (สมาชิกที่ถูกเชิญ — สร้าง/แก้ไข/ลบ column และ card ได้ทั้งหมด แต่ลบ board ไม่ได้) ผู้ที่ไม่ใช่ owner หรือ member ของ board เข้าถึง board นั้นไม่ได้เลย การ enforce ทำที่ backend ทุก endpoint โดยตรวจว่า <code>user_id</code> เป็นสมาชิกของ board ที่เกี่ยวข้องก่อนเสมอ (ไม่เชื่อถือ client) ระบบ role ละเอียด (viewer/editor/admin) เลื่อนไป Phase ถัดไป</p>
+<p><strong>Ordering Strategy (สำคัญ):</strong> ลำดับของ column ภายใน board และ card ภายใน column เก็บด้วยฟิลด์ <code>position</code> แบบ <strong>fractional/float</strong> (หรือ lexicographic rank string) ไม่ใช่ integer index ต่อเนื่อง เพื่อให้การย้าย 1 รายการไม่ต้อง re-write ทุก record ในคอลัมน์ เมื่อย้าย card ไปแทรกระหว่าง card A (position 1.0) และ B (position 2.0) ระบบกำหนด position ใหม่เป็นค่ากึ่งกลาง (1.5) Backend ทำ periodic rebalancing เมื่อ precision เริ่มตัน แนวทางนี้รองรับ drag-and-drop ที่ตอบสนองเร็วโดยอัปเดต record เดียว</p>
+<p><strong>Data Model / Schema (เชิงตรรกะ):</strong> ตารางหลักและความสัมพันธ์ (ใช้ UUID เป็น primary key, มี <code>created_at</code> / <code>updated_at</code> ทุกตาราง):</p>
+<ul>
+<li><strong>users</strong> — <code>id</code>, <code>email</code> (unique), <code>password_hash</code>, <code>display_name</code></li>
+<li><strong>boards</strong> — <code>id</code>, <code>name</code>, <code>owner_id</code> (→ users)</li>
+<li><strong>board_members</strong> — <code>id</code>, <code>board_id</code> (→ boards), <code>user_id</code> (→ users), <code>role</code> (<code>owner</code> | <code>member</code>); unique (board_id, user_id) — ตารางเชื่อม many-to-many สำหรับสมาชิก board</li>
+<li><strong>columns</strong> — <code>id</code>, <code>board_id</code> (→ boards), <code>name</code>, <code>position</code> (float)</li>
+<li><strong>cards</strong> — <code>id</code>, <code>column_id</code> (→ columns), <code>title</code>, <code>description</code> (nullable), <code>assignee_id</code> (→ users, nullable), <code>due_date</code> (nullable), <code>position</code> (float)</li>
+<li><strong>labels</strong> — <code>id</code>, <code>board_id</code> (→ boards), <code>name</code>, <code>color</code></li>
+<li><strong>card_labels</strong> — <code>card_id</code> (→ cards), <code>label_id</code> (→ labels); composite PK — เชื่อม card กับ label แบบ many-to-many</li>
+</ul>
+<p>กฎ cascade: ลบ board → ลบ column, card, label, membership ที่เกี่ยวข้อง; ลบ column → ลบ card ในนั้น; ลบ label → ลบ row ใน card_labels เท่านั้น (ไม่ลบ card) ใส่ index บน foreign key ที่ query บ่อย: <code>columns.board_id</code>, <code>cards.column_id</code>, <code>board_members.user_id</code></p>
+<p><strong>API Contract (REST):</strong> ทุก endpoint (ยกเว้น auth) ต้องมี valid token และผ่านการตรวจ membership ของ board ที่เกี่ยวข้อง ใช้ HTTP status มาตรฐาน (200/201 สำเร็จ, 400 input ผิด, 401 ไม่ได้ auth, 403 ไม่มีสิทธิ์, 404 ไม่พบ, 409 conflict)</p>
+<pre><code>POST   /auth/register          → สร้าง user, คืน token
+POST   /auth/login             → คืน token
+GET    /boards                 → board ทั้งหมดที่ user เป็น owner/member
+POST   /boards                 → สร้าง board (ผู้สร้างเป็น owner)
+GET    /boards/:id             → board + columns + cards + labels (full snapshot สำหรับ render หน้าเดียว)
+PATCH  /boards/:id             → rename board (owner)
+DELETE /boards/:id             → ลบ board (owner)
+POST   /boards/:id/members     → เชิญสมาชิกด้วย email (owner)
+DELETE /boards/:id/members/:userId → เอาสมาชิกออก (owner)
+POST   /boards/:id/columns     → สร้าง column
+PATCH  /columns/:id            → rename / เปลี่ยน position
+DELETE /columns/:id            → ลบ column
+POST   /columns/:id/cards      → สร้าง card
+PATCH  /cards/:id              → แก้ field และ/หรือ ย้าย (column_id + position)
+DELETE /cards/:id              → ลบ card
+POST   /boards/:id/labels      → สร้าง label
+PATCH  /labels/:id             → แก้ label
+DELETE /labels/:id             → ลบ label
+PUT    /cards/:id/labels/:labelId    → ติด label
+DELETE /cards/:id/labels/:labelId    → ถอด label</code></pre>
+<p><strong>การย้าย card</strong> ใช้ <code>PATCH /cards/:id</code> ส่ง <code>{ column_id, position }</code> ใน body เดียว (ครอบคลุมทั้งย้ายข้าม column และ reorder ใน column เดิม) — ตัดสินใจรวมเป็น endpoint เดียวเพื่อให้ frontend จัดการ drag-and-drop ด้วย call เดียว</p>
+<p><strong>Frontend State &amp; Optimistic UI:</strong> Frontend โหลด full board snapshot จาก <code>GET /boards/:id</code> ครั้งเดียวเก็บใน client state store (เช่น Redux/Zustand/React Query) การ render board อิงจาก state นี้ การลาก-ย้าย card ใช้ <strong>optimistic update</strong>: อัปเดต UI ทันทีที่ผู้ใช้ drop แล้วยิง <code>PATCH /cards/:id</code> เบื้องหลัง หาก API ล้มเหลวให้ rollback state กลับและแจ้ง error การ poll ทุก ~10 วินาทีดึง snapshot ใหม่มา reconcile (last-write-wins ใน MVP — ยังไม่ทำ conflict merge ละเอียด)</p>
+<p>ไลบรารี drag-and-drop แนะนำเป็น library ที่ดูแลต่อเนื่องและรองรับ accessibility/keyboard (เช่น dnd-kit) — ตัดสินใจหลีกเลี่ยง library ที่หยุด maintain แล้ว</p>
+<p><strong>Concurrency &amp; Conflict (MVP):</strong> เนื่องจาก MVP ใช้ polling + last-write-wins การแก้ field เดียวกันพร้อมกันจาก 2 คน ผลลัพธ์คือคนที่บันทึกทีหลังชนะ ถือว่ายอมรับได้สำหรับทีมเล็ก สำหรับการย้าย card ที่ position ชนกัน backend จะ assign position ใหม่ให้เสมอ ดังนั้นจะไม่เกิด card ทับซ้อนที่ position เดียวกัน</p>
+<p><strong>Validation Rules (ระดับ contract):</strong> <code>board.name</code> และ <code>column.name</code> ต้องไม่ว่างและยาวไม่เกิน 100 ตัวอักษร, <code>card.title</code> ต้องไม่ว่าง ยาวไม่เกิน 255, <code>card.description</code> ไม่เกิน ~5,000 ตัวอักษร, <code>label.color</code> ต้องเป็นค่า hex color ที่ valid, การเชิญสมาชิกต้องเป็น email ที่มี user อยู่ในระบบแล้ว (MVP ยังไม่ทำ invite ผู้ที่ยังไม่สมัคร) Validation ทำทั้งฝั่ง client (UX) และ backend (authoritative)</p>
+</section>
+<section id="14-uiux-guidelines-ต้นฉบับ" class="level3">
+<h3>1.4 UI/UX Guidelines (ต้นฉบับ)</h3>
+<p><strong>Layout &amp; Hierarchy:</strong> หน้า board เป็น column วางเรียงแนวนอนและ scroll แนวนอนได้ ความกว้าง column คงที่ ~280–320px card สูงตามเนื้อหา ใช้ whitespace และเส้นแบ่งบางแทนกรอบหนา เพื่อให้สายตาโฟกัสที่ card หัวแต่ละ column แสดงชื่อพร้อมตัวนับจำนวน card ช่วยให้เห็นภาระงานทันที แถบบนสุด (top bar) แสดงชื่อ board, avatar สมาชิก และปุ่ม invite</p>
+<p><strong>Card Design:</strong> หน้า card แสดงเฉพาะข้อมูลที่ scan เร็ว ได้แก่ แถบ label สีด้านบน, title, avatar ผู้รับผิดชอบ และ due date เป็น chip รายละเอียดเต็ม (description, การจัดการ label, assignee) เปิดใน modal หรือ side-panel เมื่อคลิก card — ไม่ยัดทุกอย่างลงบนหน้า card <em>(หมายเหตุ: ดีไซน์ "แถบ label สี" นี้ถูกทำจริงในหัวข้อ 5 แล้วถูกแทนที่ด้วย editorial card ในหัวข้อ 6)</em></p>
+<p><strong>Drag-and-Drop Affordance:</strong> จุดสำคัญที่สุดของ Kanban ขณะลากต้องมี placeholder/ghost ชี้ตำแหน่ง drop ชัดเจน card ที่ลากยกขึ้นด้วย shadow และเอียงเล็กน้อย column เป้าหมาย highlight ระหว่าง hover ต้องรองรับการลากด้วยคีย์บอร์ด (accessibility)</p>
+<p><strong>Color &amp; State:</strong> สีพื้นเป็น neutral ให้ label และสถานะเป็นตัวเดินสี ใช้สีเชิงความหมายสม่ำเสมอ (overdue = แดง, ใกล้ครบกำหนด = เหลือง) และ<strong>ห้าม</strong>สื่อความหมายด้วยสีอย่างเดียว ต้องเติม icon หรือข้อความกำกับด้วยเสมอ (รองรับผู้ใช้ตาบอดสี ตาม WCAG)</p>
+<p><strong>Empty &amp; Loading States:</strong> board ที่ยังไม่มี column และ column ที่ยังไม่มี card ต้องมี empty state ที่ชวนลงมือ (เช่น "+ เพิ่ม column แรก") การ poll refresh ต้องเงียบ ไม่กระพริบทั้งหน้า — อัปเดตเฉพาะส่วนที่เปลี่ยน</p>
+<p><strong>Responsive:</strong> บนแท็บเล็ตให้ column แคบลงและ scroll แนวนอนได้ บนจอเล็กพิจารณาแสดงทีละ column พร้อมตัวสลับ touch target ทุกปุ่มอย่างน้อย 44×44px</p>
+<p><strong>ASCII Mockup — Board Detail View:</strong></p>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│  ☰  Project Phoenix          [🔍 Search]      (T)(A)(M) +    [+ Invite]    │  ← top bar
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ┌── To Do ──────── 3 ─┐  ┌─ In Progress ── 2 ─┐  ┌── Done ──────── 4 ─┐ │
+│  │                     │  │                     │  │                     │ │
+│  │ ┌─────────────────┐ │  │ ┌─────────────────┐ │  │ ┌─────────────────┐ │ │
+│  │ │ ▌bug            │ │  │ │ ▌feature        │ │  │ │ ▌feature        │ │ │
+│  │ │ Fix login crash │ │  │ │ Build card modal│ │  │ │ Setup CI        │ │ │
+│  │ │ 🗓 Jun 2  ⚠ (A) │ │  │ │ 🗓 Jun 5    (T) │ │  │ │           (M)   │ │ │
+│  │ └─────────────────┘ │  │ └─────────────────┘ │  │ └─────────────────┘ │ │
+│  │ ┌─────────────────┐ │  │ ┌─────────────────┐ │  │ ┌─────────────────┐ │ │
+│  │ │ ▌feature        │ │  │ │ ░░░░░░░░░░░░░░░░ │ │  │ │ DB schema       │ │ │
+│  │ │ Drag-and-drop   │ │  │ │ ░ drop here ░░░ │ │  │ │           (A)   │ │ │
+│  │ │ 🗓 Jun 8    (M) │ │  │ │ ░░░░░░░░░░░░░░░░ │ │  │ └─────────────────┘ │ │
+│  │ └─────────────────┘ │  │ └─────────────────┘ │  │   … 2 more          │ │
+│  │ ┌─ ▛ dragging ▜ ──┐ │  │                     │  │                     │ │
+│  │ │ ▌urgent  Deploy │ │  │ [+ Add a card]      │  │ [+ Add a card]      │ │
+│  │ └─────────────────┘ │  └─────────────────────┘  └─────────────────────┘ │
+│  │ [+ Add a card]      │                                                   │
+│  └─────────────────────┘   [+ Add column]                                 │
+│                                                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  ▌ = แถบ label สี      (T)(A)(M) = avatar       ⚠ = overdue
+  ░░ = placeholder ตอนลาก (drop target)          ▛ ▜ = card ที่กำลังลาก (ยกขึ้น)</code></pre>
+<p><strong>ASCII Mockup — Card Detail Panel:</strong></p>
+<pre><code>┌──────────────────────────────────────────────┐
+│  Fix login crash                          [✕] │
+│  อยู่ใน: To Do                                 │
+├──────────────────────────────────────────────┤
+│  Labels:   ▌bug   ▌urgent   [+]                │
+│  Assignee: (A) Alice                 [เปลี่ยน] │
+│  Due date: 🗓 Jun 2, 2026   ⚠ overdue          │
+│                                                │
+│  Description                                   │
+│  ┌────────────────────────────────────────┐   │
+│  │ ผู้ใช้กด login แล้ว app crash บน Safari   │   │
+│  │ ต้องตรวจ token parsing ...               │   │
+│  └────────────────────────────────────────┘   │
+│                                                │
+│              [ลบ card]            [บันทึก]      │
+└──────────────────────────────────────────────┘</code></pre>
+</section>
+<section id="15-ข้อมูลเสริมสำหรับการพัฒนา-ต้นฉบับ" class="level3">
+<h3>1.5 ข้อมูลเสริมสำหรับการพัฒนา (ต้นฉบับ)</h3>
+<p><strong>ลำดับการพัฒนาแนะนำ (Milestones):</strong> เริ่มจาก Auth + User (รากฐาน) → Board CRUD + membership → Column CRUD → Card CRUD → Drag-and-drop + ordering → Labels + due date + assignee → Polling refresh → ขัดเกลา UX และ validation ปลายทาง แต่ละ milestone ควรมี API ใช้งานได้จริงก่อนต่อ frontend</p>
+<p><strong>Acceptance Criteria ตัวอย่าง (flow หลัก):</strong> การลากย้าย card ถือว่าผ่านเมื่อ: ผู้ใช้ลาก card จาก column A ไป column B แล้ว card ปรากฏใน B ทันที, รีเฟรชหน้าแล้ว card ยังอยู่ที่ B (persist สำเร็จ), และถ้า API ล้มเหลว card เด้งกลับ A พร้อมข้อความ error การเชิญสมาชิกถือว่าผ่านเมื่อ: owner กรอก email ของ user ที่มีอยู่ → สมาชิกเห็น board ใน list ของตนเมื่อ login และแก้ card ได้ แต่ลบ board ไม่ได้</p>
+<p><strong>Edge Cases ที่ต้องจัดการ:</strong> ลบ column ที่มี card อยู่ (ต้องยืนยันและ cascade), ย้าย card ขณะมีคนอื่นลบ card นั้นไปแล้ว (คืน 404, frontend ลบออกจาก state), board ว่าง (ไม่มี column) ต้องแสดง empty state ที่ชวนสร้าง column แรก, due date ในอดีตต้อง highlight เป็น overdue, สมาชิกถูกถอดออกจาก board ขณะเปิดอยู่ (poll ครั้งถัดไปได้ 403 → เด้งออกพร้อมข้อความ)</p>
+<p><strong>Testing Strategy (สรุป):</strong> Unit test สำหรับ business logic (โดยเฉพาะ position/ordering algorithm และ authorization check), integration test สำหรับทุก API endpoint รวม happy path + auth failure + permission failure, และ end-to-end test สำหรับ flow หลัก: register → สร้าง board → สร้าง column/card → ลากย้าย → รีเฟรชแล้วข้อมูลคงอยู่ ควรมี test เฉพาะสำหรับ ordering edge case (แทรกหัว/ท้าย/กลาง และ rebalancing)</p>
+<p><strong>ข้อสมมติ (Assumptions):</strong> ถือว่าทีมขนาดเล็กและปริมาณ card ต่อ board ไม่เกินหลักร้อย จึงโหลด full snapshot ได้ ถ้าในอนาคต board ใหญ่ขึ้นมากต้องเพิ่ม pagination/lazy-load ต่อ column ถือว่าผู้ใช้ทุกคนสมัครสมาชิกก่อน จึง assign/invite ด้วย email ที่มีในระบบเท่านั้น และถือว่า MVP ยังไม่ต้องรองรับ offline mode</p>
+</section>
+<section id="16-การตัดสินใจอนุมัติรอบแรก--frontend--mock-backend-approved-v10--31-พฤษภาคม-2026" class="level3">
+<h3>1.6 การตัดสินใจอนุมัติรอบแรก — Frontend + Mock Backend (Approved v1.0 — 31 พฤษภาคม 2026)</h3>
+<p><strong>ที่มา:</strong> PRD ต้นฉบับ (§1.1–1.5 ข้างต้น) ออกแบบระบบเป็น full-stack (React + Node.js + PostgreSQL) แต่ repository ตอนนั้นเป็นเพียง Create React App scaffold เปล่า (React 19, ยังไม่มี backend/DB/router/state) จากการ grill ข้อกำหนดร่วมกัน ได้ข้อสรุปว่า <strong>รอบนี้จะสร้างเฉพาะ frontend</strong> โดยมี <strong>mock API client</strong> ที่เลียนแบบ REST contract ใน §1.3 คุยกับ "server จำลอง" ที่เก็บ state ใน localStorage เป้าหมายคือได้ Kanban ที่กดเล่นได้จริงในเบราว์เซอร์ทันที และเปลี่ยนไปต่อ Node backend จริงในอนาคตได้โดยแก้แค่ไส้ในของ API client ชั้นเดียว — ไม่ต้องแตะ UI, state หรือ data model ส่วนนี้บันทึก <strong>เฉพาะการตัดสินใจที่ override หรือเพิ่มเติมจาก §1.1–1.5</strong> ส่วนที่ไม่กล่าวถึงให้ยึดตามเดิม</p>
+<p><strong>การตัดสินใจที่อนุมัติแล้ว (Locked Decisions):</strong></p>
+<table>
+<thead>
+<tr>
+<th>หัวข้อ</th>
+<th>ตัดสินใจ</th>
+<th>override PRD เดิม?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ขอบเขต</strong></td>
+<td>Frontend + mock API client + localStorage persistence</td>
+<td>ใช่ — เลื่อน Node/PostgreSQL ออกไป Phase ถัดไป</td>
+</tr>
+<tr>
+<td><strong>Identity / Auth</strong></td>
+<td><strong>User-switcher</strong> — seed ผู้ใช้หลายคน (Alice/Bob/…) มี dropdown เลือกว่า "ตอนนี้เราเป็นใคร" ไม่มีหน้า login จริง</td>
+<td>ใช่ — JWT/bcrypt เป็นของจริงไม่ได้เพราะไม่มี server</td>
+</tr>
+<tr>
+<td><strong>State management</strong></td>
+<td><strong>Zustand</strong> + <code>persist</code> middleware (localStorage)</td>
+<td>เลือก 1 ใน option ที่เปิดไว้</td>
+</tr>
+<tr>
+<td><strong>Mock fidelity</strong></td>
+<td>เต็มรูปแบบ — async Promise + หน่วงเวลา, toggle บังคับ fail (โชว์ rollback), cross-tab sync ผ่าน <code>storage</code> event (จำลอง polling ~10s)</td>
+<td>เพิ่มเติม — วิธีจำลองพฤติกรรมบนเครื่องเดียว</td>
+</tr>
+<tr>
+<td><strong>Styling</strong></td>
+<td><strong>CSS Modules</strong> (มากับ CRA ไม่ต้องตั้ง build config)</td>
+<td>เพิ่มเติม</td>
+</tr>
+<tr>
+<td><strong>Card detail</strong></td>
+<td><strong>Side-panel</strong> เลื่อนเข้าจากขวา (board ยังเห็นด้านหลัง)</td>
+<td>เลือกจาก "modal หรือ side-panel" ที่เปิดไว้</td>
+</tr>
+<tr>
+<td><strong>Drag-and-drop</strong></td>
+<td><strong>dnd-kit</strong> (<code>@dnd-kit/core</code> + <code>@dnd-kit/sortable</code>)</td>
+<td>ยึดตามเดิม</td>
+</tr>
+<tr>
+<td><strong>Ordering</strong></td>
+<td><strong>Fractional float <code>position</code></strong></td>
+<td>ยึดตามเดิม</td>
+</tr>
+<tr>
+<td><strong>Routing</strong></td>
+<td><strong>react-router-dom</strong></td>
+<td>เพิ่มเติม</td>
+</tr>
+<tr>
+<td><strong>Seed data</strong></td>
+<td>บอร์ดตัวอย่าง "Project Phoenix" ตาม mockup §1.4</td>
+<td>เพิ่มเติม</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Trade-offs ที่ยอมรับ</strong> เนื่องจากไม่มี server จริงในรอบนี้: <strong>Auth เป็นของจำลอง</strong> — ไม่มี password hashing/JWT จริง การ "เป็นใคร" มาจาก user-switcher <strong>Collaboration เป็น single-machine</strong> — invite teammate, assignee, polling refresh จาก "คนอื่น" จำลองด้วย user-switcher + cross-tab sync (เปิดหลายแท็บ) ไม่ใช่ multi-user ข้ามเครื่องจริง <strong>ปริมาณข้อมูล</strong> — เก็บใน localStorage เหมาะกับ card หลักร้อยใบตามข้อสมมติ §1.5</p>
+<p>ส่วนที่ยังคงทำงาน <em>จริง</em> และ demo ได้ครบ: board/column/card CRUD, drag-and-drop + fractional ordering, optimistic update + rollback, persist ข้าม refresh, label/due-date/assignee, owner-vs-member authorization, edge cases (404/403/cascade)</p>
+<p><strong>สถาปัตยกรรม (Seam สำหรับสลับ backend ภายหลัง):</strong></p>
+<pre><code>UI components ─► Zustand store (optimistic, persisted) ─► API client (รูปแบบ method ตาม §1.3)
+                                                                │
+                                                        mockBackend (&quot;server&quot; จำลอง:
+                                                        canonical state ใน localStorage,
+                                                        latency, failure toggle,
+                                                        membership/authz checks,
+                                                        broadcast การเปลี่ยนข้ามแท็บ)</code></pre>
+<p><strong>จุดสลับ (swap point)</strong> คือ API client — method (<code>getBoards</code>, <code>getBoard</code>, <code>createBoard</code>, <code>patchCard</code>, <code>moveCard</code>, <code>addMember</code>, …) มีชื่อและ semantics ตรงตาม §1.3 วันนี้เรียก <code>mockBackend</code>; วันหน้าเปลี่ยนเป็น <code>fetch()</code> ยิง Node API จริงโดยผู้เรียกไม่ต้องแก้ (แนวทางนี้ถูกใช้จริงภายหลังตอนย้ายไป backend จริง — ดู <a href="../CLAUDE.md">CLAUDE.md</a>)</p>
+<p><strong>Authorization</strong> อยู่ใน <code>mockBackend</code> เสมอ (ไม่เชื่อ caller): ทุก operation ตรวจว่า current user เป็นสมาชิกของ board ที่เกี่ยวข้อง; การลบ board / จัดการสมาชิก ตรวจ role <code>owner</code></p>
+<p><strong>Domain Glossary ฉบับแรกสุด</strong> <em>(เก็บไว้เป็นประวัติ — glossary ปัจจุบันของระบบอยู่ที่ <a href="../CONTEXT.md">CONTEXT.md</a> ที่ root แล้ว ให้ยึดตามนั้น)</em>: Board, Column, Card (ยุคนั้นยังไม่มี Category / multi-assignee), Member (owner/member), Assignee (ยุคนั้นยังเป็นคนเดียว — ภายหลังเปลี่ยนเป็นหลายคนในหัวข้อ 6), Position, Current User (ยุคนั้นคือ user-switcher), Overdue</p>
+<p><strong>โครงไฟล์ที่วางแผนไว้ตอนนั้น:</strong></p>
+<pre><code>src/
+  index.js                      (เดิม — ครอบด้วย BrowserRouter)
+  App.js                        (เขียนใหม่ — routes + session)
+  routes/
+    BoardListPage.jsx           GET /boards
+    BoardPage.jsx               GET /boards/:id (full snapshot)
+  api/
+    client.js                   API surface ตาม §1.3 (จุดสลับ)
+    mockBackend.js              &quot;server&quot; บน localStorage: authz, latency, failure toggle, cross-tab broadcast
+  domain/
+    ordering.js                 positionBetween, needsRebalance, rebalance — pure, unit-tested
+    validation.js               กฎ §1.3
+  store/
+    useBoardStore.js            Zustand+persist: snapshot, optimistic mutate, rollback
+    useSession.js               current user + seed users (user-switcher)
+  hooks/
+    usePolling.js               interval + storage-event reconcile
+  components/
+    UserSwitcher · TopBar · MemberAvatars · InviteDialog
+    Column · ColumnComposer · Card · CardComposer
+    CardPanel · LabelPicker · AssigneePicker · DueDateField
+    EmptyState · Avatar · LabelChip
+    *.module.css                co-located styles
+  seed.js                       seed users + บอร์ด &quot;Project Phoenix&quot;
+CONTEXT.md  (root)              glossary</code></pre>
+<p>Dependencies ที่ต้องเพิ่มตอนนั้น: <code>zustand</code>, <code>react-router-dom</code>, <code>@dnd-kit/core</code>, <code>@dnd-kit/sortable</code>, <code>@dnd-kit/utilities</code>, <code>uuid</code></p>
+<p><strong>Milestones (แต่ละอันรันได้จริง):</strong> M0 — Scaffold &amp; seam (deps, <code>CONTEXT.md</code>, routing, โครง <code>mockBackend</code>+<code>client</code>, <code>useSession</code>+UserSwitcher, <code>seed.js</code>) → M1 — Boards (list, create/rename/delete owner-only, membership, authz) → M2 — Columns (create/rename/delete + empty states, ordering) → M3 — Cards (create/edit/delete, CardPanel side-panel, ตัวนับ card) → M4 — Drag-and-drop + ordering (dnd-kit, fractional position, optimistic+rollback, placeholder/ghost, คีย์บอร์ด) → M5 — Collaboration fields (assignee picker, label สี, due date+overdue, invite dialog) → M6 — Polling/reconcile + edge cases (<code>usePolling</code>, 404 card ถูกลบ, 403 member ถูกถอด, ลบ column cascade) → M7 — Polish (loading/empty states, responsive, neutral palette)</p>
+<p><strong>Verification (เกณฑ์ตรวจรับตอนนั้น):</strong> Unit tests (<code>ordering.test.js</code>, <code>validation.test.js</code>, authz checks) + Manual flow: สลับ user → เห็น board seed → สร้าง board/column/card → ลาก card A→B คงอยู่หลัง refresh → เปิด toggle บังคับ fail แล้วดู rollback → 2 แท็บคนละ user เห็นการเปลี่ยนแปลงของกันและกัน → invite แล้วสิทธิ์ owner/member ถูกต้อง → due date อดีต highlight overdue → ลบ column ที่มี card ต้องยืนยันและ cascade</p>
+</section>
+<section id="17-prd-คำสั่งดำเนินการจริง--frontend-mock-backend-build" class="level3">
+<h3>1.7 PRD คำสั่งดำเนินการจริง — Frontend (Mock-Backend Build)</h3>
+<blockquote>
+<p><strong>Triage label ตอนนั้น:</strong> <code>ready-for-agent</code></p>
+</blockquote>
+<p><strong>Problem Statement:</strong> ทีมเล็ก (2–15 คน) จัดการงานกระจัดกระจายในแชท สเปรดชีต และอีเมล ไม่มีจุดเดียวที่เห็นสถานะงานทั้งหมด ไม่รู้ว่าใครรับผิดชอบอะไร และงานตกหล่น ผู้ใช้ต้องการกระดาน Kanban ที่เห็นงานทั้งทีมในหน้าจอเดียว ลากการ์ดข้ามสถานะได้ลื่นไหล และเชื่อถือได้ว่าข้อมูลไม่หาย ในเชิงการพัฒนา ทีมยังไม่ต้องการลงทุนกับโครงสร้าง backend (Node + PostgreSQL + auth จริง) ก่อนจะได้พิสูจน์ว่า core experience ของกระดาน — การสร้าง/ลาก-ย้าย card, ordering, optimistic UI — ใช้งานได้จริงและน่าใช้</p>
+<p><strong>Solution:</strong> สร้าง <strong>Kanban Board frontend</strong> เป็น React SPA ที่กดเล่นได้เต็มรูปแบบในเบราว์เซอร์ทันที โดยมี <strong>mock backend</strong> ที่เก็บ canonical state ไว้ใน localStorage และจำลองพฤติกรรมของ server จริง (async, latency, การ enforce สิทธิ์, การ broadcast การเปลี่ยนแปลงข้ามแท็บ) ผู้ใช้เปิดแอปแล้วเลือกตัวตนจาก <strong>user-switcher</strong> (ตัวตนที่ seed ไว้) เห็นรายการ Board ที่ตนเป็น owner หรือ member เปิด Board เห็น Column เรียงแนวนอน แต่ละ Column มี Card ที่ลาก-ย้าย/จัดลำดับได้ด้วย drag-and-drop การลากตอบสนองทันที (optimistic) และคงอยู่หลัง refresh เปิดรายละเอียด Card ใน side-panel เพื่อแก้ description, assignee, due date, labels ได้</p>
+<p><strong>User Stories (42 ข้อ):</strong></p>
+<p><em>Identity &amp; Session:</em> (1) เลือกตัวตนที่ seed ไว้จาก switcher แทนการ login จริง (2) ตัวตนปัจจุบัน persist ข้าม refresh (3) สลับตัวตนได้ตลอดเวลาเพื่อจำลอง collaboration บนเครื่องเดียว</p>
+<p><em>Board list:</em> (4) เห็นเฉพาะ Board ที่ตนเป็น owner/member (5) Board ที่ไม่มีสิทธิ์ถูกซ่อน (6) สร้าง Board ใหม่ด้วยชื่อ (7) owner แก้ชื่อ Board ได้ (8) owner ลบ Board ได้ (9) member ที่ไม่ใช่ owner ไม่เห็นปุ่มลบ</p>
+<p><em>Membership &amp; invitation:</em> (10) owner เชิญ user ที่ seed ไว้ด้วย email (11) owner เอาสมาชิกออกได้ (12) สมาชิกที่ถูกเชิญเห็น Board ในลิสต์เมื่อสลับเป็นตัวตนนั้น (13) เห็น avatar สมาชิกทั้งหมดใน top bar</p>
+<p><em>Columns:</em> (14) สร้าง Column ด้วยชื่อเอง (15) แก้ชื่อ Column (16) ลบ Column พร้อม confirm เมื่อยังมี Card (17) ลาก reorder Column (18) หัว Column แสดงจำนวน Card (19) Board ว่างแสดง empty state ชวนเพิ่ม Column แรก</p>
+<p><em>Cards:</em> (20) สร้าง Card ด้วย title ใน Column (21) เปิด Card ใน side-panel เห็น Board อยู่ด้านหลัง (22) แก้ description (23) ลบ Card (24) Column ว่างแสดง empty state ชวนเพิ่ม Card แรก</p>
+<p><em>Drag-and-drop &amp; ordering:</em> (25) ลาก Card ข้าม Column (26) reorder Card ในคอลัมน์เดิม (27) Card ที่ย้ายปรากฏทันที (optimistic) (28) มี placeholder/ghost ชัดเจนตอนลาก (29) Card อยู่ตำแหน่งที่ drop หลัง refresh (30) บันทึกล้มเหลว → Card เด้งกลับพร้อม error (31) ลากด้วยคีย์บอร์ดได้ (accessibility)</p>
+<p><em>Collaboration fields:</em> (32) มอบหมาย Card ให้เพื่อนร่วมทีมคนเดียว (33) สร้าง Label สีระดับ Board (34) ติด/ถอด Label บน Card (35) Card แสดงแถบสี Label, avatar ผู้รับผิดชอบ, due date เพื่อ scan เร็ว (36) ตั้ง due date บน Card (37) Card เกินกำหนด highlight ด้วยสี + icon/ข้อความ (ไม่ใช้สีอย่างเดียว)</p>
+<p><em>Sync &amp; reconcile:</em> (38) เห็นการเปลี่ยนแปลงจากแท็บอื่น (ตัวตนอื่น) (39) refresh เงียบไม่กระพริบทั้งหน้า (40) Card ที่ถูกคนอื่นลบ หายไปจาก view (41) ถูกถอดออกจาก Board ขณะเปิดอยู่ → เด้งออกพร้อมข้อความในรอบ sync ถัดไป</p>
+<p><em>Robustness toggle (dev/demo):</em> (42) มี toggle บังคับ mock-backend fail เพื่อ demo optimistic rollback</p>
+<p><strong>Implementation Decisions:</strong></p>
+<p><em>Scope &amp; architecture</em> (locked — ดู §1.6): สร้าง React frontend เท่านั้น หนุนหลังด้วย mock backend (localStorage) ไม่มี Node/PostgreSQL รอบนี้ Layering: <strong>UI components → Zustand store (optimistic, persisted) → API client (รูปแบบ method ตาม §1.3) → mockBackend</strong> API client เป็น seam ที่ <em>shallow</em> โดยตั้งใจ (จุดสลับ) — method ชื่อ/semantics ตรงกับ §1.3 เพื่อให้สลับไปเป็น <code>fetch()</code> จริงได้โดยไม่ต้องแก้ผู้เรียก</p>
+<p><em>Deep modules</em> (ยืนยันกับผู้ใช้ — build/test แยกเดี่ยว): <strong><code>domain/ordering</code></strong> — pure function สำหรับ fractional float ordering: <code>positionBetween(prevPos, nextPos)</code>, <code>needsRebalance(positions)</code>, <code>rebalance(items)</code> <strong><code>domain/validation</code></strong> — pure validators ตามกฎ §1.3 <strong><code>api/mockBackend</code></strong> — "server": เก็บ canonical state, apply mutation, enforce authorization, cascade delete, จำลอง latency/forced failure, persist+broadcast ข้ามแท็บ</p>
+<p><em>Shallow/coupled modules</em> (ไม่ unit-test แยก): <code>store/useBoardStore</code> (orchestrate optimistic update), <code>api/client</code> (thin adapter), React components/routes (verify ผ่าน manual flow)</p>
+<p><em>Card move contract:</em> <code>moveCard(cardId, { columnId, position })</code> เดียวครอบคลุมทั้งย้ายข้าม Column และ reorder ในคอลัมน์เดิม mockBackend assign position สุดท้ายเสมอ ป้องกัน 2 การย้ายพร้อมกันชนกันที่ position เดียว</p>
+<p><em>Tech choices:</em> react-router-dom, dnd-kit (<code>@dnd-kit/core</code>+<code>@dnd-kit/sortable</code>) รวมคีย์บอร์ด, CSS Modules, uuid, seed data "Project Phoenix"</p>
+<p><strong>Testing Decisions:</strong> เทสต์ที่ดีคือยืนยัน behavior ภายนอกผ่าน public interface ไม่ใช่ internal representation <strong>Modules ที่ unit-test:</strong> <code>domain/ordering</code> เท่านั้น — insert หัว/ท้าย/กลาง ต้องเรียงถูกช่อง, <code>rebalance</code> กระจาย position ใหม่โดยรักษาลำดับเดิม, <code>needsRebalance</code> คืน true เมื่อ precision หมด <strong>ไม่ unit-test รอบนี้:</strong> <code>domain/validation</code>, mockBackend authz, store rollback — ครอบคลุมด้วย manual acceptance flow แทน (ยังเป็นเป้าหมาย test ในอนาคตได้)</p>
+<p><strong>Out of Scope:</strong> Real backend (Node/Express/Fastify), PostgreSQL, JWT/bcrypt จริง; multi-user/multi-device จริง, WebSocket, presence/cursor; role ละเอียดกว่า owner/member; sub-checklist, ไฟล์แนบใหญ่, notification, automation, swimlanes, cross-board search ขั้นสูง, mobile native app, analytics dashboard; invite user ที่ยังไม่ seed; unit test สำหรับ validation/mockBackend authz/store rollback รอบนี้</p>
+<p><strong>Further Notes:</strong> Trade-off ที่ยอมรับตรงไปตรงมา (§1.6) — auth จำลอง, collaboration single-machine ผ่าน user-switcher+cross-tab sync ส่วนที่เหลือทำงานจริงและ demo ได้ครบ (CRUD, drag-and-drop+ordering, optimistic+rollback, persistence, label/due-date/assignee, authorization, edge cases) Domain glossary ฉบับแรกอยู่ที่ root <code>CONTEXT.md</code> (ปัจจุบันเนื้อหาถูกขยายไปมากแล้ว ดู <a href="../CONTEXT.md">CONTEXT.md</a>)</p>
+<hr />
+</section>
+</section>
+<section id="2-column-header-colors-superseded-by-adr-0001" class="level2">
+<h2>2. Column Header Colors (Superseded by ADR-0001)<span class="status-badge superseded">Superseded</span></h2>
+<blockquote>
+<p><strong>หัวข้อนี้ถูกแทนที่แล้วโดย <a href="../docs/adr/0001-column-accent-model.md">ADR-0001</a></strong> โมเดล "ทาสีเฉพาะแถบ header" ด้านล่างถูกแทนที่ด้วยโมเดล column <strong>Accent</strong> (title chip + wash ทั้งคอลัมน์) Schema ฝั่ง backend (<code>color VARCHAR(7)</code>), validation, และ persistence ยังใช้ต่อ — มีแค่ส่วน frontend rendering ที่อธิบายในหัวข้อนี้ที่ล้าสมัยแล้ว (ดูโมเดลปัจจุบันในหัวข้อ 6 "Column Accent" ตาม ADR-0001)</p>
+</blockquote>
+<p><strong>สถานะ:</strong> Superseded</p>
+<section id="problem-statement" class="level3">
+<h3>Problem Statement</h3>
+<p>Columns on the board all look identical — the same gray header regardless of their meaning or stage in the workflow. Users who manage boards with many columns have no visual way to distinguish them at a glance or convey status through color (e.g., red for "Blocked", green for "Done"). Setting a color currently requires manually editing the database.</p>
+</section>
+<section id="solution-โมเดลเดิม--ล้าสมัยแล้ว" class="level3">
+<h3>Solution (โมเดลเดิม — ล้าสมัยแล้ว)</h3>
+<p>Allow board members to assign a background color to any column header directly from the board UI. Clicking the existing edit (✏️) button opens an inline form that includes both the column name field and a row of pastel color swatches. When a color is set, the column header renders with that color as its background. When no color is set, the header remains the default gray. A clear option ("✕" swatch) removes the color at any time. Colors are persisted to the database so they survive page reloads.</p>
+</section>
+<section id="user-stories-เดิม" class="level3">
+<h3>User Stories (เดิม)</h3>
+<ol type="1">
+<li>As a board member, I want to set a background color on a column header, so that I can visually distinguish columns at a glance without reading the name.</li>
+<li>As a board member, I want to choose from 8 pastel preset swatches, so that I can assign a color in one click without thinking about hex codes.</li>
+<li>As a board member, I want the color picker to appear inside the existing rename form, so that I do not need to open a separate panel just to change the color.</li>
+<li>As a board member, I want the selected swatch to have a visible ring around it, so that I always know which color is currently chosen.</li>
+<li>As a board member, I want a "+" swatch as a ninth option, so that I can still choose a custom color if none of the presets suits my needs.</li>
+<li>As a board member, I want a "✕" swatch to clear the color, so that I can restore the default gray header if I no longer want a color.</li>
+<li>As a board member, I want the column header background to change immediately when I save, so that the result is visible without needing to reload the page.</li>
+<li>As a board member, I want the color to persist after a page reload, so that the board looks the same every time I open it.</li>
+<li>As a board member, I want columns without a color to display the default gray header, so that the board does not look unfinished when I have not set colors yet.</li>
+<li>As a board member, I want the column name and card count to remain readable against any pastel background, so that the header is functional as well as colorful.</li>
+<li>As a board owner, I want column colors to be visible to all board members, so that the visual structure I set up is shared across the team.</li>
+<li>As a board member, I want the color swatches to use the same palette as label colors, so that the board has a visually consistent color language.</li>
+<li>As a board member, I want clicking the "+" swatch to open the native color picker, so that I can pick any color without leaving the panel.</li>
+<li>As a board member, I want the "+" swatch to reflect the custom color I picked, so that I can see which custom color is active at a glance.</li>
+<li>As a board member dragging a column, I want the drag overlay to also show the column's color, so that the dragged column looks correct mid-drag.</li>
+</ol>
+</section>
+<section id="implementation-decisions-เดิม--ส่วน-backendschema-ยังใช้จริง-ส่วน-frontend-rendering-ล้าสมัยแล้ว" class="level3">
+<h3>Implementation Decisions (เดิม — ส่วน backend/schema ยังใช้จริง ส่วน frontend rendering ล้าสมัยแล้ว)</h3>
+<p><strong>Backend (kanban-board-api) — ยังใช้จริง:</strong> เพิ่มคอลัมน์ <code>color VARCHAR(7) NULL</code> (nullable) ให้ตาราง <code>columns</code> ผ่าน migration ใหม่ รับค่า <code>NULL</code> (ไม่มีสี) หรือ hex 6 หลักที่ valid (<code>#rrggbb</code>) ไม่มีค่า default — แถวเดิมได้ <code>NULL</code> <strong>API changes:</strong> <code>PATCH /columns/:id</code> รับฟิลด์ <code>color</code> (optional) validate ว่าเป็น <code>null</code> หรือ hex ที่ valid แล้ว persist; <code>GET /boards/:id</code> (board snapshot) คืน <code>color</code> ในแต่ละ column object ไม่มี endpoint ใหม่</p>
+<p><strong>Frontend (kanban-board) — rendering ส่วนนี้ล้าสมัยแล้ว ดูหัวข้อ 6 แทน:</strong></p>
+<ul>
+<li>API client normalization: เพิ่ม <code>color</code> ในการ flatten column mapping</li>
+<li>Store: <code>renameColumn</code> รับ <code>{ name, color }</code> แทน <code>{ name }</code> เดียว optimistic update ทั้งสองฟิลด์</li>
+<li>Column component: <code>RenameForm</code> รับ <code>color</code> ปัจจุบันของ column render swatch row ใต้ name input (เหมือน label color picker: 8 preset + "+" custom + "✕" clear) บันทึกแล้วเรียก <code>onSave(name, color)</code> <strong>หัว column <code>div</code> ใช้ <code>style={{ background: column.color }}</code></strong> เมื่อมีสี — นี่คือส่วนที่ถูกแทนที่ด้วยโมเดล Accent (ทาทั้งคอลัมน์ ไม่ใช่แค่ header) ใน ADR-0001</li>
+<li>Preset palette (เดิม 8 สี เดียวกับ LabelPicker): <code>#fca5a5 #fdba74 #fde047 #86efac #67e8f9 #93c5fd #c4b5fd #f9a8d4</code></li>
+<li>Validation: reuse <code>validateLabelColor()</code> เดิม "✕" clear ส่ง <code>color: null</code> ข้าม validation (บันทึกแค่ชื่อ)</li>
+<li>Text contrast: preset ทั้ง 8 เป็น pastel อ่อน ตัวหนังสือ header เข้ม (<code>#1e293b</code>) อ่านได้ชัดกับทุก preset ไม่มี dynamic contrast logic สีที่ผู้ใช้ตั้งเองผู้ใช้รับผิดชอบเอง</li>
+</ul>
+</section>
+<section id="testing-decisions-เดิม" class="level3">
+<h3>Testing Decisions (เดิม)</h3>
+<p>Test observable behavior ผ่าน public interface ไม่ใช่ internal state สำหรับ E2E ยืนยันว่า header background เปลี่ยนหลังบันทึก และสียังอยู่หลัง reload ไม่มี unit test ใหม่ (<code>validateLabelColor()</code> unit-test อยู่แล้วใน <code>domain/validation.test.js</code>) E2E เดิม: เปิด board → คลิก ✏️ บน column → เห็น 10 swatches (8 preset + "+" + "✕") → คลิก preset → save → header มีสีตามที่เลือก → reload → สียังอยู่ <em>(E2E นี้ถูกปรับปรุงภายหลังตาม ADR-0001 — target เปลี่ยนจาก header background ไปเป็น title chip)</em></p>
+</section>
+<section id="out-of-scope-เดิม" class="level3">
+<h3>Out of Scope (เดิม)</h3>
+<p>Per-column text color (ไม่มี auto-contrast); Column background (card area) color — เดิมตั้งใจให้เฉพาะแถบ header เท่านั้น <em>(ข้อนี้เองที่ ADR-0001 พลิกกลับ — ตอนนี้ wash ทั้งคอลัมน์แล้ว)</em>; animated color transition; สีที่มองเห็นได้โดยไม่ login; bulk color assignment; column color ใน card side-panel</p>
+</section>
+<section id="further-notes-เดิม" class="level3">
+<h3>Further Notes (เดิม)</h3>
+<p><code>✕</code> clear swatch ส่ง <code>color: null</code> ไป <code>PATCH /columns/:id</code> backend ต้องรับ <code>null</code> ตรงๆ และเก็บเป็น <code>NULL</code> ใน DB (ไม่ใช่ empty string) form บันทึกตอน submit เท่านั้น สีบันทึกพร้อม submit เดียวกับชื่อ ไม่มี PATCH ระหว่างเลือก swatch drag overlay ได้ <code>color</code> มาจาก store โดยอัตโนมัติไม่ต้อง prop เพิ่ม</p>
+<hr />
+</section>
+</section>
+<section id="3-user-profile" class="level2">
+<h2>3. User Profile<span class="status-badge implemented">Implemented</span></h2>
+<p><strong>สถานะ:</strong> Implemented <strong>ขอบเขต:</strong> New Feature — ต่อจาก Kanban Board MVP <strong>วันที่:</strong> 4 มิถุนายน 2026</p>
+<section id="problem-statement-1" class="level3">
+<h3>Problem Statement</h3>
+<p>ปัจจุบัน user ไม่มีทางดูหรือแก้ไขข้อมูลบัญชีของตนเองได้เลย — ทั้ง display name, email และ password ถูกกำหนดตอน register แล้วเปลี่ยนไม่ได้ ทำให้ user ที่พิมพ์ชื่อผิด, ต้องการเปลี่ยน email, หรืออยากเปลี่ยน password ต้องสร้างบัญชีใหม่หรือติดต่อ admin</p>
+</section>
+<section id="solution" class="level3">
+<h3>Solution</h3>
+<p>เพิ่มหน้า <strong>Profile</strong> ที่ให้ user แก้ไขข้อมูลส่วนตัวได้ โดยแบ่งเป็น 2 ส่วนในหน้าเดียว: (1) แก้ <code>displayName</code> และ <code>email</code> (2) เปลี่ยน password (ต้องยืนยัน current password ก่อน) เข้าถึงได้จาก dropdown ใน TopBar และ route <code>/profile</code> โดยตรง การแก้ไขสำเร็จจะอัปเดต TopBar ทันทีโดยไม่ต้อง refresh หน้า</p>
+</section>
+<section id="user-stories" class="level3">
+<h3>User Stories</h3>
+<ol type="1">
+<li>As a registered user, I want to view my current display name and email on a profile page, so that I can verify my account details.</li>
+<li>As a registered user, I want to edit my display name, so that teammates see the correct name on the board.</li>
+<li>As a registered user, I want to change my email address, so that I can keep my login credentials up to date.</li>
+<li>As a registered user, I want to be notified immediately if the new email is already taken, so that I can try a different email without waiting.</li>
+<li>As a registered user, I want to change my password by confirming my current password first, so that my account stays secure even if someone else accesses my session.</li>
+<li>As a registered user, I want to confirm the new password by typing it twice, so that I don't accidentally set a typo as my new password.</li>
+<li>As a registered user, I want to see a success notification after saving, so that I know the change was applied.</li>
+<li>As a registered user, I want to navigate to the profile page from the top bar, so that I can access it from anywhere in the app.</li>
+<li>As a registered user, I want the top bar to reflect my updated display name immediately after saving, so that the UI stays consistent without needing a page refresh.</li>
+<li>As a registered user, I want inline error messages on specific fields (e.g. email conflict), so that I know exactly what needs to be corrected.</li>
+</ol>
+</section>
+<section id="implementation-decisions" class="level3">
+<h3>Implementation Decisions</h3>
+<p><strong>Backend (สร้างก่อน):</strong> เพิ่ม 3 endpoints ใน User module ของ <code>kanban-board-api</code>:</p>
+<pre><code>GET    /users/me                → คืน { id, displayName, email }
+PATCH  /users/me                → แก้ displayName / email; คืน 409 ถ้า email ซ้ำ
+PATCH  /users/me/password       → body: { currentPassword, newPassword }; คืน 400 ถ้า currentPassword ผิด</code></pre>
+<p>ทุก endpoint ต้อง auth (Bearer token) <code>PATCH /users/me/password</code> ตรวจ <code>currentPassword</code> ด้วย bcrypt ก่อน hash <code>newPassword</code> ใหม่ <code>PATCH /users/me</code> คืน user object ที่อัปเดตแล้ว เพื่อให้ frontend sync state ได้ใน response เดียว</p>
+<p><em>(หมายเหตุ: endpoint จริงที่ implement ใช้ path <code>/auth/me</code> และ <code>/auth/me/password</code> ไม่ใช่ <code>/users/me</code> — ดู <a href="../CLAUDE.md">CLAUDE.md</a> "Profile endpoints")</em></p>
+<p><strong>Frontend — Session Store:</strong> เพิ่ม <code>displayName</code> และ <code>email</code> เข้า <code>useSession</code> store โหลด <code>GET /auth/me</code> ครั้งแรกหลัง token valid (app start / after login) <code>PATCH /auth/me</code> สำเร็จ → update store ทันที → TopBar re-render อัตโนมัติ</p>
+<p><strong>Frontend — Routing:</strong> เพิ่ม route <code>/profile</code> ที่ต้องผ่าน auth guard (เช่นเดียวกับ <code>/boards</code>)</p>
+<p><strong>Frontend — TopBar Dropdown:</strong> เพิ่ม dropdown เมื่อคลิก avatar/ชื่อใน TopBar มีรายการ: Profile, Logout</p>
+<p><strong>Frontend — Profile Page Layout:</strong></p>
+<p><em>Section 1 — ข้อมูลส่วนตัว:</em> Field <code>displayName</code> (non-empty, ≤ 100 chars), Field <code>email</code> (valid email format), inline error ใต้ field <code>email</code> เมื่อ backend คืน 409, ปุ่ม "บันทึก" submit เฉพาะ section นี้</p>
+<p><em>Section 2 — เปลี่ยนรหัสผ่าน:</em> Field <code>currentPassword</code>, Field <code>newPassword</code> (≥ 8 ตัวอักษร), Field <code>confirmPassword</code>, client-side validate <code>newPassword === confirmPassword</code> และ length ≥ 8 ก่อนส่ง API, inline error ถ้า <code>currentPassword</code> ผิด (backend 400), ปุ่ม "เปลี่ยนรหัสผ่าน" submit เฉพาะ section นี้</p>
+<p><strong>Validation:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>displayName</code></td>
+<td>non-empty, ≤ 100 chars (client + backend)</td>
+</tr>
+<tr>
+<td><code>email</code></td>
+<td>valid format (client), unique (backend 409)</td>
+</tr>
+<tr>
+<td><code>newPassword</code></td>
+<td>≥ 8 chars (client + backend)</td>
+</tr>
+<tr>
+<td><code>confirmPassword</code></td>
+<td>=== <code>newPassword</code> (client only)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Feedback Pattern:</strong> สำเร็จ → toast notification (เหมือน pattern ที่ใช้ใน app) Field error (409 email, 400 wrong password) → inline error ใต้ field นั้น</p>
+</section>
+<section id="testing-decisions" class="level3">
+<h3>Testing Decisions</h3>
+<p><strong>หลักการ:</strong> test พฤติกรรมที่ user มองเห็น ไม่ test implementation detail</p>
+<p><strong>Backend Unit / Integration Tests:</strong> <code>GET /auth/me</code> คืน user ที่ถูกต้อง, 401 ถ้าไม่มี token; <code>PATCH /auth/me</code> อัปเดต displayName สำเร็จ, คืน 409 ถ้า email ซ้ำ; <code>PATCH /auth/me/password</code> เปลี่ยนได้เมื่อ currentPassword ถูก, คืน 400 ถ้าผิด</p>
+<p><strong>Frontend Unit Tests:</strong> Validation logic — <code>confirmPassword</code>, password length — pure function test เหมือน <code>src/domain/</code></p>
+<p><strong>E2E Tests (Playwright)</strong> ใน <code>e2e/profile.spec.js</code>: เปลี่ยน displayName → TopBar แสดงชื่อใหม่ทันที, persist หลัง refresh; พยายามเปลี่ยน email เป็นที่ซ้ำ → เห็น inline error; เปลี่ยน password ด้วย current password ถูก → login ด้วย password ใหม่ได้; พยายามเปลี่ยน password ด้วย current password ผิด → เห็น error</p>
+<p>Prior art: <code>e2e/auth.spec.js</code>, <code>e2e/board.spec.js</code></p>
+</section>
+<section id="out-of-scope" class="level3">
+<h3>Out of Scope</h3>
+<p>Avatar upload / รูปโปรไฟล์; การลบบัญชี; Notification preferences; Two-factor authentication; OAuth / social login; Admin ดูหรือแก้ไข profile ของ user คนอื่น</p>
+</section>
+<section id="further-notes" class="level3">
+<h3>Further Notes</h3>
+<p>Backend ต้องสร้างก่อน frontend — ไม่ใช้ mock API เพื่อหลีกเลี่ยง rework <code>GET /auth/me</code> ควรถูกเรียกตอน app start (หลัง token validate) ไม่ใช่เฉพาะตอนเปิดหน้า Profile เพื่อให้ TopBar แสดงชื่อได้ถูกต้องตั้งแต่แรก</p>
+<hr />
+</section>
+</section>
+<section id="4-subtasks-checklist" class="level2">
+<h2>4. Subtasks (Checklist)<span class="status-badge implemented">Implemented</span></h2>
+<p><strong>สถานะ:</strong> Implemented <strong>ขอบเขต:</strong> New Feature — ต่อจาก Kanban Board MVP <strong>วันที่:</strong> 5 มิถุนายน 2026</p>
+<section id="problem-statement-2" class="level3">
+<h3>Problem Statement</h3>
+<p>ปัจจุบัน card แต่ละใบมีแค่ title, description, assignee, due date และ labels — ไม่มีวิธีแตก card ใบหนึ่งเป็น step ย่อยๆ ที่ track ได้ ทีมต้องใช้ description แบบ freetext เพื่อจดรายการงาน ซึ่ง track ความคืบหน้าได้ยาก และมองจาก board view ไม่เห็นเลยว่างานใน card นั้นทำไปถึงไหนแล้ว</p>
+</section>
+<section id="solution-1" class="level3">
+<h3>Solution</h3>
+<p>เพิ่ม <strong>subtask checklist</strong> ใน card แต่ละใบ โดยแสดงรายการงานย่อยพร้อม checkbox ใน CardPanel และแสดง progress summary (<code>✓ checked / total</code>) บน card preview บน board เพื่อให้ทีมเห็น status ของงานได้ในทันทีโดยไม่ต้องเปิด panel</p>
+</section>
+<section id="user-stories-1" class="level3">
+<h3>User Stories</h3>
+<ol type="1">
+<li>As a board member, I want to see a subtask checklist section inside a card's panel, so that I can view all the steps needed to complete the card.</li>
+<li>As a board member, I want to add a subtask by clicking "+ Add subtask" and typing in an inline input, so that I can quickly build up a checklist without leaving the card panel.</li>
+<li>As a board member, I want to confirm a new subtask by pressing Enter, so that I can add multiple subtasks in rapid succession.</li>
+<li>As a board member, I want to cancel adding a subtask by pressing Escape, so that I can dismiss the input without creating an unwanted subtask.</li>
+<li>As a board member, I want to tick a subtask checkbox to mark it as done, so that I can track which steps have been completed.</li>
+<li>As a board member, I want the checkbox state to update instantly without waiting for a server round-trip, so that the checklist feels responsive.</li>
+<li>As a board member, I want a ticked subtask to visually distinguish itself (e.g. strikethrough title), so that done items are clearly separated from pending ones.</li>
+<li>As a board member, I want to click an existing subtask title to edit it inline, so that I can fix typos without deleting and recreating the subtask.</li>
+<li>As a board member, I want to confirm an edited subtask title by pressing Enter, so that my change is saved immediately.</li>
+<li>As a board member, I want to cancel an edit by pressing Escape, so that my original title is preserved if I change my mind.</li>
+<li>As a board member, I want to reorder subtasks using up/down buttons next to each item, so that I can arrange the steps in logical order.</li>
+<li>As a board member, I want to delete a subtask with a delete button, so that I can remove steps that are no longer needed.</li>
+<li>As a board member, I want to see a progress indicator (<code>✓ 3 / 5</code>) on the card preview on the board, so that I can gauge how complete a card is without opening the panel.</li>
+<li>As a board member, I want the progress indicator to update immediately when I tick a checkbox, so that the board view always reflects the current state.</li>
+<li>As a board member, I want the subtask list to sync with what other teammates are doing (via board polling), so that I see their changes within 10 seconds without refreshing.</li>
+<li>As a board member, I want to be warned if I try to add more than 20 subtasks, so that I know to break the work into multiple cards instead.</li>
+<li>As a board member, I want each subtask title to be validated (non-empty, ≤ 100 characters), so that I get clear feedback if my input is invalid.</li>
+<li>As a board member, I want subtasks to persist after a page reload, so that no work is lost when I close and reopen the browser.</li>
+<li>As a board member, I want subtasks to be deleted automatically when their parent card is deleted, so that no orphaned data accumulates.</li>
+<li>As a board member, I want the subtask section to appear only when the card has at least one subtask or I am viewing the card's panel, so that the board is not cluttered for cards with no subtasks.</li>
+</ol>
+</section>
+<section id="implementation-decisions-1" class="level3">
+<h3>Implementation Decisions</h3>
+<p><strong>Schema</strong> — เพิ่ม table <code>subtasks</code> ใน migration ใหม่:</p>
+<pre><code>subtasks (
+  id          UUID PK,
+  card_id     UUID FK → cards(id) ON DELETE CASCADE,
+  title       TEXT NOT NULL,
+  checked     BOOLEAN NOT NULL DEFAULT false,
+  position    DOUBLE PRECISION NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+)</code></pre>
+<p><code>position</code> ใช้ fractional float เหมือน <code>cards.position</code> และ <code>columns.position</code> เพื่อ reuse <code>positionBetween</code> utility ไม่มี <code>updated_at</code> เพราะ subtask ไม่ต้องการ audit trail</p>
+<p><strong>API Endpoints:</strong></p>
+<pre><code>POST   /cards/:cardId/subtasks      body: { title }         → 201 subtask
+PATCH  /subtasks/:id                body: { title?, checked?, position? } → 200 subtask
+DELETE /subtasks/:id                                         → 204</code></pre>
+<p>ทุก endpoint ต้อง auth (Bearer token) และตรวจว่า user เป็น board member ผ่าน card → column → board chain เหมือนที่ cards route ทำอยู่ <code>POST</code> validate title (non-empty, ≤ 100 chars) และ count ≤ 20 ต่อ card <code>PATCH</code> รับ partial patch (title เท่านั้น หรือ checked เท่านั้น หรือ position เท่านั้น ก็ได้)</p>
+<p><strong>Board Snapshot:</strong> <code>GET /boards/:id</code> เพิ่ม subtasks ต่อ card ใน nested shape (<code>columns[].cards[].subtasks: [{ id, title, checked, position }]</code>) Frontend flatten ใน <code>client.js</code> เหมือนกับ <code>cardLabels</code> — store <code>subtasks[]</code> แบน indexed by <code>cardId</code></p>
+<p><strong>Ordering:</strong> Reuse <code>positionBetween(prev, next)</code> จาก <code>domain/ordering</code> — เมื่อกด ↑ หรือ ↓ คำนวณ position ใหม่ระหว่าง adjacent items แล้ว PATCH ตัวนั้นตัวเดียว (ไม่ต้อง reorder ทั้งหมด) เหมือน card move</p>
+<p><strong>Optimistic Update Pattern:</strong> Checkbox toggle ใช้ pattern เดียวกับ <code>useBoardStore</code> ทั้งหมด: (1) Snapshot state ปัจจุบัน (2) Apply เปลี่ยน <code>checked</code> ใน store ทันที (3) PATCH ไป API (4) Rollback ถ้า API ตอบ error Create/delete/rename ก็ใช้ optimistic pattern เดียวกัน</p>
+<p><strong>Validation (client-side)</strong> — เพิ่มฟังก์ชันใน <code>domain/validation</code>: <code>validateSubtaskTitle(title)</code> (non-empty, ≤ 100 chars), <code>validateSubtaskCount(currentCount)</code> (error ถ้า count ≥ 20) รันฝั่ง client เพื่อ UX และ backend enforce เป็น authoritative</p>
+<p><strong>Card Preview:</strong> บน card preview (board view) แสดง <code>✓ checked / total</code> เมื่อ card มี subtask อย่างน้อย 1 ตัว วาง metadata row เดียวกับ due date และ assignee avatar ถ้า total = 0 ไม่แสดงอะไร <em>(ภายหลังใน editorial redesign หัวข้อ 6 เปลี่ยนเป็น adaptive segments/mini-bar ผ่าน <code>domain/progress.js</code>)</em></p>
+<p><strong>CardPanel UI:</strong> ส่วน subtask แสดงหลัง DueDateField รายการ subtask แต่ละตัว: <code>[ checkbox ] [ title / inline-input ] [ ↑ ] [ ↓ ] [ ✕ ]</code> กด title → เปิด inline edit (Enter=save, Escape=cancel) "+ Add subtask" ด้านล่าง → inline input (Enter=save, Escape=dismiss) ถ้า count ถึง 20: ซ่อน button + แสดง hint "Maximum 20 subtasks per card"</p>
+</section>
+<section id="testing-decisions-1" class="level3">
+<h3>Testing Decisions</h3>
+<p><strong>หลักการ:</strong> Test external behavior เท่านั้น — ไม่ test internal state หรือ implementation details ใน store ยกเว้น module ที่เป็น pure function</p>
+<p><strong>Modules ที่ Unit Test:</strong> <code>domain/validation</code> (pure function ที่ test ง่ายและมีค่ามาก) — <code>validateSubtaskTitle</code> กับ input ขอบเขตต่างๆ (empty, 100 chars, 101 chars, whitespace only), <code>validateSubtaskCount</code> กับ 0, 19, 20, 21 Prior art: <code>src/domain/validation.test.js</code></p>
+<p><strong>Modules ที่ Integration Test (Backend):</strong> Subtasks route ผ่าน supertest เหมือน <code>cards.test.js</code> — <code>POST /cards/:id/subtasks</code> (happy path, title validation, count limit, member check, 404), <code>PATCH /subtasks/:id</code> (toggle checked, rename, move position, non-member → 403), <code>DELETE /subtasks/:id</code> (happy path, non-member → 403) Prior art: <code>src/routes/cards.test.js</code></p>
+<p><strong>Modules ที่ไม่ Unit Test:</strong> <code>useBoardStore</code> subtask actions, CardPanel component, Card progress indicator — ครอบคลุมโดย E2E</p>
+<p><strong>E2E Tests (Playwright)</strong> ใน <code>e2e/subtask.spec.js</code>: สร้าง subtask → persist หลัง reload; tick checkbox → progress indicator อัปเดต; rename subtask → เห็นชื่อใหม่; reorder ด้วย ↑/↓ → ลำดับ persist หลัง reload; ลบ subtask → หายจาก list; สร้างครบ 20 → "+ Add subtask" ซ่อน</p>
+</section>
+<section id="out-of-scope-1" class="level3">
+<h3>Out of Scope</h3>
+<p>Subtask assignee หรือ due date (subtask คือ checklist ไม่ใช่ mini-card); Drag-and-drop reorder (ใช้ up/down button แทน); Subtask-level notifications หรือ activity log; Cross-card subtask search/filter; Subtask templates หรือ copy from another card; Completion percentage บน board list page</p>
+</section>
+<section id="further-notes-1" class="level3">
+<h3>Further Notes</h3>
+<p>ถ้า card ถูก delete, subtasks cascade delete อัตโนมัติผ่าน <code>ON DELETE CASCADE</code> — ไม่ต้อง handle ใน application layer <code>positionBetween</code> จาก <code>domain/ordering</code> reuse ได้ตรงๆ สำหรับ ↑/↓ reorder — backend ไม่ต้อง rebalance เพราะ up/down move ทีละ 1 ไม่ทำให้ gap แคบขนาด &lt; 1e-9 ยกเว้น edge case ที่ list ยาวมาก (&gt; 50 moves ในตำแหน่งเดิม) ซึ่งต่ำกว่า limit 20 subtasks มาก Progress indicator บน card preview ต้องการแค่ <code>subtask_count</code> และ <code>checked_count</code> — แต่เนื่องจาก board snapshot รวม subtask objects ทั้งหมดแล้ว ให้คำนวณ count ใน frontend แทนที่จะส่ง count แยก</p>
+<hr />
+</section>
+</section>
+<section id="5-card-color-bands-superseded-by-card-editorial-redesign" class="level2">
+<h2>5. Card Color Bands (Superseded by Card Editorial Redesign)<span class="status-badge superseded">Superseded</span></h2>
+<blockquote>
+<p><strong>หัวข้อนี้ถูกแทนที่แล้วโดยหัวข้อ 6 (Card "Editorial" Redesign) และ <a href="../docs/adr/0002-card-editorial-model.md">ADR-0002</a></strong> โมเดล "แถบสีบนสุด = label แรก" ด้านล่างถูกแทนที่ด้วยโมเดล <strong>Category</strong> (label ที่เลือกเป็นตัวหลัก แสดงเป็นจุดสี + ชื่อพิมพ์ใหญ่ ไม่ใช่แถบเต็มความกว้าง)</p>
+</blockquote>
+<p><strong>สถานะ:</strong> Superseded</p>
+<section id="problem-statement-3" class="level3">
+<h3>Problem Statement</h3>
+<p>The Kanban board currently displays all cards with a uniform white background and small 6px-tall colored label dots. This makes the board visually flat — users cannot quickly distinguish cards by category or priority at a glance. The board lacks the visual richness needed to scan a busy board efficiently.</p>
+</section>
+<section id="solution-โมเดลเดิม--ล้าสมัยแล้ว-1" class="level3">
+<h3>Solution (โมเดลเดิม — ล้าสมัยแล้ว)</h3>
+<p>Extend the existing label system so that a card's first label color is promoted into a full-width colored band at the top of the card. Cards with no labels remain unchanged. Remaining labels (2nd onward) continue to display as small dots below the band. No database changes are required — this is a pure frontend visual enhancement.</p>
+</section>
+<section id="user-stories-เดิม-1" class="level3">
+<h3>User Stories (เดิม)</h3>
+<ol type="1">
+<li>As a board member, I want cards with labels to display a colored band at the top, so that I can identify a card's category at a glance without reading its title.</li>
+<li>As a board member, I want the color of the band to match the card's first label color, so that the existing label system I already understand continues to drive the visual encoding.</li>
+<li>As a board member, I want cards without any labels to look the same as before (no band), so that the layout does not feel broken for unlabeled cards.</li>
+<li>As a board member, I want to see remaining labels (2nd, 3rd, etc.) as small dots below the colored band, so that I do not lose visibility of secondary labels.</li>
+<li>As a board member, I want the colored band to span the full width of the card, so that the color accent is immediately visible even when scanning quickly.</li>
+<li>As a board member, I want columns to remain visually neutral (no color treatment), so that the card colors are the clear focal point of color on the board.</li>
+<li>As a board member, I want the colored band to be consistent across all views where the card preview is shown (board view), so that the visual encoding is reliable.</li>
+<li>As a board member dragging a card, I want the colored band to remain visible on the drag overlay, so that the card is still recognizable while being moved.</li>
+</ol>
+</section>
+<section id="implementation-decisions-เดิม" class="level3">
+<h3>Implementation Decisions (เดิม)</h3>
+<p><strong>Module: Card component (frontend only)</strong> — module เดียวที่เปลี่ยนคือ Card preview component และ stylesheet ไม่มี store, API, หรือ database เปลี่ยน</p>
+<p><strong>Rendering logic (เดิม):</strong> ถ้า <code>card.labels</code> มีอย่างน้อย 1 รายการ render แถบสีเต็มความกว้างด้านบนของ card โดยใช้ <code>labels[0].color</code> เป็นพื้นหลัง ถ้า <code>card.labels</code> ว่างหรือ undefined ไม่ render แถบ (card หน้าตาเหมือนเดิมทุกประการ) <code>labelBar</code> (จุดสีเล็ก) แก้ให้ render เฉพาะ label ที่ index 1 ขึ้นไป ถ้ามี label เดียวไม่แสดง dot bar เลย</p>
+<p><strong>Band visual spec (เดิม):</strong> เต็มความกว้าง card, สูง ~10px, border-radius มุมบนซ้าย-ขวาให้ตรงกับ border-radius ของ card เอง ไม่มี text/icon — เป็นแค่ decorative</p>
+<p><strong>Drag overlay (เดิม):</strong> <code>.overlay</code> class ครอบ card ทั้งใบอยู่แล้ว ไม่ต้องจัดการพิเศษ แถบ render อยู่ข้างในโดยธรรมชาติ</p>
+<p><strong>Overdue state (เดิม):</strong> overdue treatment (ขอบซ้ายแดง + พื้นหลังแดงอ่อน) เป็นอิสระจาก color band ทั้งสองอยู่ด้วยกันได้ — band อยู่บนสุด overdue border อยู่ซ้าย</p>
+<p><strong>ไม่แตะ:</strong> <code>useBoardStore.js</code>, <code>client.js</code>, <code>CardPanel.jsx</code>, <code>Column.jsx</code>/<code>BoardPage.jsx</code>, database schema</p>
+</section>
+<section id="testing-decisions-เดิม-1" class="level3">
+<h3>Testing Decisions (เดิม)</h3>
+<p>Test rendered output สำหรับ label configuration ต่างๆ — ไม่ test internal state Assert DOM structure และ inline styles Card component rendering logic ครอบคลุมโดย E2E (Playwright) ไม่ใช่ unit test ไม่มี unit test ใหม่ — logic (<code>labels.length</code>, slice <code>labels[1..]</code>) เป็นเรื่องเล็กน้อยและถูกคลุมโดย E2E ครบแล้ว</p>
+</section>
+<section id="out-of-scope-เดิม-1" class="level3">
+<h3>Out of Scope (เดิม)</h3>
+<p>Column colors (คอลัมน์ยังเป็นกลาง — ข้อนี้เองที่ ADR-0001 พลิกกลับภายหลัง); Per-card custom color อิสระ; Card body tinting; Colored header with card ID; Color picker changes; Database/API changes; Dark mode</p>
+</section>
+<section id="further-notes-เดิม-1" class="level3">
+<h3>Further Notes (เดิม)</h3>
+<p>Label order บน card ตามลำดับใน <code>cardLabels[]</code> จาก store ซึ่งสะท้อนลำดับที่ label ถูกติด "label แรก" คือ <code>labels[0]</code> ใน array นี้ — ไม่มี sorting/priority logic เพิ่ม ฟีเจอร์นี้เป็น cosmetic ล้วนๆ ไม่กระทบ drag-and-drop, polling, optimistic update หรือระบบพฤติกรรมอื่น</p>
+<hr />
+</section>
+</section>
+<section id="6-card-editorial-redesign-option-c" class="level2">
+<h2>6. Card "Editorial" Redesign (Option C)<span class="status-badge implemented">Implemented</span></h2>
+<p><strong>สถานะ:</strong> Implemented <strong>Design source:</strong> <a href="card_ui_spec.md">card_ui_spec.md</a> · artboard: <a href="Option%20C%20-%20Editorial.png">Option C - Editorial.png</a> <strong>Decisions of record:</strong> <a href="../docs/adr/0002-card-editorial-model.md">ADR-0002</a> (redesign นี้), <a href="../docs/adr/0001-column-accent-model.md">ADR-0001</a> (column accent, ไม่เปลี่ยน) <strong>Glossary:</strong> <a href="../CONTEXT.md">CONTEXT.md</a> — คำว่า <strong>Category</strong>, <strong>Card Accent</strong>, <strong>Assignee</strong> (ตอนนี้มีได้หลายคน)</p>
+<section id="problem-statement-4" class="level3">
+<h3>Problem Statement</h3>
+<p>การ์ด Kanban เดิมใช้งานได้แต่ดูแบนราบทางสายตา — แถบสีที่มาจาก label "แรก" แบบสุ่มๆ, title ธรรมดา, และข้อความ <code>✓ n / total</code> ผู้ใช้บอกไม่ได้ในแวบแรกว่างานชนิดไหน บอร์ดขาดการจัดกลุ่มทางสายตา และการ์ดหนึ่งใบแสดง assignee ได้แค่คนเดียวแม้จะมีหลายคนช่วยกันทำ ทีมต้องการบอร์ดที่สงบตากว่า อ่านง่ายกว่า เน้นประเภทงาน ("editorial") อ่านลื่นทั้งภาษาไทยและอังกฤษ สื่อสาร category และ progress ได้ทันที และสะท้อนว่างานมักถูกแชร์กันทำ</p>
+</section>
+<section id="solution-2" class="level3">
+<h3>Solution</h3>
+<p>รีดีไซน์การ์ดและ board shell ให้เป็นภาษาดีไซน์ "Option C / Editorial":</p>
+<ul>
+<li>แต่ละการ์ดนำด้วย <strong>Category ตัวพิมพ์ใหญ่</strong> (จุดสี + label) — Category คือ <strong>Label หลัก</strong> ที่การ์ดเลือกไว้ ไม่ได้เพิ่ม concept การแท็กใหม่</li>
+<li><strong>accent ของการ์ด</strong> (จุด, ข้อความ category, แถบ progress) คือสีของ Category label เอง ทำให้บอร์ดยังคงจัดกลุ่มทางสายตาได้ — category เดียวกัน = สีเดียวกัน</li>
+<li><strong>foot ที่คั่นด้วยเส้นบาง (hairline)</strong> แสดง due date (มี "ไม่มีกำหนด" สีจางเมื่อไม่มี) ทางซ้าย และ <strong>adaptive checklist progress</strong> ทางขวา (segment แยกชิ้นสำหรับ list สั้น, mini-bar ต่อเนื่องสำหรับ list ยาว)</li>
+<li>แถวบนสุดมี <strong>assignee avatar ซ้อนกัน</strong> (สูงสุด 3 แล้ว <code>+N</code>) สะท้อนว่าการ์ดหนึ่งใบมี <strong>หลาย assignee</strong> ได้แล้ว</li>
+<li>Column ยังคง <strong>Accent</strong> ที่ผู้ใช้ตั้งเอง (ADR-0001) แต่ปรับให้เข้ากับ editorial palette: wash อ่อนทั้งคอลัมน์, name pill, และตัวนับ Typography เปลี่ยนเป็น <strong>IBM Plex Sans Thai</strong></li>
+</ul>
+<p>พฤติกรรมเดิมทั้งหมด (drag-and-drop, optimistic update, polling, card detail <code>CardPanel</code>, การจัดการ label, subtasks, due-date picker) ยังคงเดิม</p>
+</section>
+<section id="user-stories-2" class="level3">
+<h3>User Stories</h3>
+<ol type="1">
+<li>As a board member, I want each card to show an uppercase Category with a colored dot, so that I can tell at a glance what kind of work it is.</li>
+<li>As a board member, I want cards of the same Category to share the same accent color, so that the board reads as visually grouped.</li>
+<li>As a board member, I want to choose which of a card's labels is its Category, so that the most meaningful label is the one featured on the card face.</li>
+<li>As a board member, I want a card with no Category to fall back to a neutral gray accent, so that uncategorized cards still look intentional.</li>
+<li>As a board member, I want to keep attaching multiple labels to a card, so that I don't lose multi-tagging when only one is shown on the face.</li>
+<li>As a board member, I want the non-category labels to remain visible and editable in the card detail panel, so that the extra labels are still useful.</li>
+<li>As a board member, I want the card title to be the visual hero (large, legible), so that I can scan tasks quickly.</li>
+<li>As a Thai-speaking user, I want Thai and Latin text to render cleanly without clipped descenders, so that the board is comfortable to read.</li>
+<li>As a board member, I want the card to show a due date with a calendar icon, so that I know when work is due.</li>
+<li>As a board member, I want an overdue card's due date shown in red, so that late work stands out.</li>
+<li>As a board member, I want a card with no due date to show a muted "ไม่มีกำหนด", so that the absence of a deadline is explicit rather than blank.</li>
+<li>As a board member, I want the due date shown in Thai Buddhist-era format (e.g. 15 มิ.ย. 2569), so that it matches local conventions.</li>
+<li>As a board member, I want a checklist with ≤ 8 subtasks shown as discrete segments, so that I can see exactly how many are done.</li>
+<li>As a board member, I want a checklist with &gt; 8 subtasks shown as a continuous mini-bar, so that the indicator never overflows the card.</li>
+<li>As a board member, I want the progress count (done/total) always shown, so that the exact numbers are available.</li>
+<li>As a board member, I want the count to turn green when all subtasks are complete, so that finished work is obvious.</li>
+<li>As a board member, I want to assign more than one member to a card, so that shared work is represented accurately.</li>
+<li>As a board member, I want assignee avatars stacked with overlap on the card face, so that multiple owners fit compactly.</li>
+<li>As a board member, I want at most three avatars then a "+N" chip, so that a heavily-assigned card stays readable.</li>
+<li>As a board member, I want to add and remove assignees from the card detail panel, so that I can manage ownership over time.</li>
+<li>As an existing user, I want my current single assignee preserved after the upgrade, so that no ownership data is lost in the migration.</li>
+<li>As a board member, I want each column tinted by its accent across the whole column, so that columns are visually distinct (per ADR-0001).</li>
+<li>As a board member, I want a column with no accent to use a neutral gray, so that uncolored columns look clean.</li>
+<li>As a board member, I want the column header to show a name pill and card count, so that I can orient quickly.</li>
+<li>As a board member, I want the "+ New card" composer and "+ Add column" affordances retained, so that creating work still flows as before.</li>
+<li>As a board member, I want to drag cards between columns exactly as before, so that the redesign doesn't regress drag-and-drop.</li>
+<li>As a board member, I want clicking a card to open the existing detail panel, so that editing behavior is unchanged.</li>
+<li>As a board member, I want the top bar restyled (back link, board name, current-user avatar, Invite), so that the shell matches the editorial look.</li>
+<li>As a board member, I want a subtle hover lift on cards, so that the card feels interactive.</li>
+<li>As a board member, I want my optimistic edits (category, assignees) to roll back on server error, so that the UI never lies about saved state.</li>
+</ol>
+</section>
+<section id="implementation-decisions-2" class="level3">
+<h3>Implementation Decisions</h3>
+<p><strong>Domain model (ดู <a href="../docs/adr/0002-card-editorial-model.md">ADR-0002</a>):</strong></p>
+<ul>
+<li><strong>Category = Label หลักของการ์ด</strong> — FK ใหม่ <code>category_label_id</code> (nullable, <code>ON DELETE SET NULL</code>) บน <code>cards</code> ไม่มี entity Category แยกต่างหาก Labels ยังเป็น many-to-many หน้าการ์ดโชว์แค่ Category ที่เหลืออยู่ใน <code>CardPanel</code></li>
+<li><strong>Card Accent = สีของ Category label</strong> ไม่มีฟิลด์สีแยกต่อการ์ด derive shade ด้วย CSS <code>color-mix</code> (solid = hex ตรงๆ; text = <code>color-mix(hex, black ~35%)</code>) ตามแนวทางเดียวกับ column ใน ADR-0001 ไม่มี category → เทากลาง</li>
+<li><strong>Multiple assignees</strong> แทนที่ <code>assignee_id</code> เดี่ยว — join table ใหม่ <code>card_assignees</code>; <code>assignee_id</code> เดิม backfill เข้า table นี้แล้ว drop คอลัมน์</li>
+<li><strong>due date แดง = overdue</strong> (<code>isOverdue</code> เดิม) บวกสถานะ "ไม่มีกำหนด" สีจาง ไม่มี concept "ใกล้ครบกำหนด"</li>
+<li><strong>Column ไม่เปลี่ยน model</strong> (ADR-0001 ยังใช้) มีแค่ค่า <code>color-mix</code> ที่ปรับใหม่</li>
+</ul>
+<p><strong>Modules ที่ build/modify:</strong></p>
+<ul>
+<li><code>domain/progress.js</code> <em>(ใหม่, deep, pure)</em> — <code>progressView(done, total)</code> → <code>{ mode: 'segments' | 'minibar', segments: boolean[], pct, complete }</code> <code>SEG_MAX = 8</code></li>
+<li><code>domain/accent.js</code> <em>(ใหม่, deep, pure)</em> — resolve Category label ของการ์ดจาก <code>categoryLabelId</code> + labels ของบอร์ด คืนสีหรือ fallback กลาง</li>
+<li><code>domain/colors.js</code> — refresh <code>PRESET_COLORS</code> เป็น editorial pastel ตามสเปก (OKLCH แปลงเป็น hex) ยังรองรับ custom color</li>
+<li><code>domain/dates.js</code> — formatting ไม่เปลี่ยน; สถานะ "ไม่มีกำหนด" render ที่ component</li>
+<li><code>store/useBoardStore.js</code> — action optimistic ใหม่ <code>setCardCategory(cardId, labelId|null)</code>, <code>attachAssignee(cardId, userId)</code>, <code>detachAssignee(cardId, userId)</code> ใช้ helper <code>optimistic()</code> เดิม (snapshot → apply → commit → settle → rollback) เอา single-assignee patch path เดิมออก</li>
+<li><code>api/client.js</code> — <code>normalizeCard()</code> เพิ่ม <code>categoryLabelId</code> และ <code>assignees[]</code>; <code>cardPatchToApi()</code> เพิ่ม <code>category_label_id</code>; <code>attachAssignee</code>/<code>detachAssignee</code> ใหม่ (คล้าย <code>attachLabel</code>/<code>detachLabel</code>); board snapshot normalization รวมฟิลด์ใหม่</li>
+<li>Components — <code>Card.jsx</code> (เขียนใหม่เป็น editorial DOM: top row, title, hairline, foot), <code>Column.jsx</code> (ปรับ tint/pill), <code>CardPanel.jsx</code> (เลือก Category + multi-assignee), <code>AssigneePicker.jsx</code> (single → multi-select), <code>AvatarStack</code> ใหม่ (ซ้อน + <code>+N</code>), <code>LabelPicker.jsx</code> (ทำเครื่องหมายว่า label ไหนเป็น Category), <code>TopBar.jsx</code>/board shell restyle <code>data-testid</code> เดิมยังอยู่</li>
+<li>Typography — โหลด IBM Plex Sans Thai + IBM Plex Sans (weight 400/500/600/700), ตั้ง <code>--font</code> และ antialiasing</li>
+</ul>
+<p><strong>Backend (<code>kanban-board-api</code>):</strong> Migration เพิ่ม <code>cards.category_label_id</code> (nullable FK, <code>ON DELETE SET NULL</code>) Migration สร้าง join <code>card_assignees (card_id, user_id)</code>; backfill จาก <code>assignee_id</code>; drop <code>assignee_id</code> API: <code>PUT /cards/:id/assignees/:userId</code>, <code>DELETE /cards/:id/assignees/:userId</code> (คล้าย labels); <code>PATCH /cards/:id</code> รับ <code>category_label_id</code> (id หรือ null); board snapshot คืน <code>category_label_id</code> และ <code>assignees</code> array ต่อการ์ด Authorization ไม่เปลี่ยน (board membership)</p>
+</section>
+<section id="testing-decisions-2" class="level3">
+<h3>Testing Decisions</h3>
+<p>เทสต์ที่ดี = ยืนยัน <strong>พฤติกรรมภายนอก</strong> ไม่ใช่ implementation detail: ให้ input แล้ว assert ค่าที่คืน/state ที่ได้ ไม่ assert internal call หรือ DOM structure เกินกว่า <code>data-testid</code>/role hook ที่คงที่</p>
+<ul>
+<li><strong><code>domain/progress.js</code></strong> — unit-test ตรงๆ: boundary ที่ <code>total = 8</code> vs <code>9</code> (segments vs mini-bar), <code>done = 0</code>, <code>done = total</code> (complete flag), <code>pct</code> rounding, <code>total = 0</code> Prior art: <code>domain/validation.test.js</code>, <code>domain/dates.test.js</code></li>
+<li><strong><code>domain/accent.js</code></strong> — unit-test: resolve category จาก <code>categoryLabelId</code>, missing/deleted category id → fallback กลาง, ไม่มี label → fallback Prior art: pure-domain test เดียวกัน</li>
+<li><strong>Store actions (<code>setCardCategory</code>, <code>attachAssignee</code>, <code>detachAssignee</code>)</strong> — unit-test ผ่าน <code>useBoardStore.getState()</code> กับ <code>jest.mock('../api/client')</code> assert optimistic apply → settle และ rollback เมื่อ reject Prior art: <code>store/useBoardStore.test.js</code></li>
+<li><strong>E2E (Playwright)</strong> — อัปเดต <code>card.spec.js</code>, <code>dnd.spec.js</code>, <code>subtask.spec.js</code>, <code>column-color.spec.js</code> ให้ตรงกับ DOM ของการ์ดใหม่ เพิ่ม coverage สำหรับเลือก Category (accent ปรากฏบนหน้าการ์ด) และเพิ่ม assignee คนที่สอง (avatar ซ้อน) Selector อิง <code>data-testid</code> เดิม</li>
+</ul>
+<p>ไม่ unit-test: presentational component (ครอบคลุมโดย E2E), CSS <code>color-mix</code> derivation (เชิง visual, ครอบคลุมโดย E2E chip/accent assertion)</p>
+</section>
+<section id="out-of-scope-2" class="level3">
+<h3>Out of Scope</h3>
+<p>Category เป็น entity แยกต่างหาก (Category คือ primary Label — ดู ADR-0002); ยุบ label ให้เลือกได้ตัวเดียว (multi-tagging ยังอยู่); สีต่อการ์ดอิสระจาก Category; concept "ใกล้ครบกำหนด / due within N days" (มีแค่ overdue + no-due); จำกัด label color ให้เหลือ 6 hue OKLCH ตามสเปก (custom hex ยังใช้ได้); โชว์ label ที่ไม่ใช่ category บนหน้าการ์ด (อยู่ใน <code>CardPanel</code> เท่านั้น); default tint ต่อตำแหน่งคอลัมน์ที่ไม่มี accent (ใช้เทากลางแทน); เปลี่ยน auth, polling, subtasks behavior, หรือ board-snapshot transport เกินกว่าฟิลด์ใหม่</p>
+</section>
+<section id="further-notes-2" class="level3">
+<h3>Further Notes</h3>
+<p>หัวข้อนี้แทนที่การตัดสินใจ "แถบสีการ์ด = label แรก" (หัวข้อ 5) Artboard ที่มี 4 คอลัมน์ตายตัว (ideas/todo/doing/done) และฟิลด์ <code>assignees[]</code>/<code>color</code>/<code>label</code> เป็น <strong>demo data</strong> ไม่ใช่ data model จริง — model จริงกำหนดในหัวข้อนี้และ ADR-0002 <code>formatDueDate</code> ให้ปีพุทธศักราชผ่าน <code>th-TH</code> อยู่แล้ว ไม่ต้องแก้ date logic Migration ต้องรันก่อน frontend deploy เพราะ <code>normalizeCard</code> จะอ่านฟิลด์ใหม่</p>
+<hr />
+</section>
+</section>
+<section id="7-label-color-picker--pastel-presets" class="level2">
+<h2>7. Label Color Picker — Pastel Presets<span class="status-badge implemented">Implemented</span></h2>
+<p><strong>สถานะ:</strong> Implemented</p>
+<section id="problem-statement-5" class="level3">
+<h3>Problem Statement</h3>
+<p>เมื่อสร้าง label ผู้ใช้ต้องพิมพ์ hex color code เองหรือใช้ native color picker widget ซึ่งยุ่งยาก — ผู้ใช้ส่วนใหญ่ต้องการแค่ชุดสีที่แตกต่างและอ่านง่ายจำนวนน้อย ตัว picker แบบ free-form เดิมไม่มีคำแนะนำใดๆ ผลคือสี label ไม่สม่ำเสมอและเพิ่ม friction ให้ workflow ที่ควรง่าย</p>
+</section>
+<section id="solution-3" class="level3">
+<h3>Solution</h3>
+<p>แทนที่ color picker แบบ free-form เดิม (native <code>&lt;input type="color"&gt;</code> + ช่องกรอก hex) ด้วยแถว swatch สี pastel 8 สี แต่ละ swatch เป็นวงกลม 24px แตะเลือกได้ทันที swatch ที่ 9 เป็น "+" เปิด native color picker สำหรับผู้ที่ต้องการสีกำหนดเอง ไม่มีช่องกรอก hex text แสดง</p>
+</section>
+<section id="user-stories-3" class="level3">
+<h3>User Stories</h3>
+<ol type="1">
+<li>As a board member, I want to see 8 pastel color swatches when creating a label, so that I can pick a color in one click without thinking about hex codes.</li>
+<li>As a board member, I want the swatches to be pastel tones, so that label colors look soft and consistent on cards rather than harsh or saturated.</li>
+<li>As a board member, I want the selected swatch to have a visible ring around it, so that I always know which color is currently chosen.</li>
+<li>As a board member, I want the ring indicator to appear outside the swatch circle, so that the swatch color itself is fully visible and not obscured.</li>
+<li>As a board member, I want a "+" swatch as the ninth option, so that I can still choose a custom color if none of the presets suits my needs.</li>
+<li>As a board member, I want clicking "+" to open the native color picker, so that I can pick any color without leaving the panel.</li>
+<li>As a board member, I want the "+" swatch to reflect the custom color I picked, so that I can see which custom color is active at a glance.</li>
+<li>As a board member, I want no hex text input to be visible by default, so that the label creation form is clean and fast to use.</li>
+<li>As a board member, I want a preset swatch to be pre-selected when I open the create form, so that I can submit immediately without having to make a color choice first.</li>
+<li>As a board member, I want the color swatches to be large enough to tap easily, so that I can use the picker comfortably on a laptop trackpad or touchscreen.</li>
+<li>As a board member editing an existing label, I want the correct swatch to be highlighted if the label's current color matches a preset, so that I know which preset was used.</li>
+<li>As a board member editing an existing label, I want the "+" swatch to be highlighted if the label's current color is a custom (non-preset) value, so that I can see it was customised.</li>
+</ol>
+</section>
+<section id="implementation-decisions-3" class="level3">
+<h3>Implementation Decisions</h3>
+<p><strong>Module: LabelPicker component (frontend only)</strong> — เปลี่ยนแค่ LabelPicker component และ stylesheet ไม่มี store, API, หรือ database เปลี่ยน — field <code>color</code> ของ label ยังเก็บเป็น hex string (<code>#rrggbb</code>) เหมือนเดิม</p>
+<p><strong>Preset palette (8 สี):</strong></p>
+<pre><code>#fca5a5  (pastel red/pink)
+#fdba74  (pastel orange)
+#fde047  (pastel yellow)
+#86efac  (pastel green)
+#67e8f9  (pastel cyan)
+#93c5fd  (pastel blue)
+#c4b5fd  (pastel purple)
+#f9a8d4  (pastel rose)</code></pre>
+<p><strong>Swatch row layout:</strong> 9 swatch เรียงแถวแนวนอน gap สม่ำเสมอ swatch 1–8: วงกลมทึบ 24px หนึ่งสีต่อ preset swatch 9: วงกลม 24px สไตล์ปุ่ม "+" เติมด้วยสี custom ปัจจุบันถ้าเลือกไว้ ไม่งั้นเทากลาง</p>
+<p><strong>Selection ring:</strong> swatch ที่เลือกได้ <code>outline</code> ring rendered ด้านนอกวงกลม (ไม่ใช่ด้านใน เพื่อไม่บังสี) เลือกได้ทีละ 1 เท่านั้น คลิก preset → อัปเดตสีทันที คลิก "+" → เปิด hidden <code>&lt;input type="color"&gt;</code> ผ่าน <code>.click()</code> แบบ programmatic แล้วอัปเดตสีตามที่ผู้ใช้เลือก</p>
+<p><strong>Default selected color:</strong> ตอนเปิดฟอร์มสร้างใหม่ preset แรก (<code>#fca5a5</code>) ถูกเลือกไว้ล่วงหน้า ตอนเปิดฟอร์มของ label เดิม swatch ที่ตรงกับสีปัจจุบันจะถูก highlight ถ้าไม่ตรง preset ไหนเลย "+" จะถูก highlight แทน</p>
+<p><strong>Removed elements:</strong> <code>&lt;input type="color"&gt;</code> เดิมที่เคยโชว์ในฟอร์มถูกแทนด้วย trigger "+" (native picker ยังใช้อยู่ แต่เป็น hidden element ที่ trigger ผ่านคลิก "+") ช่องกรอก hex text ถูกเอาออกทั้งหมด</p>
+<p><strong>Validation:</strong> เรียก <code>validateLabelColor()</code> เดิมก่อน submit เหมือนเดิม ไม่เปลี่ยน validation logic</p>
+</section>
+<section id="testing-decisions-3" class="level3">
+<h3>Testing Decisions</h3>
+<p>Test rendered output สำหรับ color input ต่างๆ — ไม่ test internal state transition assert ว่า swatch ที่ถูกต้องได้ selection-ring class และฟอร์ม submit ด้วยค่า hex ที่ถูกต้อง LabelPicker rendering ครอบคลุมโดย E2E (Playwright) สอดคล้องกับการตัดสินใจไม่ unit-test React component แยกเดี่ยว</p>
+<p>E2E ที่เกี่ยวข้อง: เปิด card → คลิก "+ Create label" → assert เห็น 9 swatch → คลิก preset → assert ได้ ring → submit → assert label ถูกสร้างด้วยสีที่ถูกต้อง ไม่มี unit test ใหม่ — preset array เป็น constant ธรรมดา และ <code>validateLabelColor()</code> ที่ guard เส้นทาง submit unit-test อยู่แล้วใน <code>domain/validation.test.js</code></p>
+</section>
+<section id="out-of-scope-3" class="level3">
+<h3>Out of Scope</h3>
+<p>การเพิ่ม/เปลี่ยน 8 preset สี (palette ตายตัว); โชว์ hex readout; แก้สีของ label ที่มีอยู่แล้ว (PRD นี้ครอบคลุมแค่ตอนสร้างใหม่); custom palette ต่อบอร์ด (8 preset เป็น global); database/API changes</p>
+</section>
+<section id="further-notes-3" class="level3">
+<h3>Further Notes</h3>
+<p><code>validateLabelColor()</code> เดิมรับทั้ง <code>#rgb</code> และ <code>#rrggbb</code> ที่ valid ทั้ง 8 preset เป็น hex 6 หลักผ่าน validation โดยไม่ต้องแก้ swatch "+" trigger hidden <code>&lt;input type="color"&gt;</code> — หลีกเลี่ยง dependency กับ third-party color picker library สำหรับ custom path ค่า default ที่เลือกไว้ล่วงหน้า (<code>#fca5a5</code>) ทำให้ฟอร์มอยู่ในสถานะ valid เสมอตอนเปิด — submit ได้ทันทีหลังพิมพ์ชื่อ</p>
+<hr />
+</section>
+</section>
+<section id="8-card-completion-per-card-done-state" class="level2">
+<h2>8. Card Completion (Per-card Done State)<span class="status-badge implemented">Implemented</span></h2>
+<p><strong>สถานะ:</strong> Implemented (#35–#37) <strong>ขอบเขต:</strong> New Feature — ต่อจาก Editorial card redesign <strong>วันที่:</strong> 15 มิถุนายน 2026 <strong>Tracking:</strong> <a href="https://github.com/khthana/kanban-board/issues/34">issue #34</a> · <a href="../docs/adr/0003-card-completion-model.md">ADR-0003</a></p>
+<section id="problem-statement-6" class="level3">
+<h3>Problem Statement</h3>
+<p>เมื่อทีมทำงานใน card ใบหนึ่งเสร็จ ปัจจุบันยังไม่มีวิธีบอกว่า <em>card ใบนั้นเอง</em> เสร็จแล้ว board สื่อ "เสร็จ" ได้แค่โดยอ้อม — คือ card ไปอยู่คอลัมน์ "Done" — แต่ card หนึ่งใบเสร็จได้ไม่ว่าจะอยู่คอลัมน์ไหน สมาชิกจึงดูไม่ออกในแวบเดียวว่า card ใดเสร็จแล้ว vs ยังทำอยู่ และไม่มีการบันทึกว่า card เสร็จ <em>เมื่อไหร่</em></p>
+</section>
+<section id="solution-4" class="level3">
+<h3>Solution</h3>
+<p>ให้ card ทุกใบมีสถานะ <strong>เสร็จ (completion)</strong> ที่เป็นอิสระจากคอลัมน์ สมาชิกกดทำเครื่องหมายว่าเสร็จ (หรือยกเลิก) ได้จาก panel รายละเอียดของ card; card ที่เสร็จจะถูกลดความเด่นบน board ด้วย badge ✓ และความจาง และ foot ของมันจะแสดง <strong>วันที่ทำเสร็จ</strong> แทน due date สถานะนี้เป็นคุณสมบัติระดับ card (ไม่ใช่ระดับคอลัมน์), persist ข้าม reload, และสมาชิกทุกคนเห็นเหมือนกัน</p>
+</section>
+<section id="user-stories-4" class="level3">
+<h3>User Stories</h3>
+<ol type="1">
+<li>As a board member, I want to mark a card as completed from its detail panel, so that I can record that the work is finished.</li>
+<li>As a board member, I want to un-mark a completed card, so that I can correct a mistake or reopen work.</li>
+<li>As a board member, I want a completed card to show a check badge on the board, so that I can tell at a glance it is done.</li>
+<li>As a board member, I want a completed card to appear faded/de-emphasised, so that finished work visually recedes behind work still in progress.</li>
+<li>As a board member, I want a completed card to show the date it was completed in its footer, so that I know when the work finished.</li>
+<li>As a board member, I want the completion date to replace the due date on the card face once done, so that the footer shows the date that now matters.</li>
+<li>As a board member, I want a completed card to stop showing the overdue (red) styling, so that a finished-but-late card no longer looks like it needs attention.</li>
+<li>As a board member, I want a completed card to keep its subtask progress indicator visible, so that I can still see how many subtasks the card had.</li>
+<li>As a board member, I want the completion state to be independent of which column the card is in, so that I can mark any card done without moving it.</li>
+<li>As a board member, I want a completed card to stay in its current position (not move or hide), so that the board layout I arranged is preserved.</li>
+<li>As a board member, when I try to mark a card done while it still has unchecked subtasks, I want to be warned with the count of incomplete subtasks and asked to confirm, so that I do not accidentally close out unfinished work.</li>
+<li>As a board member, I want to be able to override that warning and complete the card anyway, so that I am not blocked when some subtasks are no longer relevant.</li>
+<li>As a board member, I want a card with no subtasks to be markable as done with no warning, so that the guard does not get in my way when it is irrelevant.</li>
+<li>As a board member, I want un-marking a completed card to happen immediately with no confirmation, so that reopening is friction-free.</li>
+<li>As a board member, I want the completion toggle to appear prominently at the top of the card panel, so that I can see and reach it without scrolling.</li>
+<li>As a board member, I want the toggle button label to reflect the current state ("Mark as done" vs "Done on <date>"), so that the action and status are always clear.</li>
+<li>As a board member, I want my completion change to appear instantly (optimistic), so that the UI feels responsive even before the server confirms.</li>
+<li>As a board member, I want a failed completion update to roll back to the previous state, so that the board never shows a false "done" state.</li>
+<li>As a board member, I want the completion state to persist after a page reload, so that the record is durable.</li>
+<li>As another board member, I want to see completion states set by my teammates after the board refreshes, so that the whole team shares one view of what is done.</li>
+<li>As a board member, I want the card face to remain clean and free of new controls, so that the editorial card design is preserved (the toggle lives only in the panel).</li>
+</ol>
+</section>
+<section id="implementation-decisions-4" class="level3">
+<h3>Implementation Decisions</h3>
+<p><strong>Model:</strong></p>
+<ul>
+<li><strong>Per-card flag ไม่ใช่ column-level concept</strong> — card มีสถานะเสร็จของตัวเอง ไม่ขึ้นกับ <code>column_id</code>; กดเสร็จไม่ย้าย card และไม่ต้องมีคอลัมน์ "Done"</li>
+<li>เก็บเป็น <strong><code>completed_at DATE NULL</code></strong> บน <code>cards</code> — <code>null</code> = ยังไม่เสร็จ, มีค่า = เสร็จวันนั้น boolean "done" <strong>คำนวณจาก</strong> <code>completed_at !== null</code> ไม่เก็บแยก</li>
+<li><strong><code>DATE</code> ไม่ใช่ <code>TIMESTAMP</code></strong> — แสดงแค่ <em>วันที่</em> และ codebase มี plumbing <code>YYYY-MM-DD</code> แบบ timezone-safe เลียนแบบ <code>due_date</code> อยู่แล้ว เวลานาที/<code>"เสร็จเมื่อ N ชม.ก่อน"</code>/sort ตามเวลาจริง = deferred (ดู <a href="../docs/adr/0003-card-completion-model.md">ADR-0003</a>)</li>
+<li><strong>client ประทับวันที่</strong> ส่ง <code>patchCard({ completedAt: toYMD(new Date()) })</code> ผ่าน generic <code>PATCH /cards/:id</code>; ยกเลิก = <code>{ completedAt: null }</code> ไม่มี endpoint พิเศษ ไม่ stamp <code>now()</code> ฝั่ง server</li>
+</ul>
+<p><strong>Module ใหม่ — <code>domain/completion.js</code></strong> (deep module, pure, unit-tested เดี่ยว): <code>isDone(card)</code> → <code>!!card.completedAt</code>; <code>completionPatch(done)</code> → <code>{ completedAt: done ? toYMD(new Date()) : null }</code>; <code>incompleteSubtasks(subtasks)</code> → จำนวน subtask ที่ยังไม่ติ๊ก (ใช้ขับ confirm guard) reuse <code>domain/dates.js</code>; รวม logic "done" ไว้ที่เดียว ทั้ง store และ component ไม่ถือ logic นี้เอง</p>
+<p><strong>Store / Client:</strong> ไม่มี action ใหม่ — reuse <code>patchCard</code> + optimistic path เดิม (snapshot → apply → rollback); <code>createCard</code> placeholder เติม <code>completedAt: null</code> <code>normalizeCard</code> map <code>completed_at</code> → <code>completedAt</code> (slice 10 ตัว); <code>cardPatchToApi</code> map <code>completedAt</code> → <code>completed_at</code> (ส่ง <code>null</code> ผ่านเพื่อ clear)</p>
+<p><strong>UI:</strong></p>
+<ul>
+<li><strong><code>CardPanel</code></strong> — ปุ่มเต็มกว้างบนสุดของ body เหนือ LabelPicker ยังไม่เสร็จ: "✓ ทำเครื่องหมายว่าเสร็จ" | เสร็จแล้ว: "✓ เสร็จเมื่อ &lt;วันที่&gt;" + ปุ่มเล็ก "เลิกทำเครื่องหมาย" <strong>confirm guard (soft warn):</strong> กดเสร็จขณะ <code>incompleteSubtasks &gt; 0</code> → <code>window.confirm</code> บอกจำนวนที่ยังไม่ครบ; ไม่มี subtask → ไม่เตือน; เลิกทำเครื่องหมาย → ไม่เตือน เป็น <strong>client-side UX เท่านั้น</strong></li>
+<li><strong><code>Card</code> (สะท้อนสถานะ ไม่ใช่ปุ่ม)</strong> — badge ✓ ที่แถวบน + จางทั้งใบ (opacity ~0.6); foot ตอนเสร็จ: ซ้าย = วันที่เสร็จแทน due (ไม่มี overdue styling), ขวา = progress คงไว้; card อยู่ที่เดิม ไม่ย้าย/ซ่อน</li>
+</ul>
+<p><strong>Backend (<code>kanban-board-api</code>):</strong> migration <code>007_card_completed_at.sql</code>: <code>ALTER TABLE cards ADD COLUMN IF NOT EXISTS completed_at DATE NULL</code> <code>PATCH /cards/:id</code>: รับ <code>completed_at</code> (date string หรือ <code>null</code>) ใน dynamic SET + RETURNING; ไม่เช็ค subtask ฝั่ง server <code>GET /boards/:id</code> snapshot: คืน <code>completed_at</code> ต่อ card</p>
+</section>
+<section id="testing-decisions-4" class="level3">
+<h3>Testing Decisions</h3>
+<p>เทสต์ที่ดี = ยืนยัน <strong>พฤติกรรมภายนอกผ่าน public interface</strong> ไม่ใช่ implementation detail</p>
+<ul>
+<li><strong><code>domain/completion.test.js</code></strong> (ใหม่, unit): <code>isDone</code> กรณี set/unset; <code>completionPatch(true)</code> ได้ <code>YYYY-MM-DD</code> วันนี้, <code>completionPatch(false)</code> ได้ <code>null</code>; <code>incompleteSubtasks</code> นับถูกในเคส mixed/empty/all-checked — prior art: <code>dates.test.js</code>, <code>accent.test.js</code>, <code>progress.test.js</code></li>
+<li><strong><code>useBoardStore.test.js</code></strong> (เพิ่ม, unit): <code>patchCard({ completedAt })</code> ตาม optimistic apply → settle และ rollback เมื่อ API error — prior art: เคส optimistic เดิมในไฟล์เดียวกัน</li>
+<li><strong><code>cards.test.js</code></strong> (API, เพิ่ม, integration): <code>PATCH /cards/:id</code> set <code>completed_at</code> + clear กลับเป็น <code>null</code>; round-trip ผ่าน snapshot — prior art: เทสต์ <code>category_label_id</code> / <code>due_date</code> เดิม</li>
+<li><strong><code>completion.spec.js</code></strong> (ใหม่, E2E): mark done จาก panel → board โชว์ ✓ + จาง + วันที่เสร็จใน foot → reload คงอยู่ → unmark กลับปกติ — prior art: <code>category.spec.js</code>, <code>column-color.spec.js</code> (component ไม่ unit test → E2E ครอบ flow ที่ render จริง)</li>
+</ul>
+</section>
+<section id="out-of-scope-4" class="level3">
+<h3>Out of Scope</h3>
+<p>Column-based "done" (กำหนดทั้งคอลัมน์เป็น Done); ปุ่ม one-click complete บน card face (toggle อยู่ใน panel เท่านั้น); Filter / ซ่อน / พับ / auto-sort card ที่เสร็จ (เช่นปุ่ม "แสดง card ที่เสร็จแล้ว") — deferred; โมเดลเปิดทางไว้; จม card ที่เสร็จลงล่างคอลัมน์อัตโนมัติ; auto-ติ๊ก subtask ตอนเสร็จ / auto-เสร็จเมื่อ subtask ครบ (สอง concept แยกกัน); เก็บ/แสดง <em>เวลา</em> ทำเสร็จ (นาที), "เสร็จเมื่อ N ชม.ก่อน", sort ตามเวลาเสร็จจริง; บังคับ subtask-completeness ฝั่ง server; ประวัติว่าใครกดเสร็จเมื่อไหร่ (เก็บแค่วันที่)</p>
+</section>
+<section id="further-notes-4" class="level3">
+<h3>Further Notes</h3>
+<p>การตัดสินใจผ่าน grilling session กับผู้ใช้; จุดกลับลำสำคัญ: โมเดล boolean เริ่มต้น ถูกอัปเป็น stored date เมื่อ "แสดงวันที่ทำเสร็จ" กลายเป็น requirement แล้วแคบจาก TIMESTAMP → DATE เพราะแสดงแค่วันที่ แสดงวันที่ทำเสร็จ reuse <code>formatDueDate</code> (th-TH) + <code>fromYMD</code>/<code>toYMD</code> ใน <code>domain/dates.js</code> เพราะ completion ไหลผ่าน generic <code>patchCard</code> จึงได้พฤติกรรม polling/<code>reconcileBoard</code> มาฟรี — การเปลี่ยนของเพื่อนร่วมทีมโผล่ตอน snapshot refresh ถัดไป ลำดับ implement แนะนำ: (1) migration + backend + API tests → (2) <code>domain/completion.js</code> + client + store + unit → (3) CardPanel + Card UI → (4) E2E → (5) ADR-0003 + CLAUDE.md</p>
+<hr />
+</section>
+</section>
+<section id="9-card-title-edit-inline-ใน-cardpanel" class="level2">
+<h2>9. Card Title Edit (Inline ใน CardPanel)<span class="status-badge implemented">Implemented</span></h2>
+<p><strong>สถานะ:</strong> Implemented (#38) <strong>Tracking issue:</strong> <a href="https://github.com/khthana/kanban-board/issues/38">#38</a> · Label: <code>ready-for-agent</code></p>
+<section id="problem-statement-7" class="level3">
+<h3>Problem Statement</h3>
+<p>เมื่อเปิด side panel ของ card (CardPanel) ผู้ใช้แก้ description, labels, assignees, due date, subtasks, และ completion ได้ — แต่แก้ <strong>title ของ card ไม่ได้</strong> title แสดงเป็น heading นิ่งๆ ที่หัว panel เท่านั้น การจะเปลี่ยนชื่อ card ไม่มีช่องทางใน panel เลย ซึ่งเป็นช่องโหว่ชัดเจนเมื่อ title คือฟิลด์ที่สำคัญที่สุดของ card</p>
+</section>
+<section id="solution-5" class="level3">
+<h3>Solution</h3>
+<p>ทำให้ title ของ card แก้ <strong>inline</strong> ใน header ของ CardPanel ได้ โดยใช้ interaction click-to-edit แบบเดียวกับที่ panel ใช้กับ subtask title อยู่แล้ว คลิกที่ title มันจะกลายเป็น text input ที่ select ข้อความเดิมทั้งหมดไว้ล่วงหน้า พิมพ์ชื่อใหม่ แล้วบันทึกด้วย Enter หรือคลิกออกจาก field (blur) Escape ยกเลิก title ว่างหรือยาวเกินถูก reject พร้อม error inline card ยังอยู่ตำแหน่งเดิม title ใหม่ปรากฏทุกที่ที่ card ถูกแสดง</p>
+</section>
+<section id="user-stories-5" class="level3">
+<h3>User Stories</h3>
+<ol type="1">
+<li>As a board member, I want to click the card title in the side panel and have it turn into an editable input, so that I can rename the card without leaving the panel.</li>
+<li>As a board member, I want the title text fully selected when I enter edit mode, so that I can type a brand-new name without first clearing the old one.</li>
+<li>As a board member, I want to press Enter to save my new title, so that I can confirm the rename quickly with the keyboard.</li>
+<li>As a board member, I want clicking away (blur) to save my new title when it is valid, so that I do not lose my edit just because I clicked elsewhere.</li>
+<li>As a board member, I want pressing Escape to cancel the edit and restore the original title, so that I can back out of a mistaken edit.</li>
+<li>As a board member, I want a blank or whitespace-only title that I try to commit with Enter to be rejected with a visible error while the input stays open, so that I understand why it did not save and can fix it.</li>
+<li>As a board member, I want a title longer than 255 characters that I try to commit with Enter to be rejected with a visible error while the input stays open, so that I know the limit and can shorten it.</li>
+<li>As a board member, I want clicking away (blur) with a blank or invalid title to silently revert to the original title, so that I never end up with an empty card name by accident.</li>
+<li>As a board member, I want a hover state (subtle background + text cursor) and a "click to edit" tooltip on the title, so that I can discover the title is editable.</li>
+<li>As a board member, I want my renamed title to persist after a page reload, so that I trust the change was saved to the backend.</li>
+<li>As a board member, I want my renamed title to appear immediately on the card face on the board, so that I get instant feedback without refreshing.</li>
+<li>As a board member, I want the rename to roll back to the previous title if the server rejects it, so that the UI never lies about what was saved.</li>
+<li>As a board member, I want to rename a card even after it has been marked done, so that completion does not lock me out of fixing its name.</li>
+<li>As a board member editing a title, I want switching to a different card (or closing the panel) to discard any half-typed unsaved edit, so that an in-progress edit never leaks onto the wrong card.</li>
+<li>As a board member, I want committing an unchanged title (same as before) to simply close the editor without a redundant save call, so that no needless write hits the server.</li>
+</ol>
+</section>
+<section id="implementation-decisions-5" class="level3">
+<h3>Implementation Decisions</h3>
+<p><strong>Module ใหม่ (deep) — title commit decision (<code>domain/</code>):</strong> ดึง pure function ที่ตัดสินว่า commit attempt ควรทำอะไร โดยรับ trigger, ค่าที่พิมพ์, และ title ปัจจุบัน:</p>
+<pre><code>resolveTitleCommit({ trigger, value, current }) -&gt;
+  { action: &#39;error&#39;, message }   // trigger === &#39;enter&#39; &amp;&amp; invalid
+  { action: &#39;revert&#39; }           // trigger === &#39;blur&#39;  &amp;&amp; invalid
+  { action: &#39;revert&#39; }           // valid &amp;&amp; trimmed === current (no-op)
+  { action: &#39;save&#39;, title }      // valid &amp;&amp; changed</code></pre>
+<p><code>trigger</code> เป็น <code>'enter'</code> หรือ <code>'blur'</code> ความ valid ใช้ <code>validateCardTitle</code> เดิม (non-empty, ≤ 255) แยก save/revert/error branching ออกจาก React เพื่อให้ unit-test ได้ ตามแนวทางเดียวกับ <code>domain/completion.js</code> และ <code>domain/accent.js</code></p>
+<p><strong>CardPanel (modify):</strong> แทนที่ title <code>&lt;h2&gt;</code> นิ่งๆ ด้วย click-to-edit affordance reuse pattern subtask-rename เดิม (<code>editingId</code>/<code>editInput</code>/<code>editError</code>-style local state สโคปเฉพาะ title) เข้า edit mode ตอนคลิก: render <code>&lt;input&gt;</code> ที่ <code>autoFocus</code> และ select-all ตอน focus คีย์บอร์ด: Enter commit ด้วย trigger <code>'enter'</code>; Escape ยกเลิกและคืนค่าเดิม Blur commit ด้วย trigger <code>'blur'</code> เมื่อ <code>action: 'save'</code> เรียก <code>onSave({ title })</code> เดิม (ไม่มี store action ใหม่) เมื่อ <code>action: 'error'</code> โชว์ message inline และเปิด input ค้างไว้ เมื่อ <code>action: 'revert'</code> ปิด editor และคืน title เดิม <strong>ไม่</strong> ตั้ง <code>maxLength</code> บน input — ให้ <code>validateCardTitle</code> เป็นคนอธิบาย error กรณีเกิน limit แทนที่จะตัดเงียบๆ (สอดคล้องกับ field description) reset การแก้ title ที่ค้างอยู่เมื่อ active card เปลี่ยน (effect keyed on <code>card.id</code>)</p>
+<p><strong>Save path (ไม่เปลี่ยน):</strong> reuse <code>patchCard</code> optimistic update + rollback เดิม <code>cardPatchToApi</code> map <code>title</code> อยู่แล้ว header อ่าน <code>card.title</code> จาก store ดังนั้น optimistic apply/rollback สะท้อนอัตโนมัติ</p>
+<p><strong>Styling (modify):</strong> title hover state: background wash จาง + <code>cursor: text</code> บวก tooltip "click to edit" edit-mode input จัดวางใน header โดยไม่มี layout shift</p>
+<p><strong>Scope of editability:</strong> แก้ได้ <strong>เฉพาะใน side panel</strong> หน้าการ์ดบน board ยังอ่านอย่างเดียว การ mark card done ไม่ปิดกั้นการแก้ title</p>
+</section>
+<section id="testing-decisions-5" class="level3">
+<h3>Testing Decisions</h3>
+<p>เทสต์ที่ดียืนยัน external behavior ไม่ใช่ implementation detail — input/output ที่ user หรือ caller สังเกตได้ ไม่ใช่ internal React state</p>
+<p><strong>Unit test — title-commit domain module ใหม่:</strong> ครอบคลุม decision table เต็ม: Enter + empty → error; Enter + over-255 → error; blur + empty → revert; valid + changed → save พร้อม title ที่ trim แล้ว; valid + unchanged → revert (no-op) Prior art: <code>src/domain/completion.test.js</code> และ <code>src/domain/accent.test.js</code> — pure-function test ไม่มี React</p>
+<p><strong>E2E — rename persists:</strong> เพิ่มใน <code>e2e/card.spec.js</code> (reuse setup column+card เดิม): เปิด card panel, คลิก title, แทนที่, commit ด้วย Enter, รอ PATCH 200, reload, assert title ใหม่ขึ้นบนหน้าการ์ด Prior art: flow create-card-persists เดิมในไฟล์เดียวกัน, และ subtask reorder/rename wait ใน <code>subtask.spec.js</code></p>
+<p>Component ไม่ unit-test ในโปรเจกต์นี้ (ครอบคลุมโดย E2E) ดังนั้นการเปลี่ยนใน CardPanel เองถูกทดสอบผ่าน E2E flow เท่านั้น</p>
+</section>
+<section id="out-of-scope-5" class="level3">
+<h3>Out of Scope</h3>
+<p>Inline title editing บนหน้าการ์ดบน board (Card.jsx) — เฉพาะ panel เท่านั้น; แก้ field อื่นที่ยังแก้ไม่ได้; Backend changes (<code>PATCH /cards/:id</code> รับ <code>title</code> อยู่แล้ว; <code>validateCardTitle</code> และ <code>cardPatchToApi</code> มีอยู่แล้ว); Rich text / multi-line title — title ยังเป็น single-line plain string; Undo/history ของการเปลี่ยน title เกินกว่า in-edit Escape cancel; แปล error message ของ validation (reuse ข้อความ <code>validateCardTitle</code> เดิม)</p>
+</section>
+<section id="further-notes-5" class="level3">
+<h3>Further Notes</h3>
+<p>สรุป interaction ที่ตกลงกันตอน grilling: click-to-edit inline; Enter save; Escape cancel; blur save เมื่อ valid / revert เมื่อ invalid; Enter บน invalid โชว์ error inline และเปิด input ค้าง; select-all ตอนเข้า edit mode; hover affordance + tooltip; card ที่เสร็จแล้วยังแก้ title ได้; ไม่มี <code>maxLength</code> ข้อนี้ต่างจาก subtask rename ตรงที่: subtask rename ไม่ทำอะไรตอน blur ในขณะที่ title save ตอน blur (valid) / revert (invalid) เพราะ title เป็นฟิลด์สำคัญที่สุดของ card commit-on-blur จึงตรงกับความคาดหวังผู้ใช้ (สไตล์ Trello/Notion)</p>
+<hr />
+</section>
+</section>
+<section id="10-monorepo-migration-รวม-api-เข้า-frontend-repo" class="level2">
+<h2>10. Monorepo Migration (รวม API เข้า Frontend Repo)<span class="status-badge implemented">Implemented</span></h2>
+<p><strong>สถานะ:</strong> Implemented</p>
+<section id="problem-statement-8" class="level3">
+<h3>Problem Statement</h3>
+<p>โปรเจกต์เดิมอยู่คนละ Git repository — <code>kanban-board</code> (React frontend) และ <code>kanban-board-api</code> (Node.js/Express backend) นักพัฒนาที่ทำฟีเจอร์ full-stack ต้องเปิด editor 2 หน้าต่าง สลับ terminal 2 ไดเรกทอรี และดูแล GitHub repo 2 ที่ (แต่ละที่มี CI workflow ของตัวเอง) การสลับบริบทตลอดเวลานี้สร้าง friction ที่ไม่จำเป็นสำหรับนักพัฒนาคนเดียว</p>
+</section>
+<section id="solution-6" class="level3">
+<h3>Solution</h3>
+<p>ย้ายโค้ด API เข้ามาเป็น subdirectory แบบแบน (<code>api/</code>) ภายใน repository <code>kanban-board</code> เดิม ผลลัพธ์คือโฟลเดอร์เดียวที่มีทั้ง React frontend (<code>src/</code>) และ Node.js backend (<code>api/src/</code>) เปิดใน VS Code ครั้งเดียว Docker Compose ยังเป็น dev workflow หลัก ต้องแก้แค่ path ไม่ต้องเปลี่ยน tooling ใดๆ GitHub repo เก่า <code>kanban-board-api</code> ถูกลบหลังย้ายเสร็จ</p>
+</section>
+<section id="user-stories-6" class="level3">
+<h3>User Stories</h3>
+<ol type="1">
+<li>As a developer, I want to open one folder in VS Code and see both the frontend and backend source code, so that I can work on full-stack features without switching windows.</li>
+<li>As a developer, I want to run <code>docker compose up</code> once and have the full stack start — database, API, and frontend — so that I don't need to manage multiple terminal sessions.</li>
+<li>As a developer, I want a single <code>git log</code> that shows both frontend and backend changes in chronological order, so that I can trace full-stack changes together.</li>
+<li>As a developer, I want a single GitHub repository to track issues, PRDs, and CI results for the whole project, so that I don't have to manage two issue trackers.</li>
+<li>As a developer, I want the backend integration tests (requiring PostgreSQL) to run automatically in CI when I push to <code>main</code>, so that API regressions are caught alongside frontend regressions.</li>
+<li>As a developer, I want <code>CLAUDE.md</code>, <code>README.md</code>, and <code>.gitignore</code> to describe the full project in one file each, so that context is never split across repos.</li>
+<li>As a developer, I want to delete the <code>kanban.code-workspace</code> multi-root workspace file, so that there is no stale artifact left over from the two-repo setup.</li>
+<li>As a developer, I want the migration to preserve all existing frontend (<code>src/</code>) and backend (<code>api/src/</code>) import paths, so that no application code needs to change.</li>
+<li>As a developer, I want the React dev proxy (<code>src/setupProxy.js</code>) to continue targeting <code>localhost:4000</code> unchanged, so that local non-Docker development also works without edits.</li>
+</ol>
+</section>
+<section id="implementation-decisions-6" class="level3">
+<h3>Implementation Decisions</h3>
+<p><strong>โครงสร้าง repository หลังย้าย:</strong></p>
+<pre><code>kanban-board/               ← single Git repo (khthana/kanban-board, branch: main)
+  src/                      ← React frontend (unchanged)
+  api/                      ← absorbed backend
+    src/                    ← Node.js/Express source (unchanged internally)
+    package.json
+    package-lock.json
+    Dockerfile.dev
+    .dockerignore
+    .env                    ← gitignored; developer copies from .env.example
+    .env.example
+    .gitignore              ← backend-specific ignores (node_modules, .env, etc.)
+  .github/
+    workflows/
+      ci.yml                ← updated: two jobs (test-frontend + test-api)
+  docker-compose.yml        ← updated: context + volume paths only
+  CLAUDE.md                 ← merged: frontend + backend guidance in one file
+  README.md                 ← merged: full-stack project description
+  .gitignore                ← merged: covers both workspaces
+  CONTEXT.md                ← unchanged
+  docs/adr/                 ← unchanged</code></pre>
+<p><strong>กลยุทธ์ git history:</strong> copy ไฟล์โดยไม่ merge git history ของ <code>kanban-board-api</code> commit เดียว <code>chore: absorb api into monorepo</code> วางไฟล์ API ทั้งหมดที่ <code>api/</code> git history ของ API เก่ายังเข้าถึงได้บน GitHub จนกว่า repo จะถูกลบ (ช่วงเวลาระหว่างย้ายกับลบ) ตั้งใจแบบนี้ — trade-off ของการเสีย backend history ยอมรับได้สำหรับโปรเจกต์คนเดียวที่ DX สำคัญกว่า</p>
+<p><strong>การเปลี่ยน <code>docker-compose.yml</code>:</strong> เปลี่ยน path 2 จุดเท่านั้น ไม่มีการเปลี่ยนโครงสร้าง: <code>api.build.context</code>: <code>../kanban-board-api</code> → <code>./api</code>; <code>api.volumes[0]</code>: <code>../kanban-board-api:/app</code> → <code>./api:/app</code></p>
+<p><strong>การเปลี่ยน CI workflow:</strong> job เดิมใน <code>ci.yml</code> (frontend unit tests, ไม่มี external service) คงไว้เหมือนเดิม เปลี่ยนชื่อเป็น <code>test-frontend</code> เพิ่ม job ที่สอง <code>test-api</code>: ใช้ <code>services: postgres</code> (config เดียวกับ CI workflow เดิมของ <code>kanban-board-api</code>), รัน <code>cd api &amp;&amp; npm ci &amp;&amp; npm test</code>, ตั้ง env <code>TEST_DATABASE_URL</code> และ <code>JWT_SECRET</code>, ทั้งสอง job รันพร้อมกันตอน push/PR ไป <code>main</code></p>
+<p><strong>กลยุทธ์รวมเอกสาร:</strong> <code>CLAUDE.md</code>: เพิ่ม section API ต่อท้าย <code>## API</code> หลังเนื้อหา frontend เดิม ครอบคลุม command เฉพาะ API (<code>npm run dev</code>, <code>npm run migrate</code>, <code>npm test</code>), key files, และ environment variables <code>README.md</code>: ปรับใหม่ให้อธิบาย monorepo layout, Docker quick-start ใหม่, และ feature list เต็มทั้ง frontend/backend <code>.gitignore</code> (root): union ของทั้งสอง <code>.gitignore</code> เดิม — ครอบคลุม <code>build/</code>, <code>node_modules</code>, <code>.env</code>, test artifacts ของทั้งสอง workspace <code>api/.gitignore</code>: เก็บไว้สำหรับ backend-specific ignore (เช่น <code>.env</code>) ที่ tooling <code>cd api &amp;&amp; npm install</code> คาดหวังใน subtree</p>
+<p><strong>ไฟล์ที่ลบ:</strong> <code>kanban.code-workspace</code> — multi-root workspace file ที่ <code>C:\Users\Terry\Desktop\Code\kanban.code-workspace</code> ไม่จำเป็นอีกเมื่อทั้งสอง workspace อยู่โฟลเดอร์เดียว</p>
+<p><strong>การเก็บกวาด GitHub repository:</strong> <code>khthana/kanban-board-api</code> ถูกลบหลังยืนยันว่าย้ายสำเร็จ (CI เขียวทั้งหมด)</p>
+<p><strong>ไม่มี shared code layer:</strong> ไม่มี <code>packages/</code> หรือ <code>libs/</code> directory frontend และ backend ยัง install แยกอิสระ (<code>npm install</code> จาก root สำหรับ frontend; <code>cd api &amp;&amp; npm install</code> สำหรับ backend) monorepo เป็นแค่ flat co-location ไม่ใช่ workspace-linked setup จะทบทวนใหม่ก็ต่อเมื่อ shared validation/type layer มีค่าคุ้มพอ</p>
+<p><strong>ไม่มี root-level convenience scripts:</strong> root <code>package.json</code> ยังเป็น package descriptor ของ frontend ไม่มี <code>concurrently</code>-based <code>npm run dev</code> script ที่ root Docker Compose เป็น dev workflow หลัก การไม่มี root dev-runner เป็นความตั้งใจ</p>
+</section>
+<section id="testing-decisions-6" class="level3">
+<h3>Testing Decisions</h3>
+<p>การย้ายนี้ไม่เพิ่ม application logic ใหม่ จึงไม่มี unit หรือ E2E test ใหม่</p>
+<p><strong>การย้ายถือว่าถูกต้องเมื่อ test เดิมทั้งหมดผ่านโดยไม่ต้องแก้:</strong> 111 frontend unit tests (<code>npm test -- --watchAll=false</code> จาก root), 113 backend integration tests (<code>cd api &amp;&amp; npm test</code>), 28 Playwright E2E tests (<code>docker compose up</code> แล้ว <code>npm run test:e2e</code>)</p>
+<p><code>test-api</code> CI job ใหม่เป็นตัวป้องกัน regression หลัก CI เขียวบน commit ที่ย้ายคือเกณฑ์ตรวจรับ</p>
+<p>Prior art สำหรับ postgres CI service config: copy ตรงจาก <code>kanban-board-api/.github/workflows/ci.yml</code> (service block เหมือนกัน)</p>
+</section>
+<section id="out-of-scope-6" class="level3">
+<h3>Out of Scope</h3>
+<p>npm workspaces / Turborepo / Nx — ไม่ถูกนำมาใช้ เพราะโปรเจกต์ไม่แชร์โค้ดระหว่าง package จึง workspace tooling เพิ่มความซับซ้อนโดยไม่ได้ประโยชน์; Shared validation หรือ type layer — <code>domain/validation.js</code> (frontend) และ validation ฝั่ง backend ที่เทียบเท่ายังแยกกัน การรวมเป็นการตัดสินใจในอนาคต; Deploy ไป Railway/Render/Vercel เป็นโครงการแยกที่ไม่กระทบโดยการย้ายนี้; เพิ่ม E2E test เข้า CI pipeline เป็น backlog เดิมอยู่แล้ว การย้ายนี้ไม่ได้เพิ่มหรือลด; WebSocket / real-time — นอกขอบเขตทั้งหมด</p>
+</section>
+<section id="further-notes-6" class="level3">
+<h3>Further Notes</h3>
+<p><code>src/api/client.js</code> proxy ยังชี้ไป <code>localhost:4000</code> ตอน local dev (non-Docker) ไม่แก้ <code>src/setupProxy.js</code> ไฟล์ <code>api/.env</code> ต้องถูกเติมโดย developer เองหลังย้าย (copy จาก <code>api/.env.example</code>) Docker Compose inject env var ตรงๆ ไม่อ่าน <code>.env</code> จึง Docker workflow ไม่กระทบ backend <code>node_modules</code> อยู่ที่ <code>api/node_modules/</code> — ถูก exclude โดย Docker volume mount ของ <code>api/</code> อยู่แล้ว (<code>/app/node_modules</code> anonymous volume) จึงไม่ต้องแก้ Dockerfile repo <code>kanban-board-api</code> บน GitHub ควรถูก <strong>ลบ</strong> (ไม่ใช่ archive) เพื่อไม่ให้สับสนว่า canonical source อยู่ที่ไหน</p>
+<hr />
+</section>
+</section>
+<section id="11-board-list-view" class="level2">
+<h2>11. Board "List View"<span class="status-badge ready">ready-for-agent</span></h2>
+<p><strong>สถานะ:</strong> ready-for-agent (ยังไม่ implement) — <a href="https://github.com/khthana/kanban-board/issues/44">issue #44</a> <strong>Decisions of record:</strong> ฟีเจอร์นี้ reuse <a href="../docs/adr/0001-column-accent-model.md">ADR-0001</a> (Column Accent), <a href="../docs/adr/0002-card-editorial-model.md">ADR-0002</a> (editorial Card), <a href="../docs/adr/0003-card-completion-model.md">ADR-0003</a> (Card completion) — <strong>ทั้งหมดไม่เปลี่ยน</strong> ไม่มี ADR ใหม่ — List view เป็นแค่ presentation layer เหนือ data model เดิม <strong>Glossary:</strong> <a href="../CONTEXT.md">CONTEXT.md</a> — คำว่า <strong>Board</strong>, <strong>Column</strong>, <strong>Card</strong>, <strong>Category</strong>, <strong>Card Accent</strong>, <strong>Accent</strong>, <strong>Position</strong>, <strong>Overdue</strong> ไม่มีคำศัพท์ใหม่ — List view เป็น <em>มุมมอง</em> ใหม่ของ entity เดิม ไม่ใช่ entity ใหม่</p>
+<section id="problem-statement-9" class="level3">
+<h3>Problem Statement</h3>
+<p>ปัจจุบัน board มีมุมมองเดียว: <strong>Board view</strong> แนวนอน — Column เรียงข้างกัน แต่ละ Column มี Card เรียงแนวตั้งของตัวเอง การจะตอบว่า "บน board นี้มีอะไรบ้าง" สมาชิกต้อง scroll แนวนอนผ่านทุก Column ไม่เคยเห็น Card มากกว่า 1 Column พร้อมกัน ไม่มีทางอ่าน Card ทุกใบในการกวาดสายตาแนวตั้งครั้งเดียว ทำให้การ scan, triage, และ review ทำได้ไม่สะดวกสำหรับ board ที่มีหลาย Column</p>
+<p>ทีมต้องการมุมมองที่สอง เน้นการอ่าน ที่แสดง <strong>Card ทุกใบบน board เป็น list แนวตั้งเดียวที่หนาแน่น</strong> จัดกลุ่มตาม Column เพื่อให้อ่านทั้ง board จากบนลงล่างได้โดยไม่ต้อง scroll แนวนอน และไม่หลุดว่า Card อยู่ Column ไหนระหว่าง scroll พฤติกรรมแก้ไขเดิมทั้งหมด (<code>CardPanel</code>, optimistic update, polling, drag-and-drop) ต้องคงเดิมทุกประการ — มุมมองใหม่เป็นแค่ <em>วิธีมอง</em> ข้อมูลเดิม ไม่ใช่วิธี model ข้อมูลใหม่</p>
+</section>
+<section id="solution-7" class="level3">
+<h3>Solution</h3>
+<p>เพิ่ม <strong>List view</strong> ให้ <code>BoardPage</code> สลับได้จาก <code>TopBar</code> ผ่าน segmented control <code>[ Board | List ]</code>:</p>
+<ul>
+<li>Route ยังเป็น <code>/boards/:boardId</code> เดิม — มุมมองที่ active อยู่ใน local state ของ <code>BoardPage</code> (<code>view: 'board' | 'list'</code>) default เป็น <code>'board'</code> <strong>ไม่ persist</strong> — reload กลับไป Board view เสมอ</li>
+<li>Toggle อยู่ในกลุ่มซ้ายของ <code>TopBar</code> ต่อจากชื่อ board ทันที เป็น <code>role="tablist"</code> ที่เข้าถึงได้ (สอง <code>role="tab"</code> button, <code>aria-selected</code> บนตัวที่ active, เลื่อนด้วยลูกศรคีย์บอร์ด) วางไว้ซ้าย — ห่างจากขอบขวาที่ <code>CardPanel</code> เลื่อนเข้ามา — จึงเข้าถึงได้เสมอและไม่รกไม่ว่า panel จะเปิดอยู่หรือไม่</li>
+<li>ใน List view Column ของ board render เรียงต่อกันเป็น <strong>section</strong> แต่ละ section มี <strong>sticky header</strong> (name pill + จำนวน card ทาสีด้วย Column <strong>Accent</strong> ตาม ADR-0001) ที่ pin อยู่บนสุดของ scroll region ขณะ row ของ section นั้น scroll ผ่านด้านล่าง แล้วค่อยให้ทางกับ header ของ section ถัดไป ทำให้ยังเห็นว่ากำลังอ่าน Column ไหนอยู่เสมอ ไม่ว่า list จะยาวแค่ไหน</li>
+<li><strong>row</strong> เป็น <strong>เส้นเดียวแนวนอนที่หนาแน่น</strong> — ไม่ใช่ editorial Card face แนวตั้งที่ยืดเต็มความกว้าง เรียงซ้ายไปขวา: จุดสี Category + label พิมพ์ใหญ่ (หรือเทากลางถ้าไม่มี Category), title (flex-grow, ตัดด้วย ellipsis), due date, adaptive subtask progress (segment ≤ 8 subtask / mini-bar &gt; 8 ตาม ADR-0002), assignee avatar Card ที่เสร็จแล้วโชว์ badge ✓, opacity แถวลดเหลือ ~0.6, และวันที่เสร็จแทน due date (ADR-0003) due date ที่เกินกำหนดขึ้นสีแดงเหมือน Board view ไม่มี indicator "สถานะ" แยกต่างหากบน row — section header บอกชื่อ Column อยู่แล้ว จึงไม่ต้องมีอะไรเพิ่มตรงนั้น</li>
+<li>Column ที่<strong>ไม่มี Card</strong> ยังโชว์ section (ว่าง) ของตัวเอง เหมือน Board view ที่ยัง render Column ว่าง</li>
+<li><strong>ไม่มี drag-and-drop</strong> ใน List view Row เป็น read/select-only เท่านั้น: คลิก row (หรือกด Enter/Space) เปิด <code>CardPanel</code> เดิม ซึ่งเลื่อนเข้าจากขวาและหด list ลง 380px เหมือน Board view ทุกการแก้ไขยังผ่าน panel เหมือนเดิม</li>
+<li>สร้าง Card ได้: แต่ละ section มี affordance <strong>"+ New card"</strong> ที่ท้าย section — <code>CardComposer</code> เดิม reuse ตรงๆ (label ปุ่มเดียวกัน ฟอร์มเดียวกัน) Card ใหม่ปรากฏที่ท้าย section (optimistic update) เหมือน Board view</li>
+<li>สลับ view จะ <strong>ปิด <code>CardPanel</code> ที่เปิดอยู่</strong> (<code>activeCard</code> → <code>null</code>) เพื่อไม่ให้ state ค้างข้าม view</li>
+<li><strong>Polling</strong> ยังทำงานต่อ (10s <code>GET /boards/:id</code>) — List view ใช้ store เดียวกับ Board view จึงได้ cross-tab reconciliation มาฟรี</li>
+</ul>
+<p>Empty-board state เหมือน Board view ทุกประการ: ถ้ายังไม่มี Column จะโชว์ <code>ColumnComposer</code> เพื่อสร้าง Column แรก</p>
+</section>
+<section id="user-stories-7" class="level3">
+<h3>User Stories</h3>
+<ol type="1">
+<li>As a board member, I want to switch my board between Board view and List view from the top bar, so that I can choose the perspective that fits the task.</li>
+<li>As a board member, I want the view toggle to stay reachable in the top bar whether or not a Card panel is open, so that switching views never requires me to close what I'm doing first.</li>
+<li>As a board member, I want List view to default to Board view on reload, so that the familiar board is what I see first.</li>
+<li>As a board member, I want every Card on the board shown in one vertical list, so that I can read the whole board without horizontal scrolling.</li>
+<li>As a board member, I want the list grouped by Column with each Column's name and card count as a section header, so that I can tell which stage each Card is in.</li>
+<li>As a board member, I want each section's header to stay pinned at the top while I scroll through that section's Cards, so that I never lose track of which Column I'm reading on a long board.</li>
+<li>As a board member, I want each section header tinted by its Column's Accent, so that List view feels consistent with Board view (ADR-0001).</li>
+<li>As a board member, I want a Column with no Cards to still show its section, so that empty Columns are visible and consistent with Board view.</li>
+<li>As a board member, I want Cards within a section ordered by their position, so that the list mirrors the order I set in Board view.</li>
+<li>As a board member, I want each row rendered as a single dense line (category, title, due date, progress, assignees), so that I can scan many Cards quickly without excess vertical space per Card.</li>
+<li>As a board member, I want a Card with no Category to use the neutral gray accent, so that uncategorized rows look intentional.</li>
+<li>As a board member, I want a done Card's row to show the ✓ badge, fade, and completion date in place of the due date, so that completed work reads the same as in Board view (ADR-0003).</li>
+<li>As a board member, I want an overdue Card's due date shown in red, so that late work stands out the same way it does in Board view.</li>
+<li>As a board member, I want clicking (or activating via keyboard) a row to open the existing Card detail panel, so that I can edit a Card from List view with no change to how editing works.</li>
+<li>As a board member, I want the open Card panel to push the list left (380px) exactly as it does in Board view, so that the panel never covers Card content.</li>
+<li>As a board member, I want switching the view to close any open Card panel, so that I never end up with a panel pointing at the wrong view.</li>
+<li>As a board member, I want a "+ New card" affordance at the foot of each section, so that I can add a Card directly to a chosen Column without switching back to Board view.</li>
+<li>As a board member, I want a newly created Card to appear at the foot of its section immediately, so that the optimistic update feels the same as in Board view.</li>
+<li>As a board member, I want the list to keep syncing while I view it, so that changes from other tabs appear in List view too (polling unchanged).</li>
+<li>As a board member, I want List view to show the Column composer when the board has no Columns yet, so that the empty state matches Board view.</li>
+</ol>
+</section>
+<section id="implementation-decisions-7" class="level3">
+<h3>Implementation Decisions</h3>
+<p><strong>Data model (ไม่เปลี่ยน):</strong> ไม่มีการเปลี่ยน schema, API, transport, หรือ store shape List view อ่าน <code>board</code> shape เดียวกัน (<code>board</code>, <code>columns</code>, <code>cards</code>, <code>labels</code>, <code>members</code>, <code>cardLabels</code>, <code>cardAssignees</code>, <code>subtasks</code>) ที่ Board view ใช้จาก <code>useBoardStore</code> อยู่แล้ว <strong>ไม่มี domain module ใหม่</strong> — List view เป็น presentation concern ล้วนๆ logic ของ row/section ทั้งหมด reuse domain helper เดิมที่อยู่เบื้องหลัง ADR-0001/0002/0003 (accent derivation, date formatting/overdue check, progress view, completion state)</p>
+<p><strong>Routing &amp; state:</strong> Route ยังเป็น <code>/boards/:boardId</code> เดิม <code>BoardPage</code> มี local state สำหรับ view ที่ active, default เป็น Board view, ไม่ persist ข้าม reload หรือ navigation State และพฤติกรรมที่ทั้งสอง view ใช้ร่วมกัน — board fetch, polling, reconciliation, optimistic mutation actions, active-Card panel, invite dialog, mutation-error banner — คงเดิมทุกประการ มีแค่การ render ของ board body ที่แยกตาม view ที่ active drag-and-drop context (sensors, drag-start/drag-end handler, drag overlay) mount เฉพาะใน Board view เท่านั้น — ไม่ render เลยใน List view เพราะ List view ไม่มี drag-and-drop สลับ view จะ clear active Card ด้วย เพื่อไม่ให้ panel ที่เปิดใน view หนึ่งค้างไปอีก view (user story 16) TopBar มี view toggle ตามที่อธิบายข้างต้น (segmented control, กลุ่มซ้าย, tablist semantics)</p>
+<p><strong>Modules ที่ build/modify:</strong></p>
+<ul>
+<li><strong><code>ListRow</code></strong> <em>(component ใหม่)</em> — row ของ Card หนึ่งใบใน List view render เป็นเส้นเดียวแนวนอนที่หนาแน่น แทนที่จะเป็น editorial Card face แนวตั้ง <strong>ตั้งใจ duplicate</strong> presentational logic ของ Card face component เดิม (จุด/label category, due date, adaptive progress, done state) แทนที่จะแชร์ component เดียวกัน เพราะ Card face เดิมผูกกับ drag-and-drop (มันสร้าง sortable drag source) ซึ่ง List view ไม่ใช้และไม่ต้องการสร้างขึ้นมา <code>ListRow</code> reuse domain helper ตัวเดียวกับ Card face (accent derivation, date/overdue formatting, progress view, completion state) เพื่อให้ทั้งสอง view สอดคล้องกันทาง logic แม้ JSX จะแยกกัน รับ Card พร้อม labels, assignees, และ subtasks (ถูก filter มาจากผู้เรียกแล้ว) และเรียก callback เพื่อเปิด Card panel เดิมเมื่อคลิก/Enter/Space <strong>Trade-off ที่ยอมรับ</strong>: เพราะ row duplicate markup แทนที่จะแชร์กับ Card face การเปลี่ยน visual ของ Card face ในอนาคต (Board view) ต้อง apply กับ <code>ListRow</code> แยกต่างหาก ไม่งั้นทั้งสอง view จะ drift — ยอมรับ trade-off นี้เพราะเป็นทางที่ง่ายกว่าเมื่อเทียบกับความผูกพันกับ drag-and-drop ข้างต้น</li>
+<li><strong><code>ListView</code></strong> <em>(component ใหม่)</em> — วนลูป Column ของ board ตามลำดับ position สำหรับแต่ละ Column render sticky section header (name pill + จำนวน card ทาสีด้วย Column Accent ด้วย derivation เดียวกับ header ของ Column ใน Board view) ตามด้วย Card ของ Column นั้นเป็น <code>ListRow</code> เรียงตาม position แล้วตามด้วย affordance เพิ่ม Card ที่ท้าย section render Column composer แทนเมื่อ board ยังไม่มี Column เลย (empty-board state) รับ mutation callback เดียวกับที่ <code>BoardPage</code> wire เข้า Column/Card-add/Card-panel ของ Board view อยู่แล้ว เพื่อให้ List view เข้าร่วม optimistic-update flow เดียวกัน</li>
+<li><strong><code>TopBar</code></strong> <em>(modify)</em> — เพิ่ม view state และ change-handler prop ที่ต้องใช้ render/ขับ segmented control <code>[ Board | List ]</code> ข้างต้น</li>
+<li><strong><code>BoardPage</code></strong> <em>(modify)</em> — เพิ่ม view state, gate drag-and-drop context ไว้เฉพาะ Board view, render <code>ListView</code> ใน List view, clear active Card เมื่อ view เปลี่ยน, และส่ง mutation callback เดียวกับที่ส่งให้ Board view's Column rendering ไปให้ <code>ListView</code> ด้วย</li>
+<li>Card face component เดิม, Card-add composer, และ Column component ที่ Board view ใช้ <strong>ไม่เปลี่ยนทั้งหมด</strong> — การ render และพฤติกรรมของ Board view ไม่ถูกแตะโดยฟีเจอร์นี้</li>
+</ul>
+<p><strong>สิ่งที่ตั้งใจ <em>ไม่</em> build:</strong> ไม่มี <code>domain/list*</code> module — List view เป็น presentation ไม่ใช่ logic; ไม่มี store action ใหม่, ไม่มี API client function ใหม่, ไม่มี backend route หรือ migration ใหม่; ไม่มี route ใหม่, ไม่ persist view, ไม่มี URL query param สำหรับ view; ไม่มี component ที่แชร์ระหว่าง Card face กับ <code>ListRow</code> (ดู trade-off ข้างต้น)</p>
+</section>
+<section id="testing-decisions-7" class="level3">
+<h3>Testing Decisions</h3>
+<p>เทสต์ที่ดียืนยัน <strong>พฤติกรรมภายนอก</strong> ไม่ใช่ implementation detail</p>
+<ul>
+<li><strong>ไม่มี pure-domain module ใหม่</strong> → ไม่มี unit test ใหม่สำหรับ domain logic domain-layer test เดิม (accent, progress, dates, completion) ครอบคลุม helper ทุกตัวที่ <code>ListRow</code> reuse อยู่แล้ว List view ไม่เพิ่ม logic ใหม่ให้ต้องมี coverage เพิ่ม</li>
+<li><strong>ไม่มี component-level unit test ใหม่</strong> — สอดคล้องกับ pattern เดิมของโปรเจกต์ที่ presentational component ครอบคลุมด้วย E2E ไม่ใช่ unit test และ store action (ไม่เปลี่ยนในฟีเจอร์นี้) เป็นสิ่งเดียวที่ unit-test นอกเหนือจาก domain layer</li>
+<li><strong>Store actions</strong> → ไม่เปลี่ยน จึงไม่ต้องแก้ test เดิมของ store</li>
+<li><strong>E2E (Playwright)</strong> — เพิ่ม spec ใหม่สำหรับ List view รันแบบ serial (<code>--workers=1</code>) เหมือน E2E suite ที่เหลือ เพราะทุก test แชร์ Postgres instance เดียวกัน coverage:
+<ul>
+<li>สลับ Board → List แล้วกลับ; assert ว่า section header ตรงกับ Column ของ board ตามลำดับ และ row ของแต่ละ section ตรงกับ Card ของ Column นั้นด้วยชื่อ</li>
+<li>Section header มี Column Accent (ใช้ assertion pattern เดียวกับที่มีอยู่แล้วสำหรับ column color ใน E2E spec เดิม)</li>
+<li>Card ที่เสร็จแล้วโชว์ badge ✓ + จางใน row ของ List view (ใช้ assertion pattern เดียวกับ completion E2E spec เดิม)</li>
+<li>คลิก row เปิด Card panel (assert panel ปรากฏ), และสลับ view ขณะ panel เปิดอยู่ทำให้ panel ปิด</li>
+<li>"+ New card" ที่ท้าย section สร้าง Card ที่ปรากฏที่ท้าย section นั้น (รอ request สร้างเสร็จก่อน assert ตาม wait pattern เดียวกับที่ใช้ใน subtask E2E spec เพื่อเลี่ยง tempId race)</li>
+<li>Reload กลับไป Board view (default, ไม่ persist)</li>
+</ul></li>
+</ul>
+</section>
+<section id="out-of-scope-7" class="level3">
+<h3>Out of Scope</h3>
+<p>Drag-and-drop หรือ inline reorder ใน List view (row เป็น read/select-only); แก้ field ใดๆ inline บน row (การแก้ไขทั้งหมดผ่าน Card panel); ผู้ใช้เลือก sort field/ทิศทางเอง (fixed: ลำดับ Column → Card position); Filter, ซ่อน, หรือค้นหา Card (รวมถึงปุ่ม "ซ่อน card ที่เสร็จแล้ว"); Collapsible section (section header เป็น sticky แต่ไม่ collapsible/interactive); route หรือ URL param แยกสำหรับ view (เป็น local state ของ <code>BoardPage</code>); persist view ที่ active ข้าม reload หรือข้าม board; มุมมอง "Card ของฉันทั้งหมดข้าม board" (List view นี้ scope แค่ board เดียว); เปลี่ยน data model, API, store, Card face component, หรือ Column component ใดๆ; component ที่แชร์ระหว่าง Card face กับ <code>ListRow</code> (ยอมรับ duplication — ดู Implementation Decisions); responsive/narrow-viewport reflow ของ single-line row — แอปนี้เป็น desktop-first สอดคล้องกับ Board view ที่ scroll แนวนอนเองอยู่แล้ว; เพิ่มคำว่า "Task" หรือ "List view" ลง <code>CONTEXT.md</code> (คำว่า <strong>Card</strong> / <strong>Column</strong> ใน glossary reuse ตรงๆ)</p>
+</section>
+<section id="further-notes-7" class="level3">
+<h3>Further Notes</h3>
+<p>List view ตั้งใจสะท้อน visual/behavioral contract ของ Board view (Accent theming ตาม ADR-0001, ข้อมูล editorial Card ตาม ADR-0002, done state ตาม ADR-0003, optimistic update, polling) เพื่อให้สมาชิกสลับ view ได้โดยไม่ต้องเรียนรู้ใหม่ แม้ layout ของ row เอง (เส้นเดียวหนาแน่น vs การ์ดแนวตั้ง) จะตั้งใจต่างจาก Card face ของ Board view — นั่นสะท้อนว่าทั้งสอง view รับใช้โหมดการอ่านที่ต่างกัน (scan vs. มองการ์ดทีละใบ) ไม่ใช่ความขัดแย้งกัน</p>
+<p>sticky section header คือสิ่งที่แก้ปัญหา "กำลังดู Column ไหนอยู่" บน list ยาวได้จริง header แบบ static (ไม่ sticky) จะทำตามตัวอักษรของ "จัดกลุ่มตาม Column" ได้ก็จริง แต่ไม่ตอบโจทย์เป้าหมายที่แท้จริงคือการอ่านทั้ง board โดยไม่หลุดบริบท</p>
+<p>เพราะทั้งสอง view ใช้ store เดียวกัน Card ที่ถูกสร้าง/แก้/ย้ายใน view หนึ่งจะสะท้อนในอีก view ทันทีตอน render หรือ poll ถัดไป — ไม่ต้อง wiring เพิ่ม</p>
+<p>Toggle อยู่บน <code>TopBar</code> (ไม่ใช่ sub-toolbar แยก) วางห่างจากขอบที่ panel เลื่อนเข้ามา จึงเข้าถึงได้เสมอและไม่รก ไม่ว่า Card panel จะเปิดอยู่หรือไม่</p>
+</section>
+</section>
+</section>
+  </div>
+  <footer class="doc">
+    สร้างจาก <code>requirement/Kanban-Board-PRD.md</code> — โปรดแก้ไขไฟล์ Markdown ต้นทาง แล้วสร้าง HTML นี้ใหม่ (ไฟล์นี้เป็นข้อมูลที่ derive มา ไม่ใช่แหล่งความจริง)
+  </footer>
+</div>
+</body>
+</html>
