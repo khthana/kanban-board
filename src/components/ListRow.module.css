@@ -1,0 +1,120 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+}
+.row:hover {
+  background: #f8fafc;
+}
+
+.category {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.due {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.overdueDue {
+  color: var(--due-overdue);
+  font-weight: 600;
+}
+
+.muted {
+  color: oklch(0.72 0.01 265);
+}
+
+.progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.count {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+.countDone {
+  color: var(--complete);
+}
+
+.segs {
+  display: flex;
+  gap: 3px;
+}
+
+.seg {
+  width: 11px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--track);
+}
+
+.minibar {
+  width: 64px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.minifill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+}
+
+.doneBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--complete);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.completed {
+  color: var(--complete);
+  font-weight: 600;
+}

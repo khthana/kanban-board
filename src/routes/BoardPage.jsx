@@ -13,6 +13,7 @@ import { DND_ACTIVATION_DISTANCE } from '../constants';
 import TopBar from '../components/TopBar';
 import Column from '../components/Column';
 import ColumnComposer from '../components/ColumnComposer';
+import ListView from '../components/ListView';
 import CardPanel from '../components/CardPanel';
 import Card from '../components/Card';
 import InviteDialog from '../components/InviteDialog';
@@ -37,6 +38,7 @@ export default function BoardPage() {
   const [inviteOpen, setInviteOpen]   = useState(false);
   const [activeDrag, setActiveDrag]   = useState(null);
   const [opError, setOpError]         = useState(null);
+  const [view, setView]               = useState('board');
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: DND_ACTIVATION_DISTANCE } }),
@@ -108,6 +110,8 @@ export default function BoardPage() {
         currentUserId={currentUserId}
         onInvite={() => setInviteOpen(true)}
         onRemoveMember={memberId => removeMember(boardId, currentUserId, { memberId })}
+        view={view}
+        onViewChange={v => { setView(v); setActiveCard(null); }}
       />
 
       {opError && (
@@ -118,54 +122,66 @@ export default function BoardPage() {
       )}
 
       <main className={styles.main}>
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext items={sortedColumns.map(c => c.id)} strategy={horizontalListSortingStrategy}>
-            <div className={styles.columns} style={activeCard ? { marginRight: 380 } : {}}>
-              {sortedColumns.map(col => (
-                <Column
-                  key={col.id}
-                  column={col}
-                  cards={cards.filter(c => c.columnId === col.id).sort((a, b) => a.position - b.position)}
-                  labels={labels}
-                  cardLabels={cardLabels}
-                  cardAssignees={cardAssignees}
-                  members={members}
-                  subtasks={allSubtasks}
-                  onRename={(colId, name, color) => renameColumn(colId, currentUserId, { name, color })}
-                  onDelete={(colId) => deleteColumn(colId, currentUserId)}
-                  onCardClick={setActiveCard}
-                  onAddCard={(colId, title) => createCard(colId, currentUserId, { title })}
-                />
-              ))}
-              <ColumnComposer onAdd={name => createColumn(boardId, currentUserId, { name })} />
-            </div>
-          </SortableContext>
+        {view === 'board' && (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={sortedColumns.map(c => c.id)} strategy={horizontalListSortingStrategy}>
+              <div className={styles.columns} style={activeCard ? { marginRight: 380 } : {}}>
+                {sortedColumns.map(col => (
+                  <Column
+                    key={col.id}
+                    column={col}
+                    cards={cards.filter(c => c.columnId === col.id).sort((a, b) => a.position - b.position)}
+                    labels={labels}
+                    cardLabels={cardLabels}
+                    cardAssignees={cardAssignees}
+                    members={members}
+                    subtasks={allSubtasks}
+                    onRename={(colId, name, color) => renameColumn(colId, currentUserId, { name, color })}
+                    onDelete={(colId) => deleteColumn(colId, currentUserId)}
+                    onCardClick={setActiveCard}
+                    onAddCard={(colId, title) => createCard(colId, currentUserId, { title })}
+                  />
+                ))}
+                <ColumnComposer onAdd={name => createColumn(boardId, currentUserId, { name })} />
+              </div>
+            </SortableContext>
 
-          <DragOverlay>
-            {activeCardData && (
-              <Card card={activeCardData} dragOverlay
-                labels={labels.filter(l =>
-                  new Set(cardLabels.filter(cl => cl.cardId === activeCardData.id).map(cl => cl.labelId)).has(l.id)
-                )}
-                members={members}
-                assigneeIds={cardAssignees.filter(ca => ca.cardId === activeCardData.id).map(ca => ca.userId)}
-              />
-            )}
-            {activeColData && (
-              <Column column={activeColData}
-                cards={cards.filter(c => c.columnId === activeColData.id).sort((a, b) => a.position - b.position)}
-                labels={labels} cardLabels={cardLabels} members={members}
-                onRename={() => {}} onDelete={() => {}} onCardClick={() => {}} onAddCard={() => {}}
-                dragOverlay
-              />
-            )}
-          </DragOverlay>
-        </DndContext>
+            <DragOverlay>
+              {activeCardData && (
+                <Card card={activeCardData} dragOverlay
+                  labels={labels.filter(l =>
+                    new Set(cardLabels.filter(cl => cl.cardId === activeCardData.id).map(cl => cl.labelId)).has(l.id)
+                  )}
+                  members={members}
+                  assigneeIds={cardAssignees.filter(ca => ca.cardId === activeCardData.id).map(ca => ca.userId)}
+                />
+              )}
+              {activeColData && (
+                <Column column={activeColData}
+                  cards={cards.filter(c => c.columnId === activeColData.id).sort((a, b) => a.position - b.position)}
+                  labels={labels} cardLabels={cardLabels} members={members}
+                  onRename={() => {}} onDelete={() => {}} onCardClick={() => {}} onAddCard={() => {}}
+                  dragOverlay
+                />
+              )}
+            </DragOverlay>
+          </DndContext>
+        )}
+
+        {view === 'list' && (
+          <ListView
+            sortedColumns={sortedColumns}
+            cards={cards}
+            labels={labels}
+            subtasks={allSubtasks}
+            onAddColumn={name => createColumn(boardId, currentUserId, { name })}
+          />
+        )}
       </main>
 
       {inviteOpen && (

@@ -4,17 +4,41 @@ import Avatar from './common/Avatar';
 import useSession from '../store/useSession';
 import styles from './TopBar.module.css';
 
-export default function TopBar({ board, members, currentUserId, onInvite, onRemoveMember }) {
+export default function TopBar({ board, members, currentUserId, onInvite, onRemoveMember, view, onViewChange }) {
   const isOwner = board.ownerId === currentUserId;
   const { displayName, logout } = useSession();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  function handleTabKeyDown(e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    onViewChange?.(view === 'board' ? 'list' : 'board');
+  }
 
   return (
     <header className={styles.bar}>
       <div className={styles.left}>
         <Link to="/boards" className={styles.back}>← Boards</Link>
         <h1 className={styles.name}>{board.name}</h1>
+        <div className={styles.viewToggle} role="tablist" aria-label="View" onKeyDown={handleTabKeyDown}>
+          <button
+            role="tab"
+            aria-selected={view === 'board'}
+            className={`${styles.viewTab} ${view === 'board' ? styles.viewTabActive : ''}`}
+            onClick={() => onViewChange?.('board')}
+          >
+            Board
+          </button>
+          <button
+            role="tab"
+            aria-selected={view === 'list'}
+            className={`${styles.viewTab} ${view === 'list' ? styles.viewTabActive : ''}`}
+            onClick={() => onViewChange?.('list')}
+          >
+            List
+          </button>
+        </div>
       </div>
 
       <div className={styles.right}>
