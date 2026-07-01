@@ -458,7 +458,7 @@
 <tr>
 <td><a href="#11-board-list-view">11</a></td>
 <td>Board "List View"</td>
-<td><strong>ready-for-agent</strong> (ยังไม่ implement — <a href="https://github.com/khthana/kanban-board/issues/44">issue #44</a>)</td>
+<td>Implemented (#45–#48)</td>
 </tr>
 </tbody>
 </table>
@@ -1408,8 +1408,8 @@ DELETE /subtasks/:id                                         → 204</code></pre
 </section>
 </section>
 <section id="11-board-list-view" class="level2">
-<h2>11. Board "List View"<span class="status-badge ready">ready-for-agent</span></h2>
-<p><strong>สถานะ:</strong> ready-for-agent (ยังไม่ implement) — <a href="https://github.com/khthana/kanban-board/issues/44">issue #44</a> <strong>Decisions of record:</strong> ฟีเจอร์นี้ reuse <a href="../docs/adr/0001-column-accent-model.md">ADR-0001</a> (Column Accent), <a href="../docs/adr/0002-card-editorial-model.md">ADR-0002</a> (editorial Card), <a href="../docs/adr/0003-card-completion-model.md">ADR-0003</a> (Card completion) — <strong>ทั้งหมดไม่เปลี่ยน</strong> ไม่มี ADR ใหม่ — List view เป็นแค่ presentation layer เหนือ data model เดิม <strong>Glossary:</strong> <a href="../CONTEXT.md">CONTEXT.md</a> — คำว่า <strong>Board</strong>, <strong>Column</strong>, <strong>Card</strong>, <strong>Category</strong>, <strong>Card Accent</strong>, <strong>Accent</strong>, <strong>Position</strong>, <strong>Overdue</strong> ไม่มีคำศัพท์ใหม่ — List view เป็น <em>มุมมอง</em> ใหม่ของ entity เดิม ไม่ใช่ entity ใหม่</p>
+<h2>11. Board "List View"<span class="status-badge implemented">Implemented</span></h2>
+<p><strong>สถานะ:</strong> Implemented — 4 vertical slices: <a href="https://github.com/khthana/kanban-board/issues/45">#45</a> (read-only List view), <a href="https://github.com/khthana/kanban-board/issues/46">#46</a> (sticky headers + Column Accent theming), <a href="https://github.com/khthana/kanban-board/issues/47">#47</a> (row → Card panel wiring), <a href="https://github.com/khthana/kanban-board/issues/48">#48</a> (add card from section foot) <strong>Decisions of record:</strong> ฟีเจอร์นี้ reuse <a href="../docs/adr/0001-column-accent-model.md">ADR-0001</a> (Column Accent), <a href="../docs/adr/0002-card-editorial-model.md">ADR-0002</a> (editorial Card), <a href="../docs/adr/0003-card-completion-model.md">ADR-0003</a> (Card completion) — <strong>ทั้งหมดไม่เปลี่ยน</strong> ไม่มี ADR ใหม่ — List view เป็นแค่ presentation layer เหนือ data model เดิม <strong>Glossary:</strong> <a href="../CONTEXT.md">CONTEXT.md</a> — คำว่า <strong>Board</strong>, <strong>Column</strong>, <strong>Card</strong>, <strong>Category</strong>, <strong>Card Accent</strong>, <strong>Accent</strong>, <strong>Position</strong>, <strong>Overdue</strong> ไม่มีคำศัพท์ใหม่ — List view เป็น <em>มุมมอง</em> ใหม่ของ entity เดิม ไม่ใช่ entity ใหม่</p>
 <section id="problem-statement-9" class="level3">
 <h3>Problem Statement</h3>
 <p>ปัจจุบัน board มีมุมมองเดียว: <strong>Board view</strong> แนวนอน — Column เรียงข้างกัน แต่ละ Column มี Card เรียงแนวตั้งของตัวเอง การจะตอบว่า "บน board นี้มีอะไรบ้าง" สมาชิกต้อง scroll แนวนอนผ่านทุก Column ไม่เคยเห็น Card มากกว่า 1 Column พร้อมกัน ไม่มีทางอ่าน Card ทุกใบในการกวาดสายตาแนวตั้งครั้งเดียว ทำให้การ scan, triage, และ review ทำได้ไม่สะดวกสำหรับ board ที่มีหลาย Column</p>

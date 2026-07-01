@@ -25,7 +25,7 @@ First run only: `npm install && npx playwright install chromium`
 
 ## Project Overview
 
-A Kanban board SPA for small teams (2–15 people). **Fully implemented** — React frontend connected to a real Node.js/PostgreSQL backend. Includes User Profile page (view/edit displayName, email, password) and Subtasks with progress tracking.
+A Kanban board SPA for small teams (2–15 people). **Fully implemented** — React frontend connected to a real Node.js/PostgreSQL backend. Includes User Profile page (view/edit displayName, email, password), Subtasks with progress tracking, and a read-oriented List view alongside the default Board view.
 
 - **Frontend** (`src/`): React + Zustand + dnd-kit
 - **Backend** (`api/`): Node.js + Express + PostgreSQL, runs on port 4000
@@ -73,6 +73,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 - **Multiple assignees** (ADR-0002): modeled like labels — a `cardAssignees: [{cardId,userId}]` join in the store, optimistic `attachAssignee`/`detachAssignee` (`PUT`/`DELETE /cards/:id/assignees/:userId`). Replaced the single `assignee_id`. `AssigneePicker` is a multi-toggle list; the card face shows up to 3 overlapping avatars then `+N` via `common/AvatarStack`.
 - **Card completion** (see [ADR-0003](docs/adr/0003-card-completion-model.md), issues #35–#37): a per-card **done** state independent of column, stored as `completed_at DATE NULL` on `cards`; the boolean is derived (`completedAt !== null`). Toggled only in `CardPanel` (full-width button at the top of the body) — no card-face control. Client stamps the date (`patchCard({ completedAt: toYMD(new Date()) })`; clear with `null`) through the generic card patch — no new store action. Soft client-side guard: marking done with unchecked subtasks fires a `window.confirm`; un-marking and no-subtask cards warn nothing. Card face reflects done with a ✓ badge + ~0.6 opacity; the foot shows the completion date in place of the due date (no overdue styling) while keeping subtask progress; the card stays in place (no move/hide). Logic lives in the new deep module `domain/completion.js` (`isDone`, `completionPatch`, `incompleteSubtasks`). `normalizeCard()`/`cardPatchToApi()` map `completed_at` ↔ `completedAt`.
 - **Card title inline edit** (issue #38): the card title is editable **inline in `CardPanel`** — click the `<h2>` header (hover wash + `cursor: text`) to swap it for an input (`autoFocus` + select-all). **Enter** commits, **Escape** cancels, **blur** commits when valid / reverts when invalid. Empty/over-255 on Enter shows an inline error with the input kept open; no `maxLength` (lets `validateCardTitle` explain). Saves through the generic `patchCard({ title })` (optimistic + rollback) — no new store action. Card face stays read-only; done cards remain editable. The save/revert/error branching lives in the deep module `domain/titleEdit.js` (`resolveTitleCommit({ trigger, value, current })`); a `skipTitleBlur` ref suppresses the unmount-blur that a keyboard commit would otherwise re-fire.
+- **List view** (issues #45–#48; [PRD §11](requirement/Kanban-Board-PRD.md#11-board-list-view)): a second, read-oriented rendering of the board, toggled via a `role="tablist"` `[ Board | List ]` control in `TopBar`'s left cluster (`view`/`onViewChange` props). Route, data, and mutation flow are unchanged — `BoardPage` holds `view` as local state (default `'board'`, not persisted) and gates the whole `DndContext` block on `view === 'board'`, rendering `ListView` on `view === 'list'`. `ListView.jsx` renders one `<section>` per Column, sorted by position, with a sticky (`position: sticky; top: 0`) header pill themed by the Column's Accent (same `--accent`/`.accented` mechanism as ADR-0001, reusing `data-testid="column-chip"`), each Column's Cards as `ListRow`s, and a `CardComposer` at the section foot for adding cards. `ListRow.jsx` is a single-line row that **intentionally duplicates** `Card.jsx`'s presentational markup (category dot, due date, adaptive progress, done badge) rather than sharing a component, because `Card.jsx` is coupled to dnd-kit's `useSortable` hook, which List view doesn't mount — it does reuse the same domain helpers (`domain/accent.js`, `domain/dates.js`, `domain/progress.js`, `domain/completion.js`) as `Card.jsx`. Clicking (or Enter/Space on) a row opens the same `CardPanel` as Board view; switching views closes the panel. No new ADR, domain module, store action, or API endpoint — reuses ADR-0001/0002/0003 wholesale. `BoardPage`'s `handleAddCard(colId, title)` wraps `createCard(...).catch(err => setOpError(err.message))` and is shared by both views' composers — added during #48 after discovering Board view had no error banner for failed card creation at all.
 - **Due date picker**: react-datepicker replaces native `<input type="date">` (fixes Firefox UX). Format `dd/MM/yyyy`. Thai locale incompatible with date-fns v4 — omitted.
 - **Label color picker**: 8 pastel preset swatches + "+" custom (hidden `<input type="color">` triggered by ref). Selection ring via CSS `outline`. Default `#fca5a5`.
 - **Label edit**: existing labels are editable (name + color) via the ✎ button per row in `LabelPicker` → inline edit form (mirrors Column `RenameForm`). Optimistic `patchLabel(labelId, userId, patch)` updates `board.labels` in place, so any card using that label as its Category re-renders with the new name/color instantly. Backend `PATCH /labels/:id` + client `patchLabel` already existed.
@@ -95,7 +96,7 @@ Validation runs client-side (UX) and is enforced by the backend (authoritative).
 
 ## Tests
 
-### Unit tests (132)
+### Unit tests (133)
 `src/domain/` (incl. `progress.test.js`, `accent.test.js`, `dates.test.js`, `completion.test.js`, `titleEdit.test.js`, `dragDrop.test.js`, `category.test.js`), `src/hooks/`, `src/store/useSession.test.js`, `src/store/useBoardStore.test.js`. Run: `npm test -- --watchAll=false`
 
 Not unit-tested: components — covered by E2E.
@@ -104,12 +105,12 @@ Not unit-tested: components — covered by E2E.
 
 ### E2E tests (Playwright)
 
-`e2e/` — 28 tests across 11 files. Require the full stack (`docker compose up`).
+`e2e/` — 51 tests across 12 files. Require the full stack (`docker compose up`).
 
 | File | Flows covered | Status |
 |---|---|---|
 | `auth.spec.js` | register, logout, login, redirect unauthenticated | ✅ |
-| `card.spec.js` | create column + card → persist on refresh; edit card title inline → persist | ✅ |
+| `card.spec.js` | create column + card → persist on refresh; edit card title inline → persist; failed card creation rolls back + shows error banner | ✅ |
 | `dnd.spec.js` | drag card cross-column → persist on refresh | ✅ |
 | `profile.spec.js` | update name, email conflict, change password, wrong password | ✅ |
 | `subtask.spec.js` | create, toggle, rename, reorder, delete subtasks; max 20 limit | ✅ |
@@ -119,6 +120,7 @@ Not unit-tested: components — covered by E2E.
 | `category.spec.js` | attach label → auto-set as category → shows on card; rename label → card reflects it | ✅ |
 | `assignee.spec.js` | assign two members → stack of two avatars, persists | ✅ |
 | `completion.spec.js` | mark done → ✓ badge + fade + footer date → reload → unmark; subtask warn (cancel/accept) | ✅ |
+| `list-view.spec.js` | toggle Board↔List; sections per column w/ sticky Accent-tinted headers; rows sorted by position; category/due/progress/done state on rows; no DnD; cross-tab polling; row click/Enter opens Card panel + panel push/close on view switch; "+ New card" per section (success + rollback) | ✅ |
 
 Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **Flaky under parallel** (single shared Postgres → contention; tests time out waiting for elements). Re-run, or use `npx playwright test --workers=1` for a deterministic pass.
 
@@ -130,9 +132,11 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 
 **Column color E2E note**: `data-swatch` attributes on swatch buttons enable stable selectors — `button[data-swatch="#fca5a5"]` for presets, `button[data-swatch="clear"]` for clear, `button[data-swatch="custom"]` for the "+" picker. Accent assertions target the **title chip** (`[data-testid="column-chip"]`), not the header: `getComputedStyle(chip).backgroundColor` equals the chosen hex when set, or the neutral default `rgb(226, 232, 240)` (`#e2e8f0`) when cleared. The "+ New card" composer trigger text is referenced by `card.spec.js`, `dnd.spec.js`, and `subtask.spec.js`.
 
+**List view E2E note**: `addCardToColumn(page, columnIndex, title)` scopes card creation to a specific `[data-testid="column"]` — the generic `addCard()` always hits the *first* matching "+ New card" composer on the page, so populating more than one column requires the scoped helper. Sticky-header assertions must take their baseline measurement after scrolling past the section's `margin-top` (~20px) — measuring before any scroll captures the header's natural (unstuck) position, not its pinned one, and produces a false failure even when sticky positioning is correct. `openNewBoard(page, boardName, { email, displayName })` (register + create board + navigate to it) is shared by `setupBoard()` and any test that needs a differently-named or differently-owned board.
+
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs both `test-frontend` (132 unit tests) and `test-api` (109 integration tests, postgres:16-alpine service) on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs both `test-frontend` (133 unit tests) and `test-api` (109 integration tests, postgres:16-alpine service) on every push/PR to `main`.
 
 ## API
 
