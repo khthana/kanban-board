@@ -356,3 +356,76 @@ test('section header shows the Column Accent when set, neutral gray when not set
   // "Doing" has Accent #fca5a5 → chip tinted to match.
   await expect(doingChip).toHaveCSS('background-color', 'rgb(252, 165, 165)');
 });
+
+test('clicking a List view row opens the Card panel', async ({ page }) => {
+  await setupBoard(page);
+  await addCard(page, 'Click Me');
+
+  await page.getByRole('tab', { name: 'List' }).click();
+  await page.locator('[data-testid="list-row"]').filter({ hasText: 'Click Me' }).click();
+
+  await expect(page.locator('aside')).toBeVisible();
+  await expect(page.locator('aside')).toContainText('Click Me');
+});
+
+test('pressing Enter on a focused List view row opens the Card panel', async ({ page }) => {
+  await setupBoard(page);
+  await addCard(page, 'Keyboard Card');
+
+  await page.getByRole('tab', { name: 'List' }).click();
+  await page.locator('[data-testid="list-row"]').filter({ hasText: 'Keyboard Card' }).focus();
+  await page.keyboard.press('Enter');
+
+  await expect(page.locator('aside')).toBeVisible();
+  await expect(page.locator('aside')).toContainText('Keyboard Card');
+});
+
+test('the list container gets a 380px right margin while the Card panel is open', async ({ page }) => {
+  await setupBoard(page);
+  await addCard(page, 'Margin Card');
+
+  await page.getByRole('tab', { name: 'List' }).click();
+  const list = page.locator('[data-testid="list-view"]');
+  await expect(list).toHaveCSS('margin-right', '0px');
+
+  await page.locator('[data-testid="list-row"]').filter({ hasText: 'Margin Card' }).click();
+  await expect(page.locator('aside')).toBeVisible();
+  await expect(list).toHaveCSS('margin-right', '380px');
+});
+
+test('switching to Board view while the Card panel is open in List view closes it', async ({ page }) => {
+  await setupBoard(page);
+  await addCard(page, 'Close Me A');
+
+  await page.getByRole('tab', { name: 'List' }).click();
+  await page.locator('[data-testid="list-row"]').filter({ hasText: 'Close Me A' }).click();
+  await expect(page.locator('aside')).toBeVisible();
+
+  await page.getByRole('tab', { name: 'Board' }).click();
+
+  await expect(page.locator('aside')).toHaveCount(0);
+});
+
+test('switching to List view while the Card panel is open in Board view closes it', async ({ page }) => {
+  await setupBoard(page);
+  await addCard(page, 'Close Me B');
+
+  await page.getByText('Close Me B', { exact: true }).click();
+  await expect(page.locator('aside')).toBeVisible();
+
+  await page.getByRole('tab', { name: 'List' }).click();
+
+  await expect(page.locator('aside')).toHaveCount(0);
+});
+
+test('the Board/List toggle stays visible while the Card panel is open', async ({ page }) => {
+  await setupBoard(page);
+  await addCard(page, 'Toggle Visible Card');
+
+  await page.getByRole('tab', { name: 'List' }).click();
+  await page.locator('[data-testid="list-row"]').filter({ hasText: 'Toggle Visible Card' }).click();
+  await expect(page.locator('aside')).toBeVisible();
+
+  await expect(page.getByRole('tab', { name: 'Board' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'List' })).toBeVisible();
+});

@@ -4,7 +4,7 @@ import { progressView } from '../domain/progress';
 import { isDone } from '../domain/completion';
 import styles from './ListRow.module.css';
 
-export default function ListRow({ card, labels = [], subtasks = [] }) {
+export default function ListRow({ card, labels = [], subtasks = [], onClick }) {
   const category = categoryLabel(card.categoryLabelId, labels);
   const accent = cardAccent(category?.color ?? null);
   const cardDone = isDone(card);
@@ -15,7 +15,20 @@ export default function ListRow({ card, labels = [], subtasks = [] }) {
   const progress = total > 0 ? progressView(done, total) : null;
 
   return (
-    <div className={styles.row} data-testid="list-row" style={cardDone ? { opacity: 0.6 } : undefined}>
+    <div
+      className={styles.row}
+      data-testid="list-row"
+      style={cardDone ? { opacity: 0.6 } : undefined}
+      role="button"
+      tabIndex={0}
+      onClick={() => onClick?.(card)}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick?.(card);
+        }
+      }}
+    >
       {cardDone && (
         <span className={styles.doneBadge} data-testid="list-row-done-badge" title="เสร็จแล้ว">✓</span>
       )}

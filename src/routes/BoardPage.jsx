@@ -180,6 +180,8 @@ export default function BoardPage() {
             labels={labels}
             subtasks={allSubtasks}
             onAddColumn={name => createColumn(boardId, currentUserId, { name })}
+            onCardClick={setActiveCard}
+            style={activeCard ? { marginRight: 380 } : {}}
           />
         )}
       </main>
