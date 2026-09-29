@@ -69,6 +69,35 @@ describe('POST /columns/:id/cards', () => {
     expect(res.status).toBe(400);
   });
 
+  it.each([
+    ['title over 255 chars', { title: 'a'.repeat(256) }],
+    ['description over 5000 chars', { title: 'Task', description: 'a'.repeat(5001) }],
+  ])('%s → 400, no card created', async (_label, body) => {
+    const { user, board, column } = await setup();
+
+    const res = await request(app)
+      .post(`/columns/${column.id}/cards`)
+      .set('Authorization', `Bearer ${user.token}`)
+      .send(body);
+
+    expect(res.status).toBe(400);
+    const snapshot = await request(app)
+      .get(`/boards/${board.id}`)
+      .set('Authorization', `Bearer ${user.token}`);
+    expect(snapshot.body.columns[0].cards).toHaveLength(0);
+  });
+
+  it('title of 255 chars and description of 5000 chars → 201', async () => {
+    const { user, column } = await setup();
+
+    const res = await request(app)
+      .post(`/columns/${column.id}/cards`)
+      .set('Authorization', `Bearer ${user.token}`)
+      .send({ title: 'a'.repeat(255), description: 'a'.repeat(5000) });
+
+    expect(res.status).toBe(201);
+  });
+
   it('non-member → 403', async () => {
     const { column } = await setup();
     const outsider = await createUser({ email: 'outsider@example.com', displayName: 'Outsider' });
@@ -96,6 +125,43 @@ describe('PATCH /cards/:id', () => {
     expect(res.body.title).toBe('Updated');
     expect(res.body.column_id).toBe(column.id);
     expect(res.body.position).toBe(1.0);
+  });
+
+  it.each([
+    ['null title', { title: null }],
+    ['empty title', { title: '' }],
+    ['whitespace title', { title: '   ' }],
+    ['title over 255 chars', { title: 'a'.repeat(256) }],
+    ['description over 5000 chars', { description: 'a'.repeat(5001) }],
+  ])('%s → 400, card unchanged', async (_label, body) => {
+    const { user, board, column } = await setup();
+    const card = await createCard(user.token, column.id, 'Original');
+
+    const res = await request(app)
+      .patch(`/cards/${card.id}`)
+      .set('Authorization', `Bearer ${user.token}`)
+      .send(body);
+
+    expect(res.status).toBe(400);
+    const snapshot = await request(app)
+      .get(`/boards/${board.id}`)
+      .set('Authorization', `Bearer ${user.token}`);
+    const saved = snapshot.body.columns[0].cards[0];
+    expect(saved.title).toBe('Original');
+    expect(saved.description).toBeNull();
+  });
+
+  it('clearing description with null → 200', async () => {
+    const { user, column } = await setup();
+    const card = await createCard(user.token, column.id);
+
+    const res = await request(app)
+      .patch(`/cards/${card.id}`)
+      .set('Authorization', `Bearer ${user.token}`)
+      .send({ description: null });
+
+    expect(res.status).toBe(200);
+    expect(res.body.description).toBeNull();
   });
 
   it('move to another column in same board → 200, card in new column', async () => {

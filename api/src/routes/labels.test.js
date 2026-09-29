@@ -268,3 +268,41 @@ describe('DELETE /labels/:id', () => {
     expect(cards[0].label_ids).toEqual([]);
   });
 });
+
+describe('label name validation', () => {
+  it('POST name over 100 chars → 400, no label created', async () => {
+    const { user, board } = await setup();
+
+    const res = await request(app)
+      .post(`/boards/${board.id}/labels`)
+      .set('Authorization', `Bearer ${user.token}`)
+      .send({ name: 'a'.repeat(101), color: '#ff0000' });
+
+    expect(res.status).toBe(400);
+    const snapshot = await request(app)
+      .get(`/boards/${board.id}`)
+      .set('Authorization', `Bearer ${user.token}`);
+    expect(snapshot.body.labels).toHaveLength(0);
+  });
+
+  it.each([
+    ['null', null],
+    ['empty', ''],
+    ['whitespace', '   '],
+    ['101 chars', 'a'.repeat(101)],
+  ])('PATCH invalid name (%s) → 400, name unchanged', async (_label, name) => {
+    const { user, board } = await setup();
+    const label = await createLabel(user.token, board.id, 'Bug');
+
+    const res = await request(app)
+      .patch(`/labels/${label.id}`)
+      .set('Authorization', `Bearer ${user.token}`)
+      .send({ name });
+
+    expect(res.status).toBe(400);
+    const snapshot = await request(app)
+      .get(`/boards/${board.id}`)
+      .set('Authorization', `Bearer ${user.token}`);
+    expect(snapshot.body.labels[0].name).toBe('Bug');
+  });
+});

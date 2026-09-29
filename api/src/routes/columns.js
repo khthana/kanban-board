@@ -13,6 +13,10 @@ router.patch('/:id', async (req, res) => {
   if (name === undefined && position === undefined && color === undefined) {
     return res.status(400).json({ error: 'name, position, or color required' });
   }
+  if (name !== undefined) {
+    if (typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'name is required' });
+    if (name.trim().length > 100) return res.status(400).json({ error: 'name too long' });
+  }
   if (color !== undefined && color !== null && !isValidHex(color)) {
     return res.status(400).json({ error: 'color must be a valid hex color' });
   }
@@ -76,6 +80,8 @@ router.post('/:id/cards', async (req, res) => {
   const { id } = req.params;
   const { title, description, due_date } = req.body;
   if (!title || !title.trim()) return res.status(400).json({ error: 'title is required' });
+  if (title.trim().length > 255) return res.status(400).json({ error: 'title too long' });
+  if (description != null && description.length > 5000) return res.status(400).json({ error: 'description too long' });
 
   const { rows: cols } = await pool.query(
     `SELECT board_id FROM columns WHERE id = $1`, [id]

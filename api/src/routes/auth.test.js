@@ -129,6 +129,27 @@ describe('PATCH /auth/me', () => {
     expect(res.body.id).toBeTruthy();
   });
 
+  it.each([
+    ['whitespace', '   '],
+    ['empty alongside a valid email', ''],
+    ['101 chars', 'a'.repeat(101)],
+  ])('invalid displayName (%s) → 400, profile unchanged', async (_label, displayName) => {
+    const reg = await request(app).post('/auth/register').send({
+      email: 'alice@example.com', password: 'secret123', displayName: 'Alice',
+    });
+    const { token } = reg.body;
+
+    const res = await request(app)
+      .patch('/auth/me')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ displayName, email: 'alice2@example.com' });
+
+    expect(res.status).toBe(400);
+    const me = await request(app).get('/auth/me').set('Authorization', `Bearer ${token}`);
+    expect(me.body.displayName).toBe('Alice');
+    expect(me.body.email).toBe('alice@example.com');
+  });
+
   it('updates email → 200 with updated user', async () => {
     const reg = await request(app).post('/auth/register').send({
       email: 'alice@example.com', password: 'secret123', displayName: 'Alice',

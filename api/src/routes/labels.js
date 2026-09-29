@@ -10,6 +10,10 @@ router.patch('/:id', async (req, res) => {
   const { id } = req.params;
   const { name, color } = req.body;
 
+  if (name !== undefined) {
+    if (typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'name is required' });
+    if (name.trim().length > 100) return res.status(400).json({ error: 'name too long' });
+  }
   if (color !== undefined && !isValidHex(color)) {
     return res.status(400).json({ error: 'color must be a valid hex color' });
   }

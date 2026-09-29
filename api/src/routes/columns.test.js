@@ -207,3 +207,38 @@ describe('POST /boards/:id/columns', () => {
     expect(res.body.position).toBe(1.0);
   });
 });
+
+describe('PATCH /columns/:id — name validation', () => {
+  it.each([
+    ['null', null],
+    ['empty', ''],
+    ['whitespace', '   '],
+    ['101 chars', 'a'.repeat(101)],
+  ])('invalid name (%s) → 400, name unchanged', async (_label, name) => {
+    const { user, board } = await setup();
+    const col = await createColumn(user.token, board.id, 'To Do');
+
+    const res = await request(app)
+      .patch(`/columns/${col.id}`)
+      .set('Authorization', `Bearer ${user.token}`)
+      .send({ name });
+
+    expect(res.status).toBe(400);
+    const snapshot = await request(app)
+      .get(`/boards/${board.id}`)
+      .set('Authorization', `Bearer ${user.token}`);
+    expect(snapshot.body.columns[0].name).toBe('To Do');
+  });
+
+  it('100 chars → 200', async () => {
+    const { user, board } = await setup();
+    const col = await createColumn(user.token, board.id, 'To Do');
+
+    const res = await request(app)
+      .patch(`/columns/${col.id}`)
+      .set('Authorization', `Bearer ${user.token}`)
+      .send({ name: 'a'.repeat(100) });
+
+    expect(res.status).toBe(200);
+  });
+});

@@ -95,7 +95,7 @@ npm run test:e2e                         # Playwright E2E (28 tests, requires do
 ```bash
 cd api && npm run dev                    # API server with --watch at localhost:4000
 cd api && npm run migrate               # run DB migrations
-cd api && npm test                       # 109 integration tests (requires local postgres)
+cd api && npm test                       # 132 integration tests (requires local postgres)
 ```
 
 E2E tests are flaky under parallel (single shared Postgres → contention). Use `npx playwright test --workers=1` for a deterministic pass, or `npx playwright test --ui` for interactive mode.

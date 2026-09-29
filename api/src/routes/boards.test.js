@@ -90,6 +90,22 @@ describe('PATCH /boards/:id', () => {
 
     expect(res.status).toBe(403);
   });
+
+  it('name over 100 chars → 400, name unchanged', async () => {
+    const { token } = await createUser();
+    const board = await createBoard(token);
+
+    const res = await request(app)
+      .patch(`/boards/${board.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'a'.repeat(101) });
+
+    expect(res.status).toBe(400);
+    const snapshot = await request(app)
+      .get(`/boards/${board.id}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(snapshot.body.name).toBe('Project Phoenix');
+  });
 });
 
 describe('DELETE /boards/:id', () => {

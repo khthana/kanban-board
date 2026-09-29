@@ -31,6 +31,14 @@ router.patch('/:id', async (req, res) => {
   if (!card) return res.status(404).json({ error: 'card not found' });
   if (!isMember) return res.status(403).json({ error: 'forbidden' });
 
+  if (title !== undefined) {
+    if (typeof title !== 'string' || !title.trim()) return res.status(400).json({ error: 'title is required' });
+    if (title.trim().length > 255) return res.status(400).json({ error: 'title too long' });
+  }
+  if (description != null && description.length > 5000) {
+    return res.status(400).json({ error: 'description too long' });
+  }
+
   if (column_id !== undefined) {
     const { rows: targetCol } = await pool.query(
       `SELECT board_id FROM columns WHERE id = $1`, [column_id]

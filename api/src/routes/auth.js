@@ -118,6 +118,12 @@ router.patch('/me', requireAuth, async (req, res) => {
   if (!displayName && !email) {
     return res.status(400).json({ error: 'displayName or email is required' });
   }
+  if (displayName !== undefined) {
+    if (typeof displayName !== 'string' || !displayName.trim()) {
+      return res.status(400).json({ error: 'displayName is required' });
+    }
+    if (displayName.trim().length > 100) return res.status(400).json({ error: 'displayName too long' });
+  }
 
   const fields = [];
   const values = [];
