@@ -164,10 +164,10 @@ describe('moveSubtask', () => {
     expect(s1.position).toBeLessThan(3);
   });
 
-  test('does NOT rethrow on failure (fire-and-forget), but rolls back', async () => {
+  test('rolls back and rethrows on failure', async () => {
     client.patchSubtask.mockRejectedValue(new Error('fail'));
 
-    await expect(useBoardStore.getState().moveSubtaskDown('s1')).resolves.toBeUndefined();
+    await expect(useBoardStore.getState().moveSubtaskDown('s1')).rejects.toThrow('fail');
 
     expect(useBoardStore.getState().board.subtasks.find(s => s.id === 's1').position).toBe(1);
     expect(useBoardStore.getState().error).toBe('fail');
@@ -205,13 +205,24 @@ describe('moveSubtask', () => {
 });
 
 describe('toggleSubtask', () => {
-  test('flips checked and does not rethrow on failure', async () => {
+  test('rolls back and rethrows on failure', async () => {
     client.patchSubtask.mockRejectedValue(new Error('x'));
 
-    await expect(useBoardStore.getState().toggleSubtask('s1')).resolves.toBeUndefined();
+    await expect(useBoardStore.getState().toggleSubtask('s1')).rejects.toThrow('x');
 
     expect(useBoardStore.getState().board.subtasks.find(s => s.id === 's1').checked).toBe(false);
     expect(useBoardStore.getState().error).toBe('x');
+  });
+});
+
+describe('deleteSubtask', () => {
+  test('rolls back and rethrows on failure', async () => {
+    client.deleteSubtask.mockRejectedValue(new Error('gone'));
+
+    await expect(useBoardStore.getState().deleteSubtask('s1')).rejects.toThrow('gone');
+
+    expect(useBoardStore.getState().board.subtasks.map(s => s.id)).toContain('s1');
+    expect(useBoardStore.getState().error).toBe('gone');
   });
 });
 

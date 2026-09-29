@@ -69,8 +69,13 @@ export default function BoardPage() {
     if (error && (loading === false && !board)) navigate('/boards', { replace: true });
   }, [error, loading, board, navigate]);
 
+  // Optimistic store actions roll back on failure; surface the reason in the op-error banner.
+  function reportOpError(promise) {
+    return promise.catch(err => setOpError(err.message));
+  }
+
   function handleAddCard(colId, title) {
-    return createCard(colId, currentUserId, { title }).catch(err => setOpError(err.message));
+    return reportOpError(createCard(colId, currentUserId, { title }));
   }
 
   function handleDragStart({ active }) {
@@ -83,11 +88,9 @@ export default function BoardPage() {
     const outcome = resolveDrag(board, { active, over });
     if (!outcome) return;
     if (outcome.type === 'column') {
-      moveColumn(outcome.columnId, currentUserId, { position: outcome.position })
-        .catch(err => setOpError(err.message));
+      reportOpError(moveColumn(outcome.columnId, currentUserId, { position: outcome.position }));
     } else {
-      moveCard(outcome.cardId, currentUserId, { columnId: outcome.toColumnId, position: outcome.position })
-        .catch(err => setOpError(err.message));
+      reportOpError(moveCard(outcome.cardId, currentUserId, { columnId: outcome.toColumnId, position: outcome.position }));
     }
   }
 
@@ -113,7 +116,7 @@ export default function BoardPage() {
         members={members}
         currentUserId={currentUserId}
         onInvite={() => setInviteOpen(true)}
-        onRemoveMember={memberId => removeMember(boardId, currentUserId, { memberId })}
+        onRemoveMember={memberId => reportOpError(removeMember(boardId, currentUserId, { memberId }))}
         view={view}
         onViewChange={v => { setView(v); setActiveCard(null); }}
       />
@@ -145,8 +148,8 @@ export default function BoardPage() {
                     cardAssignees={cardAssignees}
                     members={members}
                     subtasks={allSubtasks}
-                    onRename={(colId, name, color) => renameColumn(colId, currentUserId, { name, color })}
-                    onDelete={(colId) => deleteColumn(colId, currentUserId)}
+                    onRename={(colId, name, color) => reportOpError(renameColumn(colId, currentUserId, { name, color }))}
+                    onDelete={(colId) => reportOpError(deleteColumn(colId, currentUserId))}
                     onCardClick={setActiveCard}
                     onAddCard={handleAddCard}
                   />
@@ -220,11 +223,11 @@ export default function BoardPage() {
           onDetachAssignee={(cardId, uId) => detachAssignee(cardId, uId)}
           subtasks={(board?.subtasks ?? []).filter(s => s.cardId === activeCard?.id)}
           onCreateSubtask={title => createSubtask(activeCard.id, { title })}
-          onToggleSubtask={toggleSubtask}
+          onToggleSubtask={id => reportOpError(toggleSubtask(id))}
           onRenameSubtask={renameSubtask}
-          onDeleteSubtask={deleteSubtask}
-          onMoveSubtaskUp={moveSubtaskUp}
-          onMoveSubtaskDown={moveSubtaskDown}
+          onDeleteSubtask={id => reportOpError(deleteSubtask(id))}
+          onMoveSubtaskUp={id => reportOpError(moveSubtaskUp(id))}
+          onMoveSubtaskDown={id => reportOpError(moveSubtaskDown(id))}
         />
       )}
     </div>

@@ -8,9 +8,9 @@ import { positionBetween } from '../domain/ordering';
 //   2. apply(board) optimistically
 //   3. await commit() — the API call
 //   4. settle(board, result) to replace placeholders / merge server data
-//   5. on error, roll back to the snapshot (and rethrow unless rethrow:false)
+//   5. on error, roll back to the snapshot and rethrow
 // Returns the commit() result so callers can return server records.
-async function optimistic(get, set, { apply, commit, settle, rethrow = true }) {
+async function optimistic(get, set, { apply, commit, settle }) {
   const snapshot = get().board;
   set(s => ({ board: apply(s.board), error: null }));
   try {
@@ -19,7 +19,7 @@ async function optimistic(get, set, { apply, commit, settle, rethrow = true }) {
     return result;
   } catch (err) {
     set({ board: snapshot, error: err.message });
-    if (rethrow) throw err;
+    throw err;
   }
 }
 
@@ -262,7 +262,6 @@ const useBoardStore = create((set, get) => ({
       : positionBetween(target.position, sorted[swapIdx + 1]?.position ?? null);
 
     return optimistic(get, set, {
-      rethrow: false,
       apply: b => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, st => ({ ...st, position: newPos })) }),
       commit: () => client.patchSubtask(subtaskId, { position: newPos }),
       settle: (b, updated) => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, () => updated) }),
@@ -277,7 +276,6 @@ const useBoardStore = create((set, get) => ({
     if (!current) return;
     const newChecked = !current.checked;
     return optimistic(get, set, {
-      rethrow: false,
       apply: b => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, st => ({ ...st, checked: newChecked })) }),
       commit: () => client.patchSubtask(subtaskId, { checked: newChecked }),
       settle: (b, updated) => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, () => updated) }),
@@ -291,7 +289,6 @@ const useBoardStore = create((set, get) => ({
   }),
 
   deleteSubtask: async (subtaskId) => optimistic(get, set, {
-    rethrow: false,
     apply: b => ({ ...b, subtasks: b.subtasks.filter(st => st.id !== subtaskId) }),
     commit: () => client.deleteSubtask(subtaskId),
   }),

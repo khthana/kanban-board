@@ -79,7 +79,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 - **Label edit**: existing labels are editable (name + color) via the ✎ button per row in `LabelPicker` → inline edit form (mirrors Column `RenameForm`). Optimistic `patchLabel(labelId, userId, patch)` updates `board.labels` in place, so any card using that label as its Category re-renders with the new name/color instantly. Backend `PATCH /labels/:id` + client `patchLabel` already existed.
 - **Shared `ColorPicker`**: `src/components/common/ColorPicker.jsx` is the single swatch picker used by both the column-color (`allowClear` → renders "✕" clear, value can be `null`) and label-color editors. Palette lives in `src/domain/colors.js` (`PRESET_COLORS`). Keeps `data-swatch` attrs (`<hex>` / `custom` / `clear`) that the column-color E2E selectors depend on.
 - **Date helpers**: `src/domain/dates.js` — `fromYMD`/`toYMD` (timezone-safe local-day conversion for the `YYYY-MM-DD` due-date strings), `formatDueDate` (th-TH), `isOverdue`. Used by `Card.jsx` and `DueDateField.jsx`.
-- **Store optimistic helper**: `useBoardStore.js` wraps every `board`-scoped mutation in an `optimistic(get, set, { apply, commit, settle, rethrow })` helper (snapshot → apply → await commit → settle → rollback on error). Some subtask mutations pass `rethrow: false` (fire-and-forget). `moveSubtaskUp/Down` delegate to one `moveSubtask(id, dir)`.
+- **Store optimistic helper**: `useBoardStore.js` wraps every `board`-scoped mutation in an `optimistic(get, set, { apply, commit, settle })` helper (snapshot → apply → await commit → settle → rollback on error → rethrow). Every mutation rethrows, so callers must handle the rejection: `BoardPage` routes failures to its dismissable op-error banner via `reportOpError(promise)`; `BoardListPage` swallows them because the store's `error` is already rendered there (issue #49). `moveSubtaskUp/Down` delegate to one `moveSubtask(id, dir)`.
 
 ### Validation Constraints
 
@@ -96,16 +96,16 @@ Validation runs client-side (UX) and is enforced by the backend (authoritative).
 
 ## Tests
 
-### Unit tests (133)
+### Unit tests (134)
 `src/domain/` (incl. `progress.test.js`, `accent.test.js`, `dates.test.js`, `completion.test.js`, `titleEdit.test.js`, `dragDrop.test.js`, `category.test.js`), `src/hooks/`, `src/store/useSession.test.js`, `src/store/useBoardStore.test.js`. Run: `npm test -- --watchAll=false`
 
 Not unit-tested: components — covered by E2E.
 
-`useSession` and `useBoardStore` are unit-tested with the same pattern: call actions via `useBoardStore.getState()` directly (no renderHook), `jest.mock('../api/client')`, reset with `setState({...})` in `beforeEach`. `useSession.test.js` also mocks `../api/auth` for token helpers. `useBoardStore.test.js` covers the optimistic-apply → settle → rollback path for representative mutations (incl. the no-rethrow subtask mutations).
+`useSession` and `useBoardStore` are unit-tested with the same pattern: call actions via `useBoardStore.getState()` directly (no renderHook), `jest.mock('../api/client')`, reset with `setState({...})` in `beforeEach`. `useSession.test.js` also mocks `../api/auth` for token helpers. `useBoardStore.test.js` covers the optimistic-apply → settle → rollback path for representative mutations (incl. subtask toggle/delete/move rolling back and rethrowing).
 
 ### E2E tests (Playwright)
 
-`e2e/` — 51 tests across 12 files. Require the full stack (`docker compose up`).
+`e2e/` — 54 tests across 13 files. Require the full stack (`docker compose up`).
 
 | File | Flows covered | Status |
 |---|---|---|
@@ -121,6 +121,7 @@ Not unit-tested: components — covered by E2E.
 | `assignee.spec.js` | assign two members → stack of two avatars, persists | ✅ |
 | `completion.spec.js` | mark done → ✓ badge + fade + footer date → reload → unmark; subtask warn (cancel/accept) | ✅ |
 | `list-view.spec.js` | toggle Board↔List; sections per column w/ sticky Accent-tinted headers; rows sorted by position; category/due/progress/done state on rows; no DnD; cross-tab polling; row click/Enter opens Card panel + panel push/close on view switch; "+ New card" per section (success + rollback) | ✅ |
+| `op-error.spec.js` | failed column rename / subtask toggle → rollback + op-error banner; failed board rename on `/boards` → rollback, form closes, error shown, no uncaught page error | ✅ |
 
 Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **Flaky under parallel** (single shared Postgres → contention; tests time out waiting for elements). Re-run, or use `npx playwright test --workers=1` for a deterministic pass.
 
@@ -136,7 +137,7 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs both `test-frontend` (133 unit tests) and `test-api` (132 integration tests, postgres:16-alpine service) on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs both `test-frontend` (134 unit tests) and `test-api` (132 integration tests, postgres:16-alpine service) on every push/PR to `main`.
 
 ## API
 

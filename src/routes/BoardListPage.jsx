@@ -5,6 +5,10 @@ import useBoardStore from '../store/useBoardStore';
 import { validateBoardName } from '../domain/validation';
 import styles from './BoardListPage.module.css';
 
+// Board mutations roll back and set the store's `error` (rendered on this page)
+// on failure; swallow the rethrow so it isn't an unhandled rejection.
+const handledByStore = () => {};
+
 function CreateBoardForm({ onSubmit }) {
   const [name, setName] = useState('');
   const [validationError, setValidationError] = useState(null);
@@ -77,18 +81,18 @@ export default function BoardListPage() {
     fetchBoards(currentUserId);
   }, [currentUserId, fetchBoards]);
 
-  async function handleCreate(name) {
-    await createBoard(currentUserId, { name });
+  function handleCreate(name) {
+    createBoard(currentUserId, { name }).catch(handledByStore);
   }
 
-  async function handleRename(boardId, name) {
-    await renameBoard(boardId, currentUserId, { name });
+  function handleRename(boardId, name) {
     setRenamingId(null);
+    renameBoard(boardId, currentUserId, { name }).catch(handledByStore);
   }
 
-  async function handleDelete(boardId) {
+  function handleDelete(boardId) {
     if (!window.confirm('Delete this board? This cannot be undone.')) return;
-    await deleteBoard(boardId, currentUserId);
+    deleteBoard(boardId, currentUserId).catch(handledByStore);
   }
 
   return (
