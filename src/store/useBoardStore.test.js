@@ -235,3 +235,52 @@ describe('removeMember', () => {
     expect(useBoardStore.getState().board.members.map(m => m.userId)).toEqual(['u1']);
   });
 });
+
+describe('card deleted by another member (404)', () => {
+  const notFound = () => Object.assign(new Error('card not found'), { status: 404 });
+
+  beforeEach(() => {
+    useBoardStore.setState({
+      board: {
+        ...makeBoard(),
+        labels: [{ id: 'l1', name: 'Bug', color: '#f00' }],
+        cardLabels: [{ cardId: 'card1', labelId: 'l1' }],
+        cardAssignees: [{ cardId: 'card1', userId: 'u2' }],
+      },
+    });
+  });
+
+  test('moveCard removes the card and its labels, assignees, and subtasks, then rethrows', async () => {
+    client.moveCard.mockRejectedValue(notFound());
+
+    await expect(useBoardStore.getState().moveCard('card1', 'u1', { columnId: 'c1', position: 5 }))
+      .rejects.toThrow('card not found');
+
+    const b = useBoardStore.getState().board;
+    expect(b.cards).toEqual([]);
+    expect(b.cardLabels).toEqual([]);
+    expect(b.cardAssignees).toEqual([]);
+    expect(b.subtasks).toEqual([]);
+    expect(b.labels).toHaveLength(1); // board-level labels are untouched
+  });
+
+  test('moveCard still rolls back on other errors', async () => {
+    client.moveCard.mockRejectedValue(Object.assign(new Error('boom'), { status: 500 }));
+
+    await expect(useBoardStore.getState().moveCard('card1', 'u1', { columnId: 'c1', position: 5 }))
+      .rejects.toThrow('boom');
+
+    expect(useBoardStore.getState().board.cards).toEqual([
+      { id: 'card1', columnId: 'c1', title: 'Old', position: 1 },
+    ]);
+  });
+
+  test('patchCard removes the card on 404', async () => {
+    client.patchCard.mockRejectedValue(notFound());
+
+    await expect(useBoardStore.getState().patchCard('card1', 'u1', { title: 'New' }))
+      .rejects.toThrow('card not found');
+
+    expect(useBoardStore.getState().board.cards).toEqual([]);
+  });
+});

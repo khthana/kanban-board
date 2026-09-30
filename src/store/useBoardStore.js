@@ -29,6 +29,26 @@ const nextPosition = (items, getPos = i => i.position) =>
 
 const mapById = (arr, id, fn) => arr.map(x => x.id === id ? fn(x) : x);
 
+// board without a card and everything that hangs off it
+const withoutCard = (b, cardId) => ({
+  ...b,
+  cards:         b.cards.filter(c => c.id !== cardId),
+  cardLabels:    (b.cardLabels ?? []).filter(cl => cl.cardId !== cardId),
+  cardAssignees: (b.cardAssignees ?? []).filter(ca => ca.cardId !== cardId),
+  subtasks:      (b.subtasks ?? []).filter(s => s.cardId !== cardId),
+});
+
+// A 404 on a card mutation means another member deleted the card: drop it
+// instead of restoring it from the rollback snapshot (PRD §1.5). Still rethrows.
+async function dropCardIfGone(set, cardId, pending) {
+  try {
+    return await pending;
+  } catch (err) {
+    if (err.status === 404) set(s => ({ board: withoutCard(s.board, cardId) }));
+    throw err;
+  }
+}
+
 const useBoardStore = create((set, get) => ({
   boards: [],
   board: null,
@@ -145,22 +165,22 @@ const useBoardStore = create((set, get) => ({
     });
   },
 
-  patchCard: async (cardId, userId, patch) => optimistic(get, set, {
+  patchCard: async (cardId, userId, patch) => dropCardIfGone(set, cardId, optimistic(get, set, {
     apply: b => ({ ...b, cards: mapById(b.cards, cardId, c => ({ ...c, ...patch })) }),
     commit: () => client.patchCard(cardId, userId, patch),
     settle: (b, card) => ({ ...b, cards: mapById(b.cards, cardId, () => card) }),
-  }),
+  })),
 
   deleteCard: async (cardId, userId) => optimistic(get, set, {
-    apply: b => ({ ...b, cards: b.cards.filter(c => c.id !== cardId) }),
+    apply: b => withoutCard(b, cardId),
     commit: () => client.deleteCard(cardId, userId),
   }),
 
-  moveCard: async (cardId, userId, { columnId, position }) => optimistic(get, set, {
+  moveCard: async (cardId, userId, { columnId, position }) => dropCardIfGone(set, cardId, optimistic(get, set, {
     apply: b => ({ ...b, cards: mapById(b.cards, cardId, c => ({ ...c, columnId, position })) }),
     commit: () => client.moveCard(cardId, userId, { columnId, position }),
     settle: (b, card) => ({ ...b, cards: mapById(b.cards, cardId, () => card) }),
-  }),
+  })),
 
   moveColumn: async (columnId, userId, { position }) => optimistic(get, set, {
     apply: b => ({ ...b, columns: mapById(b.columns, columnId, c => ({ ...c, position })) }),

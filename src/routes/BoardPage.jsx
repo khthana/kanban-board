@@ -52,7 +52,7 @@ export default function BoardPage() {
   usePolling({
     boardId,
     userId: currentUserId,
-    onReconcile: reconcileBoard,
+    onReconcile: handleReconcile,
     onForbidden: () => navigate('/boards', { state: { ejected: true } }),
     onNotFound:  () => navigate('/boards', { replace: true }),
   });
@@ -60,7 +60,10 @@ export default function BoardPage() {
   useEffect(() => {
     if (activeCard && board) {
       const updated = board.cards.find(c => c.id === activeCard.id);
-      if (updated) setActiveCard(updated);
+      // Gone from the board (e.g. its column was deleted): close the panel.
+      // Deletions by another member are announced where they're detected —
+      // handleReconcile and handleSaveCard.
+      setActiveCard(updated ?? null);
     }
   }, [board?.cards, board?.cardLabels]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -72,6 +75,24 @@ export default function BoardPage() {
   // Optimistic store actions roll back on failure; surface the reason in the op-error banner.
   function reportOpError(promise) {
     return promise.catch(err => setOpError(err.message));
+  }
+
+  function reportCardDeleted() {
+    setActiveCard(null);
+    setOpError('This card was deleted by another member.');
+  }
+
+  // Polling: if the open card is missing from the fresh snapshot, another member deleted it.
+  function handleReconcile(data) {
+    if (activeCard && !data.cards.some(c => c.id === activeCard.id)) reportCardDeleted();
+    reconcileBoard(data);
+  }
+
+  function handleSaveCard(patch) {
+    return patchCard(activeCard.id, currentUserId, patch).catch(err => {
+      if (err.status === 404) reportCardDeleted();
+      else setOpError(err.message);
+    });
   }
 
   function handleAddCard(colId, title) {
@@ -211,7 +232,7 @@ export default function BoardPage() {
           members={members}
           boardId={boardId}
           userId={currentUserId}
-          onSave={patch => patchCard(activeCard.id, currentUserId, patch)}
+          onSave={handleSaveCard}
           onDelete={cardId => deleteCard(cardId, currentUserId)}
           onClose={() => setActiveCard(null)}
           onCreateLabel={(bId, uId, data) => createLabel(bId, uId, data)}
