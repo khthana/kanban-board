@@ -37,6 +37,28 @@ export default function CardPanel({
   const [editingId, setEditingId]           = useState(null);
   const [editInput, setEditInput]           = useState('');
   const [editError, setEditError]           = useState(null);
+  // Attaches still in flight, counted per `${cardId}:${labelId}` (a label can be
+  // re-attached before its first PUT settles; the panel can switch cards). The
+  // server rejects such a label as the Category until its attach commits, so
+  // LabelPicker keeps its ☆/★ disabled meanwhile (#56).
+  const [pendingAttaches, setPendingAttaches] = useState(() => new Map());
+  const pendingLabelIds = new Set(
+    allLabels.filter(l => pendingAttaches.has(`${card.id}:${l.id}`)).map(l => l.id));
+
+  function countPending(key, delta) {
+    setPendingAttaches(m => {
+      const next = new Map(m);
+      const n = (next.get(key) ?? 0) + delta;
+      if (n > 0) next.set(key, n); else next.delete(key);
+      return next;
+    });
+  }
+
+  function handleAttachLabel(labelId) {
+    const key = `${card.id}:${labelId}`;
+    countPending(key, 1);
+    onAttachLabel(card.id, labelId, userId).finally(() => countPending(key, -1));
+  }
 
   useEffect(() => {
     setDesc(card.description ?? '');
@@ -191,8 +213,9 @@ export default function CardPanel({
           allLabels={allLabels}
           attachedLabelIds={attachedIds}
           categoryLabelId={card.categoryLabelId}
+          pendingLabelIds={pendingLabelIds}
           // The Category follows attach/detach inside the store action (#55).
-          onAttach={labelId => onAttachLabel(card.id, labelId, userId)}
+          onAttach={handleAttachLabel}
           onDetach={labelId => onDetachLabel(card.id, labelId, userId)}
           onSetCategory={labelId => onSave({ categoryLabelId: labelId })}
           onCreateLabel={onCreateLabel}

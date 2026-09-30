@@ -39,7 +39,7 @@ function EditForm({ label, onSave, onCancel }) {
   );
 }
 
-export default function LabelPicker({ boardId, userId, allLabels, attachedLabelIds, categoryLabelId, onAttach, onDetach, onSetCategory, onCreateLabel, onPatchLabel, onDeleteLabel }) {
+export default function LabelPicker({ boardId, userId, allLabels, attachedLabelIds, categoryLabelId, pendingLabelIds = new Set(), onAttach, onDetach, onSetCategory, onCreateLabel, onPatchLabel, onDeleteLabel }) {
   const [creating, setCreating]     = useState(false);
   const [editingId, setEditingId]   = useState(null);
   const [name, setName]             = useState('');
@@ -75,6 +75,7 @@ export default function LabelPicker({ boardId, userId, allLabels, attachedLabelI
           }
           const attached = attachedLabelIds.has(label.id);
           const isCategory = attached && categoryLabelId === label.id;
+          const pending = pendingLabelIds.has(label.id);
           return (
             <div key={label.id} className={styles.row}>
               <button
@@ -96,9 +97,10 @@ export default function LabelPicker({ boardId, userId, allLabels, attachedLabelI
               {attached && (
                 <button
                   className={`${styles.star} ${isCategory ? styles.starActive : ''}`}
-                  title={isCategory ? 'Category (click to clear)' : 'Set as category'}
+                  title={pending ? 'Saving label…' : isCategory ? 'Category (click to clear)' : 'Set as category'}
                   aria-label={isCategory ? `Clear ${label.name} as category` : `Set ${label.name} as category`}
                   data-testid="set-category"
+                  disabled={pending}
                   onClick={() => onSetCategory(isCategory ? null : label.id)}
                 >{isCategory ? '★' : '☆'}</button>
               )}
