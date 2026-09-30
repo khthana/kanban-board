@@ -4,6 +4,7 @@ import { isOverdue, formatDueDate } from '../domain/dates';
 import { progressView } from '../domain/progress';
 import { cardAccent, categoryLabel } from '../domain/accent';
 import { isDone } from '../domain/completion';
+import { assigneeUsers } from '../domain/assignees';
 import AvatarStack from './common/AvatarStack';
 import styles from './Card.module.css';
 
@@ -46,12 +47,7 @@ export default function Card({ card, onClick, labels = [], members = [], assigne
   const accent   = cardAccent(category?.color ?? null);
 
   const overdue  = isOverdue(card.dueDate);
-  const assignees = assigneeIds
-    .map(uid => {
-      const user = members.find(m => m.userId === uid)?.user;
-      return user && { userId: uid, displayName: user.displayName };
-    })
-    .filter(Boolean);
+  const assignees = assigneeUsers(assigneeIds, members);
 
   const total = subtasks.length;
   const done  = subtasks.filter(s => s.checked).length;

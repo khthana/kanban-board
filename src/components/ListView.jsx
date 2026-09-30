@@ -3,7 +3,7 @@ import ColumnComposer from './ColumnComposer';
 import CardComposer from './CardComposer';
 import styles from './ListView.module.css';
 
-export default function ListView({ sortedColumns, cards, labels = [], subtasks = [], onAddColumn, onCardClick, onAddCard, style }) {
+export default function ListView({ sortedColumns, cards, labels = [], subtasks = [], members = [], cardAssignees = [], onAddColumn, onCardClick, onAddCard, style }) {
   return (
     <div className={styles.list} data-testid="list-view" style={style}>
       {sortedColumns.length === 0 && <ColumnComposer onAdd={onAddColumn} />}
@@ -24,6 +24,8 @@ export default function ListView({ sortedColumns, cards, labels = [], subtasks =
             {colCards.map(card => (
               <ListRow key={card.id} card={card} labels={labels}
                 subtasks={subtasks.filter(s => s.cardId === card.id)}
+                members={members}
+                assigneeIds={cardAssignees.filter(ca => ca.cardId === card.id).map(ca => ca.userId)}
                 onClick={onCardClick} />
             ))}
             <CardComposer accent={accent} onAdd={title => onAddCard(col.id, title)} />

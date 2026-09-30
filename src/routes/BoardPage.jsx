@@ -207,6 +207,8 @@ export default function BoardPage() {
             cards={cards}
             labels={labels}
             subtasks={allSubtasks}
+            members={members}
+            cardAssignees={cardAssignees}
             onAddColumn={name => createColumn(boardId, currentUserId, { name })}
             onCardClick={setActiveCard}
             onAddCard={handleAddCard}

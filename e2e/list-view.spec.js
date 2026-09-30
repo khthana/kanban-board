@@ -25,7 +25,7 @@ async function addColumn(page, name) {
   ]);
 }
 
-// Creates a card via Board view's composer (List view doesn't add cards yet — that's a later slice).
+// Creates a card via Board view's composer.
 async function addCard(page, title) {
   await page.click('text=+ New card');
   await page.fill('textarea[placeholder="Card title…"]', title);
@@ -99,7 +99,7 @@ test('a board with no columns shows the column composer in List view', async ({ 
   await expect(page.getByText('+ Add column')).toBeVisible();
 });
 
-test('row shows the Category dot+label when set, and no category chip when unset', async ({ page }) => {
+test('row shows the Category dot+label when set, and a neutral gray dot when unset', async ({ page }) => {
   await setupBoard(page);
   await addCard(page, 'Categorized');
   await addCard(page, 'Uncategorized');
@@ -124,7 +124,48 @@ test('row shows the Category dot+label when set, and no category chip when unset
   const uncategorized = rows.filter({ hasText: 'Uncategorized' }).first();
 
   await expect(categorized.locator('[data-testid="list-row-category"]')).toContainText('Backend');
+  await expect(categorized.locator('[data-testid="list-row-category-none"]')).toHaveCount(0);
+
+  // No Category: a label-less neutral gray dot (PRD §11).
   await expect(uncategorized.locator('[data-testid="list-row-category"]')).toHaveCount(0);
+  const neutralDot = uncategorized.locator('[data-testid="list-row-category-none"]');
+  await expect(neutralDot).toBeVisible();
+  await expect(neutralDot).toHaveCSS('background-color', 'rgb(203, 213, 225)'); // #cbd5e1
+});
+
+test('row shows a stack of assignee avatars', async ({ page, browser }) => {
+  const memberEmail = `mem-${uid()}@test.com`;
+  const ctx2 = await browser.newContext();
+  const page2 = await ctx2.newPage();
+  await register(page2, memberEmail, PW, 'Max');
+  await ctx2.close();
+
+  await setupBoard(page);
+  await page.click('button:has-text("+ Invite")');
+  await page.fill('#invite-email', memberEmail);
+  await page.locator('[role="dialog"] button:has-text("Invite")').click();
+  await expect(page.getByText(memberEmail)).toBeVisible();
+  await page.locator('[role="dialog"] button:has-text("✕")').click();
+
+  await addCard(page, 'Shared work');
+  await addCard(page, 'Solo work');
+
+  await page.getByText('Shared work', { exact: true }).click();
+  const toggles = page.locator('[data-testid="assignee-toggle"]');
+  await expect(toggles).toHaveCount(2);
+  for (let i = 0; i < 2; i++) {
+    await Promise.all([
+      page.waitForResponse(r => /\/assignees\//.test(r.url()) && r.request().method() === 'PUT' && r.status() === 200),
+      toggles.nth(i).click(),
+    ]);
+  }
+  await page.locator('button[title="Close panel"]').click();
+
+  await page.getByRole('tab', { name: 'List' }).click();
+
+  const rows = page.locator('[data-testid="list-row"]');
+  await expect(rows.filter({ hasText: 'Shared work' }).locator('[data-testid="avatar-stack"] > div')).toHaveCount(2);
+  await expect(rows.filter({ hasText: 'Solo work' }).locator('[data-testid="avatar-stack"]')).toHaveCount(0);
 });
 
 test('row shows the due date, and renders it in the overdue color when the date has passed', async ({ page }) => {

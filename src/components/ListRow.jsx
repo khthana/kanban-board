@@ -2,13 +2,16 @@ import { categoryLabel, cardAccent } from '../domain/accent';
 import { isOverdue, formatDueDate } from '../domain/dates';
 import { progressView } from '../domain/progress';
 import { isDone } from '../domain/completion';
+import { assigneeUsers } from '../domain/assignees';
+import AvatarStack from './common/AvatarStack';
 import styles from './ListRow.module.css';
 
-export default function ListRow({ card, labels = [], subtasks = [], onClick }) {
+export default function ListRow({ card, labels = [], subtasks = [], members = [], assigneeIds = [], onClick }) {
   const category = categoryLabel(card.categoryLabelId, labels);
   const accent = cardAccent(category?.color ?? null);
   const cardDone = isDone(card);
   const overdue = isOverdue(card.dueDate);
+  const assignees = assigneeUsers(assigneeIds, members);
 
   const total = subtasks.length;
   const done = subtasks.filter(s => s.checked).length;
@@ -32,11 +35,14 @@ export default function ListRow({ card, labels = [], subtasks = [], onClick }) {
       {cardDone && (
         <span className={styles.doneBadge} data-testid="list-row-done-badge" title="เสร็จแล้ว">✓</span>
       )}
-      {category && (
+      {category ? (
         <span className={styles.category} style={{ color: accent.text }} data-testid="list-row-category">
           <span className={styles.dot} style={{ background: accent.solid }} />
           {category.name}
         </span>
+      ) : (
+        // Unlike the card face, a row with no Category still shows the neutral gray dot (PRD §11).
+        <span className={styles.dot} style={{ background: accent.solid }} data-testid="list-row-category-none" />
       )}
       <p className={styles.title}>{card.title}</p>
       {cardDone ? (
@@ -66,6 +72,7 @@ export default function ListRow({ card, labels = [], subtasks = [], onClick }) {
           <span className={`${styles.count} ${progress.complete ? styles.countDone : ''}`}>{done}/{total}</span>
         </span>
       )}
+      <AvatarStack users={assignees} size={24} />
     </div>
   );
 }
