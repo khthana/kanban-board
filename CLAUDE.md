@@ -23,6 +23,8 @@ docker compose down -v                   # Stop and delete database volume
 
 First run only: `npm install && npx playwright install chromium`
 
+**`CI=true npm run build` fails on a harmless third-party warning**: CRA treats warnings as errors under `CI=true`, and `react-datepicker` (9.1.0, latest) emits webpack's "Critical dependency: the request of a dependency is an expression" — it deliberately `require`s the optional `date-fns-tz` through a variable and falls back to `null`, so it's harmless. CRA can't ignore a single warning without `craco`/eject, so we accept it: use plain `npm run build`. ESLint itself is clean (`npx eslint src`). E2E runs against the dev server, so this doesn't block an E2E CI job.
+
 ## Project Overview
 
 A Kanban board SPA for small teams (2–15 people). **Fully implemented** — React frontend connected to a real Node.js/PostgreSQL backend. Includes User Profile page (view/edit displayName, email, password), Subtasks with progress tracking, and a read-oriented List view alongside the default Board view.
