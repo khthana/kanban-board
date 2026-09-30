@@ -96,3 +96,24 @@ test('the Card panel opened from List view also closes when its card was deleted
   await expect(page.locator('[data-testid="list-row"]')).toHaveCount(0);
   await expect(page.getByText('This card was deleted by another member.')).toBeVisible();
 });
+
+test('deleting a card another member already deleted just removes it, with no error', async ({ page }) => {
+  await openBoard(page);
+  await addColumn(page, 'To Do');
+  const cardId = await addCard(page, 'To Do', 'Double Delete');
+
+  await page.getByText('Double Delete', { exact: true }).click();
+  await expect(page.locator('aside')).toBeVisible();
+  await deleteCardOnServer(page, cardId);
+
+  page.on('dialog', d => d.accept());
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes(`/cards/${cardId}`) && r.request().method() === 'DELETE' && r.status() === 404),
+    page.click('button:has-text("Delete card")'),
+  ]);
+
+  await expect(page.getByText('Double Delete')).toHaveCount(0);
+  // Negative check: give the rejected delete's handler a moment to (wrongly) render a banner.
+  await page.waitForTimeout(500);
+  await expect(page.getByText('Dismiss')).toHaveCount(0);
+});

@@ -79,8 +79,8 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 - **Label edit** ([PRD §7](requirement/Kanban-Board-PRD.md#7-label-color-picker--pastel-presets), kept as a feature in #53): existing labels are editable (name + color) via the ✎ button per row in `LabelPicker` → inline edit form (mirrors Column `RenameForm`). Optimistic `patchLabel(labelId, userId, patch)` updates `board.labels` in place, so any card using that label as its Category re-renders with the new name/color instantly. Backend `PATCH /labels/:id` + client `patchLabel` already existed.
 - **Shared `ColorPicker`**: `src/components/common/ColorPicker.jsx` is the single swatch picker used by both the column-color (`allowClear` → renders "✕" clear, value can be `null`) and label-color editors. Palette lives in `src/domain/colors.js` (`PRESET_COLORS`). Keeps `data-swatch` attrs (`<hex>` / `custom` / `clear`) that the column-color E2E selectors depend on.
 - **Date helpers**: `src/domain/dates.js` — `fromYMD`/`toYMD` (timezone-safe local-day conversion for the `YYYY-MM-DD` due-date strings), `formatDueDate` (th-TH), `isOverdue`. Used by `Card.jsx` and `DueDateField.jsx`.
-- **Store optimistic helper**: `useBoardStore.js` wraps every `board`-scoped mutation except `addMember` in an `optimistic(get, set, { apply, commit, settle })` helper (snapshot → apply → await commit → settle → rollback on error → rethrow). Every mutation rethrows, so callers must handle the rejection: `BoardPage` routes failures to its dismissable op-error banner via `reportOpError(promise)`; `BoardListPage` swallows them because the store's `error` is already rendered there (issue #49). `moveSubtaskUp/Down` delegate to one `moveSubtask(id, dir)`. `addMember` is deliberately not optimistic — the invitee's id isn't known until the server resolves the email — so it refetches the board after success.
-- **Card deleted by another member** (issue #50, PRD §1.5): `moveCard`/`patchCard` are wrapped in `dropCardIfGone` — on a 404 the card (plus its `cardLabels`/`cardAssignees`/`subtasks`, via `withoutCard`) is removed instead of restored from the rollback snapshot, then the error is rethrown. `BoardPage` announces "This card was deleted by another member." and closes the Card panel only where a deletion is actually detected: `handleReconcile` (the open card is missing from a polled snapshot) and `handleSaveCard` (a panel `patchCard` 404). Any other disappearance of the open card (e.g. its column deleted locally) closes the panel silently.
+- **Store optimistic helper**: `useBoardStore.js` wraps every `board`-scoped mutation except `addMember` in an `optimistic(get, set, { apply, commit, settle })` helper (snapshot → apply → await commit → settle → rollback on error → rethrow). Every mutation rethrows, so callers must handle the rejection: `BoardPage` routes failures to its dismissable op-error banner via `reportOpError(promise)` — every mutation prop it passes down (column/card composers, `CardPanel`'s label/assignee/delete/save callbacks) is wrapped there rather than in the child components (#54), except subtask create/rename and invite, which `CardPanel`/`InviteDialog` catch and show inline; `BoardListPage` swallows them because the store's `error` is already rendered there (issue #49). `moveSubtaskUp/Down` delegate to one `moveSubtask(id, dir)`. `addMember` is deliberately not optimistic — the invitee's id isn't known until the server resolves the email — so it refetches the board after success.
+- **Card deleted by another member** (issue #50, PRD §1.5): `moveCard`/`patchCard`/`deleteCard` are wrapped in `dropCardIfGone` — on a 404 the card (plus its `cardLabels`/`cardAssignees`/`subtasks`, via `withoutCard`) is removed instead of restored from the rollback snapshot, then the error is rethrown. `BoardPage` announces "This card was deleted by another member." and closes the Card panel only where a deletion is actually detected: `handleReconcile` (the open card is missing from a polled snapshot) and `handleSaveCard` (a panel `patchCard` 404). `handleDeleteCard` swallows a 404 (the card is already gone, which is what the user asked for). Any other disappearance of the open card (e.g. its column deleted locally) closes the panel silently.
 
 ### Validation Constraints
 
@@ -97,7 +97,7 @@ Validation runs client-side (UX) and is enforced by the backend (authoritative).
 
 ## Tests
 
-### Unit tests (147)
+### Unit tests (149)
 `src/domain/` (incl. `progress.test.js`, `accent.test.js`, `dates.test.js`, `completion.test.js`, `titleEdit.test.js`, `dragDrop.test.js`, `category.test.js`, `assignees.test.js`), `src/api/client.test.js` (response normalization, no token storage), `src/hooks/`, `src/store/useSession.test.js`, `src/store/useBoardStore.test.js`. Run: `npm test -- --watchAll=false`
 
 Not unit-tested: components — covered by E2E.
@@ -106,7 +106,7 @@ Not unit-tested: components — covered by E2E.
 
 ### E2E tests (Playwright)
 
-`e2e/` — 59 tests across 14 files. Require the full stack (`docker compose up`).
+`e2e/` — 64 tests across 14 files. Require the full stack (`docker compose up`).
 
 | File | Flows covered | Status |
 |---|---|---|
@@ -122,8 +122,8 @@ Not unit-tested: components — covered by E2E.
 | `assignee.spec.js` | assign two members → stack of two avatars, persists | ✅ |
 | `completion.spec.js` | mark done → ✓ badge + fade + footer date → reload → unmark; subtask warn (cancel/accept) | ✅ |
 | `list-view.spec.js` | toggle Board↔List; sections per column w/ sticky Accent-tinted headers; rows sorted by position; category (or neutral dot)/due/progress/done state/assignee avatars on rows; no DnD; cross-tab polling; row click/Enter opens Card panel + panel push/close on view switch; "+ New card" per section (success + rollback) | ✅ |
-| `op-error.spec.js` | failed column rename / subtask toggle → rollback + op-error banner; failed board rename on `/boards` → rollback, form closes, error shown, no uncaught page error | ✅ |
-| `deleted-card.spec.js` | drag a card deleted server-side → removed (no snap-back) + "card not found" banner; polling drops the open card → panel closes + notice, in Board and List view | ✅ |
+| `op-error.spec.js` | failed column rename / subtask toggle / column create / label create / assignee toggle / card delete → rollback + op-error banner, no uncaught page error; failed board rename on `/boards` → rollback, form closes, error shown, no uncaught page error | ✅ |
+| `deleted-card.spec.js` | drag a card deleted server-side → removed (no snap-back) + "card not found" banner; polling drops the open card → panel closes + notice, in Board and List view; deleting an already-deleted card → just gone, no banner | ✅ |
 
 Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **Flaky under parallel** (single shared Postgres → contention; tests time out waiting for elements). Re-run, or use `npx playwright test --workers=1` for a deterministic pass.
 
@@ -139,7 +139,7 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs both `test-frontend` (147 unit tests) and `test-api` (132 integration tests, postgres:16-alpine service) on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs both `test-frontend` (149 unit tests) and `test-api` (132 integration tests, postgres:16-alpine service) on every push/PR to `main`.
 
 ## API
 

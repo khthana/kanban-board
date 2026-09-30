@@ -95,6 +95,17 @@ export default function BoardPage() {
     });
   }
 
+  // A 404 means another member already deleted it — the card is gone either way.
+  function handleDeleteCard(cardId) {
+    return deleteCard(cardId, currentUserId).catch(err => {
+      if (err.status !== 404) setOpError(err.message);
+    });
+  }
+
+  function handleAddColumn(name) {
+    return reportOpError(createColumn(boardId, currentUserId, { name }));
+  }
+
   function handleAddCard(colId, title) {
     return reportOpError(createCard(colId, currentUserId, { title }));
   }
@@ -175,7 +186,7 @@ export default function BoardPage() {
                     onAddCard={handleAddCard}
                   />
                 ))}
-                <ColumnComposer onAdd={name => createColumn(boardId, currentUserId, { name })} />
+                <ColumnComposer onAdd={handleAddColumn} />
               </div>
             </SortableContext>
 
@@ -209,7 +220,7 @@ export default function BoardPage() {
             subtasks={allSubtasks}
             members={members}
             cardAssignees={cardAssignees}
-            onAddColumn={name => createColumn(boardId, currentUserId, { name })}
+            onAddColumn={handleAddColumn}
             onCardClick={setActiveCard}
             onAddCard={handleAddCard}
             style={activeCard ? { marginRight: 380 } : {}}
@@ -235,15 +246,15 @@ export default function BoardPage() {
           boardId={boardId}
           userId={currentUserId}
           onSave={handleSaveCard}
-          onDelete={cardId => deleteCard(cardId, currentUserId)}
+          onDelete={handleDeleteCard}
           onClose={() => setActiveCard(null)}
-          onCreateLabel={(bId, uId, data) => createLabel(bId, uId, data)}
-          onPatchLabel={(labelId, uId, patch) => patchLabel(labelId, uId, patch)}
-          onDeleteLabel={(labelId, uId) => deleteLabel(labelId, uId)}
-          onAttachLabel={(cardId, labelId, uId) => attachLabel(cardId, labelId, uId)}
-          onDetachLabel={(cardId, labelId, uId) => detachLabel(cardId, labelId, uId)}
-          onAttachAssignee={(cardId, uId) => attachAssignee(cardId, uId)}
-          onDetachAssignee={(cardId, uId) => detachAssignee(cardId, uId)}
+          onCreateLabel={(bId, uId, data) => reportOpError(createLabel(bId, uId, data))}
+          onPatchLabel={(labelId, uId, patch) => reportOpError(patchLabel(labelId, uId, patch))}
+          onDeleteLabel={(labelId, uId) => reportOpError(deleteLabel(labelId, uId))}
+          onAttachLabel={(cardId, labelId, uId) => reportOpError(attachLabel(cardId, labelId, uId))}
+          onDetachLabel={(cardId, labelId, uId) => reportOpError(detachLabel(cardId, labelId, uId))}
+          onAttachAssignee={(cardId, uId) => reportOpError(attachAssignee(cardId, uId))}
+          onDetachAssignee={(cardId, uId) => reportOpError(detachAssignee(cardId, uId))}
           subtasks={(board?.subtasks ?? []).filter(s => s.cardId === activeCard?.id)}
           onCreateSubtask={title => createSubtask(activeCard.id, { title })}
           onToggleSubtask={id => reportOpError(toggleSubtask(id))}

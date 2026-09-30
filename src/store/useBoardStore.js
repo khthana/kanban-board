@@ -171,10 +171,10 @@ const useBoardStore = create((set, get) => ({
     settle: (b, card) => ({ ...b, cards: mapById(b.cards, cardId, () => card) }),
   })),
 
-  deleteCard: async (cardId, userId) => optimistic(get, set, {
+  deleteCard: async (cardId, userId) => dropCardIfGone(set, cardId, optimistic(get, set, {
     apply: b => withoutCard(b, cardId),
     commit: () => client.deleteCard(cardId, userId),
-  }),
+  })),
 
   moveCard: async (cardId, userId, { columnId, position }) => dropCardIfGone(set, cardId, optimistic(get, set, {
     apply: b => ({ ...b, cards: mapById(b.cards, cardId, c => ({ ...c, columnId, position })) }),

@@ -275,6 +275,26 @@ describe('card deleted by another member (404)', () => {
     ]);
   });
 
+  test('deleteCard keeps the card gone on 404 instead of restoring it', async () => {
+    client.deleteCard.mockRejectedValue(notFound());
+
+    await expect(useBoardStore.getState().deleteCard('card1', 'u1')).rejects.toThrow('card not found');
+
+    const b = useBoardStore.getState().board;
+    expect(b.cards).toEqual([]);
+    expect(b.cardLabels).toEqual([]);
+    expect(b.subtasks).toEqual([]);
+  });
+
+  test('deleteCard still restores the card on other errors', async () => {
+    client.deleteCard.mockRejectedValue(Object.assign(new Error('boom'), { status: 500 }));
+
+    await expect(useBoardStore.getState().deleteCard('card1', 'u1')).rejects.toThrow('boom');
+
+    expect(useBoardStore.getState().board.cards.map(c => c.id)).toEqual(['card1']);
+    expect(useBoardStore.getState().board.cardLabels).toHaveLength(1);
+  });
+
   test('patchCard removes the card on 404', async () => {
     client.patchCard.mockRejectedValue(notFound());
 

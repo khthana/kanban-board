@@ -35,6 +35,24 @@ async function openBoardWithColumn(page) {
   await expect(page.locator('[data-testid="column-chip"]')).toHaveText('To Do');
 }
 
+// Adds a card to the first column and opens its Card panel.
+async function openNewCard(page, title) {
+  await page.click('text=+ New card');
+  await page.fill('textarea[placeholder="Card title…"]', title);
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/cards') && r.request().method() === 'POST' && r.status() === 201),
+    page.getByRole('button', { name: 'Add card', exact: true }).click(),
+  ]);
+  await page.getByText(title, { exact: true }).click();
+  await expect(page.locator('aside')).toBeVisible();
+}
+
+function collectPageErrors(page) {
+  const errors = [];
+  page.on('pageerror', err => errors.push(err.message));
+  return errors;
+}
+
 test('a failed column rename rolls back and shows the error banner', async ({ page }) => {
   await openBoardWithColumn(page);
   await failRequests(page, '**/columns/*', 'PATCH');
@@ -50,15 +68,7 @@ test('a failed column rename rolls back and shows the error banner', async ({ pa
 test('a failed subtask toggle rolls back and shows the error banner', async ({ page }) => {
   await openBoardWithColumn(page);
 
-  const cardTitle = `Task-${uid()}`;
-  await page.click('text=+ New card');
-  await page.fill('textarea[placeholder="Card title…"]', cardTitle);
-  await Promise.all([
-    page.waitForResponse(r => r.url().includes('/cards') && r.request().method() === 'POST' && r.status() === 201),
-    page.getByRole('button', { name: 'Add card', exact: true }).click(),
-  ]);
-  await page.getByText(cardTitle, { exact: true }).click();
-  await expect(page.locator('aside')).toBeVisible();
+  await openNewCard(page, `Task-${uid()}`);
 
   await page.click('button:has-text("+ Add subtask")');
   const input = page.locator('input[placeholder="Subtask title…"]');
@@ -77,9 +87,7 @@ test('a failed subtask toggle rolls back and shows the error banner', async ({ p
 });
 
 test('a failed board rename rolls back, closes the form, and shows the error', async ({ page }) => {
-  const errors = [];
-  page.on('pageerror', err => errors.push(err.message));
-
+  const errors = collectPageErrors(page);
   await registerAndCreateBoard(page, 'Keep Me');
   await failRequests(page, '**/boards/*', 'PATCH');
 
@@ -90,5 +98,62 @@ test('a failed board rename rolls back, closes the form, and shows the error', a
   await expect(page.getByText('Server error')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Keep Me' })).toBeVisible();
   await expect(page.locator('input[value="Should Not Stick"]')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('a failed label create from the Card panel rolls back and shows the error banner', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await openBoardWithColumn(page);
+  await openNewCard(page, 'Label Card');
+  await failRequests(page, '**/boards/*/labels', 'POST');
+
+  await page.click('button:has-text("+ Create label")');
+  await page.fill('input[placeholder="Label name"]', 'Doomed');
+  await page.getByRole('button', { name: 'Create', exact: true }).click();
+
+  await expect(page.getByText('Server error')).toBeVisible();
+  await expect(page.locator('aside').getByText('Doomed')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('a failed assignee toggle rolls back and shows the error banner', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await openBoardWithColumn(page);
+  await openNewCard(page, 'Assign Card');
+  await failRequests(page, '**/cards/*/assignees/*', 'PUT');
+
+  const toggle = page.locator('[data-testid="assignee-toggle"]').first();
+  await toggle.click();
+
+  await expect(page.getByText('Server error')).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  expect(errors).toEqual([]);
+});
+
+test('a failed card delete restores the card and shows the error banner', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await openBoardWithColumn(page);
+  await openNewCard(page, 'Stubborn Card');
+  await failRequests(page, '**/cards/*', 'DELETE');
+
+  page.on('dialog', d => d.accept());
+  await page.click('button:has-text("Delete card")');
+
+  await expect(page.getByText('Server error')).toBeVisible();
+  await expect(page.locator('[data-testid="column"]').getByText('Stubborn Card')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('a failed column create rolls back and shows the error banner', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await openBoardWithColumn(page);
+  await failRequests(page, '**/boards/*/columns', 'POST');
+
+  await page.click('text=+ Add column');
+  await page.fill('input[placeholder="Column name…"]', 'Never Lands');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+
+  await expect(page.getByText('Server error')).toBeVisible();
+  await expect(page.locator('[data-testid="column"]')).toHaveCount(1);
   expect(errors).toEqual([]);
 });
