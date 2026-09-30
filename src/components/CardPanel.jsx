@@ -67,9 +67,9 @@ export default function CardPanel({
   }, [card.id, card.description]);
 
   // Discard any half-typed title edit when switching to a different card.
+  // (titleInput needs no reset here: startTitleEdit seeds it from card.title.)
   useEffect(() => {
     setEditingTitle(false);
-    setTitleInput(card.title);
     setTitleError(null);
   }, [card.id]);
 
