@@ -157,3 +157,36 @@ test('a failed column create rolls back and shows the error banner', async ({ pa
   await expect(page.locator('[data-testid="column"]')).toHaveCount(1);
   expect(errors).toEqual([]);
 });
+
+test('a failed label attach leaves no Category behind, even after reload (#55)', async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await openBoardWithColumn(page);
+  await openNewCard(page, 'Category Card');
+
+  await page.click('button:has-text("+ Create label")');
+  await page.fill('input[placeholder="Label name"]', 'Backend');
+  await Promise.all([
+    page.waitForResponse(r => /\/labels/.test(r.url()) && r.request().method() === 'POST' && r.status() === 201),
+    page.getByRole('button', { name: 'Create', exact: true }).click(),
+  ]);
+
+  await failRequests(page, '**/cards/*/labels/*', 'PUT');
+  await page.locator('aside button', { hasText: 'Backend' }).first().click();
+
+  await expect(page.getByText('Server error')).toBeVisible();
+  await expect(page.locator('[data-testid="set-category"]')).toHaveCount(0); // not attached
+  await page.locator('button[title="Close panel"]').click();
+  await expect(page.locator('[data-testid="card-category"]')).toHaveCount(0);
+
+  // Board view only renders a Category that is among the card's attached labels,
+  // so an orphaned category_label_id would hide there — check the server snapshot.
+  const [snapshot] = await Promise.all([
+    page.waitForResponse(r => /\/boards\/[^/]+$/.test(r.url()) && r.request().resourceType() === 'fetch' && r.status() === 200),
+    page.reload(),
+  ]);
+  const { columns } = await snapshot.json();
+  expect(columns.flatMap(c => c.cards).map(c => c.category_label_id)).toEqual([null]);
+  await expect(page.getByText('Category Card', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-testid="card-category"]')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

@@ -248,6 +248,10 @@ describe('DELETE /cards/:id', () => {
   });
 });
 
+function attachLabel(token, cardId, labelId) {
+  return request(app).put(`/cards/${cardId}/labels/${labelId}`).set('Authorization', `Bearer ${token}`);
+}
+
 describe('PATCH /cards/:id category_label_id', () => {
   async function createLabel(token, boardId, color = '#fca5a5', name = 'Category') {
     const res = await request(app)
@@ -261,14 +265,17 @@ describe('PATCH /cards/:id category_label_id', () => {
     const { user, board, column } = await setup();
     const card = await createCard(user.token, column.id);
     const label = await createLabel(user.token, board.id);
+    const other = await createLabel(user.token, board.id, '#93c5fd', 'Other');
+    await attachLabel(user.token, card.id, label.id);
+    await attachLabel(user.token, card.id, other.id);
 
     const res = await request(app)
       .patch(`/cards/${card.id}`)
       .set('Authorization', `Bearer ${user.token}`)
-      .send({ category_label_id: label.id });
+      .send({ category_label_id: other.id });
 
     expect(res.status).toBe(200);
-    expect(res.body.category_label_id).toBe(label.id);
+    expect(res.body.category_label_id).toBe(other.id);
   });
 });
 
@@ -285,10 +292,7 @@ describe('PATCH /cards/:id category_label_id — clear and validation', () => {
     const { user, board, column } = await setup();
     const card = await createCard(user.token, column.id);
     const label = await createLabel(user.token, board.id);
-    await request(app)
-      .patch(`/cards/${card.id}`)
-      .set('Authorization', `Bearer ${user.token}`)
-      .send({ category_label_id: label.id });
+    await attachLabel(user.token, card.id, label.id); // auto-sets it as the Category
 
     const res = await request(app)
       .patch(`/cards/${card.id}`)

@@ -51,3 +51,10 @@ artboard's fields verbatim, we map them onto the existing domain and make the mi
   `dnd.spec.js`, `subtask.spec.js`, and `column-color.spec.js` (chip color assertions). `data-testid`
   hooks are preserved/added so selectors stay stable.
 - **New font dependency**: IBM Plex Sans Thai + IBM Plex Sans from Google Fonts.
+- **Addendum (issue #55)**: the Category auto-set/promotion rules are enforced **server-side**.
+  `PUT`/`DELETE /cards/:id/labels/:labelId` apply `resolveAttach`/`resolveDetach` (shared
+  `src/domain/category.js`) in the same transaction as the attach/detach and return
+  `category_label_id`; promotion order is label creation order (`created_at, id`). `PATCH /cards/:id`
+  rejects a `category_label_id` that isn't attached to the card. This replaced the client firing a
+  separate category patch alongside the attach/detach, which could leave an orphaned Category when
+  one of the two requests failed.

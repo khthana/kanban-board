@@ -136,9 +136,11 @@ export async function moveCard(cardId, _uid, { columnId, position }) {
 export const createLabel  = (boardId, _uid, data)          => apiFetch('POST',   `/boards/${boardId}/labels`, data).then(normalizeLabel);
 export const patchLabel   = (id, _uid, patch)              => apiFetch('PATCH',  `/labels/${id}`, patch).then(normalizeLabel);
 export const deleteLabel  = (id)                           => apiFetch('DELETE', `/labels/${id}`);
-export const attachLabel  = (cardId, labelId, _uid)        => apiFetch('PUT',    `/cards/${cardId}/labels/${labelId}`)
-  .then(r => ({ cardId: r.card_id, labelId: r.label_id }));
-export const detachLabel  = (cardId, labelId, _uid)        => apiFetch('DELETE', `/cards/${cardId}/labels/${labelId}`);
+// Attach/detach also return the card's resulting Category — the server applies
+// the ADR-0002 auto-set/promotion rules in the same transaction (#55).
+const normalizeCardLabel = r => ({ cardId: r.card_id, labelId: r.label_id, categoryLabelId: r.category_label_id ?? null });
+export const attachLabel  = (cardId, labelId, _uid)        => apiFetch('PUT',    `/cards/${cardId}/labels/${labelId}`).then(normalizeCardLabel);
+export const detachLabel  = (cardId, labelId, _uid)        => apiFetch('DELETE', `/cards/${cardId}/labels/${labelId}`).then(normalizeCardLabel);
 
 // ── assignees ──────────────────────────────────────────────────────────────────
 

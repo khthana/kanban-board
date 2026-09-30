@@ -211,7 +211,7 @@ describe('DELETE /cards/:id/labels/:labelId', () => {
       .delete(`/cards/${card.id}/labels/${label.id}`)
       .set('Authorization', `Bearer ${user.token}`);
 
-    expect(res.status).toBe(204);
+    expect(res.status).toBe(200);
 
     const snapshot = await request(app)
       .get(`/boards/${board.id}`)
@@ -306,5 +306,130 @@ describe('label name validation', () => {
       .get(`/boards/${board.id}`)
       .set('Authorization', `Bearer ${user.token}`);
     expect(snapshot.body.labels[0].name).toBe('Bug');
+  });
+});
+
+describe('Category follows label attach/detach (ADR-0002, #55)', () => {
+  async function setupCard() {
+    const { user, board } = await setup();
+    const col = await request(app)
+      .post(`/boards/${board.id}/columns`)
+      .set('Authorization', `Bearer ${user.token}`)
+      .send({ name: 'To Do' });
+    const card = await request(app)
+      .post(`/columns/${col.body.id}/cards`)
+      .set('Authorization', `Bearer ${user.token}`)
+      .send({ title: 'Task' });
+    return { user, board, card: card.body };
+  }
+  const attach = (token, cardId, labelId) =>
+    request(app).put(`/cards/${cardId}/labels/${labelId}`).set('Authorization', `Bearer ${token}`);
+  const detach = (token, cardId, labelId) =>
+    request(app).delete(`/cards/${cardId}/labels/${labelId}`).set('Authorization', `Bearer ${token}`);
+  async function categoryOf(token, boardId) {
+    const snap = await request(app).get(`/boards/${boardId}`).set('Authorization', `Bearer ${token}`);
+    return snap.body.columns[0].cards[0].category_label_id;
+  }
+
+  it('concurrent attaches to one card both succeed (no deadlock) and leave one attached Category', async () => {
+    const { user, board, card } = await setupCard();
+    const labels = await Promise.all(['A', 'B', 'C', 'D'].map(n => createLabel(user.token, board.id, n)));
+
+    for (let round = 0; round < 5; round++) {
+      const res = await Promise.all(labels.map(l => attach(user.token, card.id, l.id)));
+      expect(res.map(r => r.status)).toEqual([200, 200, 200, 200]);
+      expect(labels.map(l => l.id)).toContain(await categoryOf(user.token, board.id));
+      await Promise.all(labels.map(l => detach(user.token, card.id, l.id)));
+    }
+  });
+
+  it('PATCH setting an attached Category and detaching it concurrently never orphans the Category', async () => {
+    const { user, board, card } = await setupCard();
+    const a = await createLabel(user.token, board.id, 'A');
+    const b = await createLabel(user.token, board.id, 'B');
+
+    for (let round = 0; round < 5; round++) {
+      await attach(user.token, card.id, a.id);
+      await attach(user.token, card.id, b.id);
+      await Promise.all([
+        request(app).patch(`/cards/${card.id}`).set('Authorization', `Bearer ${user.token}`).send({ category_label_id: b.id }),
+        detach(user.token, card.id, b.id),
+      ]);
+      expect(await categoryOf(user.token, board.id)).toBe(a.id);
+      await detach(user.token, card.id, a.id);
+    }
+  });
+
+  it('attaching the first label makes it the Category, in the response and the snapshot', async () => {
+    const { user, board, card } = await setupCard();
+    const bug = await createLabel(user.token, board.id, 'Bug');
+
+    const res = await attach(user.token, card.id, bug.id);
+
+    expect(res.status).toBe(200);
+    expect(res.body.category_label_id).toBe(bug.id);
+    expect(await categoryOf(user.token, board.id)).toBe(bug.id);
+  });
+
+  it('attaching another label keeps the existing Category', async () => {
+    const { user, board, card } = await setupCard();
+    const bug = await createLabel(user.token, board.id, 'Bug');
+    const ui = await createLabel(user.token, board.id, 'UI', '#00ff00');
+    await attach(user.token, card.id, bug.id);
+
+    const res = await attach(user.token, card.id, ui.id);
+
+    expect(res.body.category_label_id).toBe(bug.id);
+    expect(await categoryOf(user.token, board.id)).toBe(bug.id);
+  });
+
+  it('detaching the Category promotes a remaining label', async () => {
+    const { user, board, card } = await setupCard();
+    const bug = await createLabel(user.token, board.id, 'Bug');
+    const ui = await createLabel(user.token, board.id, 'UI', '#00ff00');
+    await attach(user.token, card.id, bug.id);
+    await attach(user.token, card.id, ui.id);
+
+    const res = await detach(user.token, card.id, bug.id);
+
+    expect(res.status).toBe(200);
+    expect(res.body.category_label_id).toBe(ui.id);
+    expect(await categoryOf(user.token, board.id)).toBe(ui.id);
+  });
+
+  it('detaching the last label clears the Category', async () => {
+    const { user, board, card } = await setupCard();
+    const bug = await createLabel(user.token, board.id, 'Bug');
+    await attach(user.token, card.id, bug.id);
+
+    const res = await detach(user.token, card.id, bug.id);
+
+    expect(res.body.category_label_id).toBeNull();
+    expect(await categoryOf(user.token, board.id)).toBeNull();
+  });
+
+  it('detaching a non-Category label keeps the Category', async () => {
+    const { user, board, card } = await setupCard();
+    const bug = await createLabel(user.token, board.id, 'Bug');
+    const ui = await createLabel(user.token, board.id, 'UI', '#00ff00');
+    await attach(user.token, card.id, bug.id);
+    await attach(user.token, card.id, ui.id);
+
+    const res = await detach(user.token, card.id, ui.id);
+
+    expect(res.body.category_label_id).toBe(bug.id);
+  });
+
+  it('PATCH rejects a Category that is not attached to the card → 400', async () => {
+    const { user, board, card } = await setupCard();
+    const bug = await createLabel(user.token, board.id, 'Bug');
+
+    const res = await request(app)
+      .patch(`/cards/${card.id}`)
+      .set('Authorization', `Bearer ${user.token}`)
+      .send({ category_label_id: bug.id });
+
+    expect(res.status).toBe(400);
+    expect(await categoryOf(user.token, board.id)).toBeNull();
   });
 });

@@ -250,7 +250,7 @@ describe('GET /boards/:id — card category_label_id', () => {
     const label = (await request(app)
       .post(`/boards/${board.id}/labels`).set(auth).send({ name: 'Cat', color: '#fca5a5' })).body;
     await request(app)
-      .patch(`/cards/${card.id}`).set(auth).send({ category_label_id: label.id });
+      .put(`/cards/${card.id}/labels/${label.id}`).set(auth); // auto-sets the Category
 
     const res = await request(app).get(`/boards/${board.id}`).set(auth);
 

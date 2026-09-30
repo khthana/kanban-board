@@ -45,11 +45,17 @@ describe('entity responses are normalized to camelCase', () => {
     expect(await client.patchLabel('l1', 'u1', { name: 'Bug' })).toEqual(expected);
   });
 
-  test('attachLabel and attachAssignee return the store join shape', async () => {
-    auth.apiFetch.mockResolvedValueOnce({ card_id: 'k1', label_id: 'l1' })
-      .mockResolvedValueOnce({ card_id: 'k1', user_id: 'u2' });
+  test('attachLabel and detachLabel return the join plus the resulting Category', async () => {
+    auth.apiFetch.mockResolvedValueOnce({ card_id: 'k1', label_id: 'l1', category_label_id: 'l1' })
+      .mockResolvedValueOnce({ card_id: 'k1', label_id: 'l1', category_label_id: null });
 
-    expect(await client.attachLabel('k1', 'l1', 'u1')).toEqual({ cardId: 'k1', labelId: 'l1' });
+    expect(await client.attachLabel('k1', 'l1', 'u1')).toEqual({ cardId: 'k1', labelId: 'l1', categoryLabelId: 'l1' });
+    expect(await client.detachLabel('k1', 'l1', 'u1')).toEqual({ cardId: 'k1', labelId: 'l1', categoryLabelId: null });
+  });
+
+  test('attachAssignee returns the store join shape', async () => {
+    auth.apiFetch.mockResolvedValueOnce({ card_id: 'k1', user_id: 'u2' });
+
     expect(await client.attachAssignee('k1', 'u2')).toEqual({ cardId: 'k1', userId: 'u2' });
   });
 });

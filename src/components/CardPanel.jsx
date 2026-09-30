@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { validateCardDescription, validateSubtaskTitle, validateSubtaskCount } from '../domain/validation';
 import { resolveTitleCommit } from '../domain/titleEdit';
 import { isDone, completionPatch, incompleteSubtasks } from '../domain/completion';
-import { resolveAttach, resolveDetach } from '../domain/category';
 import { formatDueDate } from '../domain/dates';
 import LabelPicker from './LabelPicker';
 import AssigneePicker from './AssigneePicker';
@@ -192,16 +191,9 @@ export default function CardPanel({
           allLabels={allLabels}
           attachedLabelIds={attachedIds}
           categoryLabelId={card.categoryLabelId}
-          onAttach={labelId => {
-            onAttachLabel(card.id, labelId, userId);
-            const newCat = resolveAttach(card.categoryLabelId, labelId);
-            if (newCat !== card.categoryLabelId) onSave({ categoryLabelId: newCat });
-          }}
-          onDetach={labelId => {
-            onDetachLabel(card.id, labelId, userId);
-            const newCat = resolveDetach(attachedIds, labelId, card.categoryLabelId);
-            if (newCat !== card.categoryLabelId) onSave({ categoryLabelId: newCat });
-          }}
+          // The Category follows attach/detach inside the store action (#55).
+          onAttach={labelId => onAttachLabel(card.id, labelId, userId)}
+          onDetach={labelId => onDetachLabel(card.id, labelId, userId)}
           onSetCategory={labelId => onSave({ categoryLabelId: labelId })}
           onCreateLabel={onCreateLabel}
           onPatchLabel={onPatchLabel}

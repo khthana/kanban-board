@@ -69,7 +69,7 @@ router.get('/:id', requireMembership('id'), async (req, res) => {
   );
 
   const { rows: labels } = await pool.query(
-    `SELECT id, name, color FROM labels WHERE board_id = $1`, [id]
+    `SELECT id, name, color FROM labels WHERE board_id = $1 ORDER BY created_at, id`, [id]
   );
 
   const { rows: memberRows } = await pool.query(
@@ -91,7 +91,9 @@ router.get('/:id', requireMembership('id'), async (req, res) => {
      FROM card_labels cl
      JOIN cards c ON c.id = cl.card_id
      JOIN columns col ON col.id = c.column_id
-     WHERE col.board_id = $1`,
+     JOIN labels l ON l.id = cl.label_id
+     WHERE col.board_id = $1
+     ORDER BY l.created_at, l.id`,
     [id]
   );
 

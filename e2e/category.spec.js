@@ -32,9 +32,9 @@ test('set a label as category → card face shows the category', async ({ page }
     page.getByRole('button', { name: 'Create', exact: true }).click(),
   ]);
 
-  // Attach it → the first label is auto-set as the Category (category PATCH fires)
+  // Attach it → the server auto-sets the first label as the Category in the same request
   await Promise.all([
-    page.waitForResponse(r => /\/cards\/[^/]+$/.test(r.url()) && r.request().method() === 'PATCH'),
+    page.waitForResponse(r => /\/cards\/[^/]+\/labels\//.test(r.url()) && r.request().method() === 'PUT' && r.status() === 200),
     page.locator('aside button', { hasText: 'Backend' }).first().click(),
   ]);
 
@@ -75,7 +75,7 @@ test('rename a label → card category reflects the new name, persists', async (
     page.getByRole('button', { name: 'Create', exact: true }).click(),
   ]);
   await Promise.all([
-    page.waitForResponse(r => /\/cards\/[^/]+$/.test(r.url()) && r.request().method() === 'PATCH'),
+    page.waitForResponse(r => /\/cards\/[^/]+\/labels\//.test(r.url()) && r.request().method() === 'PUT' && r.status() === 200),
     page.locator('aside button', { hasText: 'Backend' }).first().click(),
   ]);
 

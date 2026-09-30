@@ -112,7 +112,7 @@ test('row shows the Category dot+label when set, and a neutral gray dot when uns
     page.getByRole('button', { name: 'Create', exact: true }).click(),
   ]);
   await Promise.all([
-    page.waitForResponse(r => /\/cards\/[^/]+$/.test(r.url()) && r.request().method() === 'PATCH'),
+    page.waitForResponse(r => /\/cards\/[^/]+\/labels\//.test(r.url()) && r.request().method() === 'PUT' && r.status() === 200),
     page.locator('aside button', { hasText: 'Backend' }).first().click(),
   ]);
   await page.locator('button[title="Close panel"]').click();

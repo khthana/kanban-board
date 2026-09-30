@@ -55,6 +55,95 @@ describe('patchLabel', () => {
   });
 });
 
+describe('label attach/detach carries the Category (ADR-0002, #55)', () => {
+  function withLabels({ cardLabels = [], categoryLabelId = null } = {}) {
+    const b = useBoardStore.getState().board;
+    useBoardStore.setState({
+      board: {
+        ...b,
+        cards: b.cards.map(c => ({ ...c, categoryLabelId })),
+        labels: [{ id: 'l1', name: 'Bug', color: '#f00' }, { id: 'l2', name: 'UI', color: '#0f0' }],
+        cardLabels,
+      },
+    });
+  }
+  const card = () => useBoardStore.getState().board.cards[0];
+
+  test('attaching the first label sets it as the Category optimistically, then settles with the server', async () => {
+    withLabels();
+    let resolve;
+    client.attachLabel.mockReturnValue(new Promise(r => { resolve = r; }));
+
+    const pending = useBoardStore.getState().attachLabel('card1', 'l1', 'u1');
+    expect(card().categoryLabelId).toBe('l1');
+    expect(useBoardStore.getState().board.cardLabels).toEqual([{ cardId: 'card1', labelId: 'l1' }]);
+
+    resolve({ cardId: 'card1', labelId: 'l1', categoryLabelId: 'l1' });
+    await pending;
+    expect(card().categoryLabelId).toBe('l1');
+    expect(client.patchCard).not.toHaveBeenCalled();
+  });
+
+  test('settling an attach keeps a Category the user changed while it was in flight (★)', async () => {
+    withLabels({ cardLabels: [{ cardId: 'card1', labelId: 'l2' }], categoryLabelId: 'l2' });
+    let resolve;
+    client.attachLabel.mockReturnValue(new Promise(r => { resolve = r; }));
+
+    const pending = useBoardStore.getState().attachLabel('card1', 'l1', 'u1');
+    const b = useBoardStore.getState().board;
+    useBoardStore.setState({ board: { ...b, cards: b.cards.map(c => ({ ...c, categoryLabelId: 'l1' })) } });
+
+    resolve({ cardId: 'card1', labelId: 'l1', categoryLabelId: 'l2' });
+    await pending;
+    expect(card().categoryLabelId).toBe('l1');
+  });
+
+  test('a failed attach rolls back both the label and the Category', async () => {
+    withLabels();
+    client.attachLabel.mockRejectedValue(new Error('boom'));
+
+    await expect(useBoardStore.getState().attachLabel('card1', 'l1', 'u1')).rejects.toThrow('boom');
+
+    expect(useBoardStore.getState().board.cardLabels).toEqual([]);
+    expect(card().categoryLabelId).toBeNull();
+  });
+
+  test('detaching the Category promotes the next attached label in board label order', async () => {
+    withLabels({
+      cardLabels: [{ cardId: 'card1', labelId: 'l2' }, { cardId: 'card1', labelId: 'l1' }],
+      categoryLabelId: 'l1',
+    });
+    let resolve;
+    client.detachLabel.mockReturnValue(new Promise(r => { resolve = r; }));
+
+    const pending = useBoardStore.getState().detachLabel('card1', 'l1', 'u1');
+    expect(card().categoryLabelId).toBe('l2');
+
+    resolve({ cardId: 'card1', labelId: 'l1', categoryLabelId: 'l2' });
+    await pending;
+    expect(card().categoryLabelId).toBe('l2');
+  });
+
+  test('a failed detach rolls back both the label and the Category', async () => {
+    withLabels({ cardLabels: [{ cardId: 'card1', labelId: 'l1' }], categoryLabelId: 'l1' });
+    client.detachLabel.mockRejectedValue(new Error('boom'));
+
+    await expect(useBoardStore.getState().detachLabel('card1', 'l1', 'u1')).rejects.toThrow('boom');
+
+    expect(useBoardStore.getState().board.cardLabels).toEqual([{ cardId: 'card1', labelId: 'l1' }]);
+    expect(card().categoryLabelId).toBe('l1');
+  });
+
+  test('the server’s Category wins over the optimistic guess', async () => {
+    withLabels({ cardLabels: [{ cardId: 'card1', labelId: 'l1' }], categoryLabelId: 'l1' });
+    client.detachLabel.mockResolvedValue({ cardId: 'card1', labelId: 'l1', categoryLabelId: 'l2' });
+
+    await useBoardStore.getState().detachLabel('card1', 'l1', 'u1');
+
+    expect(card().categoryLabelId).toBe('l2');
+  });
+});
+
 describe('attachAssignee', () => {
   test('adds the assignee optimistically and commits', async () => {
     client.attachAssignee.mockResolvedValue({ card_id: 'card1', user_id: 'u2' });

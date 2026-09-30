@@ -69,7 +69,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 - **Subtasks**: Nested per card, limit 20 per card, stored with float position (not array index). Support toggle (checked), rename, reorder (↑/↓), delete. Progress shown on the card via `domain/progress.js` `progressView(done,total)` — adaptive **segments** (≤ 8 subtasks) vs continuous **mini-bar** (> 8) + `done/total` count (turns green when complete).
 - **Column Accent** (see [ADR-0001](docs/adr/0001-column-accent-model.md)): `color VARCHAR(7) NULL` on `columns` table is the column's **Accent** — it themes the whole column, not just the header strip (which superseded the original [Column Header Colors PRD](requirement/Kanban-Board-PRD.md#2-column-header-colors-superseded-by-adr-0001)). `PATCH /columns/:id` accepts `color` (hex or null); `renameColumn(id, userId, { name, color })` optimistic update uses `color !== undefined ? color : c.color` to handle null (clear). In `Column.jsx`, when `color` is set the column root gets `className .accented` + inline `--accent` CSS var; CSS derives: title chip background = `var(--accent)`, column wash = `color-mix(--accent 12%, white)`, count = `color-mix(--accent, black 38%)`, "New card" button text = `color-mix(--accent, black 30%)` (passed to `CardComposer` via `accent` prop). Chip text stays `#1e293b`. When `color` is null, all fall back to neutral gray. Edit form shows 8 pastel presets + "+" custom + "✕" clear using `data-swatch` attributes.
 - **Editorial card** (see [ADR-0002](docs/adr/0002-card-editorial-model.md), [spec](requirement/card_ui_spec.md)): type-forward card — category dot + uppercase label, hero title, hairline rule, foot (due / adaptive progress). IBM Plex Sans Thai; tokens in `index.css`. Superseded the old "card color band = first label". `normalizeCard()` in client.js uses `.slice(0,10)` to normalize node-pg ISO timestamp DATE columns to YYYY-MM-DD.
-- **Card Category** (ADR-0002): a card's **Category** is the label flagged by `category_label_id` (nullable FK on `cards`). It's the only label shown on the card face (uppercase name + dot); its color is the **card accent** (`domain/accent.js` — `categoryLabel()` resolves it, `cardAccent()` derives `solid`/`text` shades via `color-mix`, neutral gray when unset). Other labels are managed only in `CardPanel`. Set via the ★ toggle in `LabelPicker`; **auto-set** to the first attached label, and promoted to the next remaining label on detach. Auto-promotion rules live in `domain/category.js` (`resolveAttach`, `resolveDetach`). No new store action — reuses `patchCard({ categoryLabelId })`.
+- **Card Category** (ADR-0002): a card's **Category** is the label flagged by `category_label_id` (nullable FK on `cards`). It's the only label shown on the card face (uppercase name + dot); its color is the **card accent** (`domain/accent.js` — `categoryLabel()` resolves it, `cardAccent()` derives `solid`/`text` shades via `color-mix`, neutral gray when unset). Other labels are managed only in `CardPanel`. Set via the ★ toggle in `LabelPicker`; **auto-set** to the first attached label, and promoted to the next remaining label on detach. Auto-promotion rules live in `domain/category.js` (`resolveAttach`, `resolveDetach`) and are **enforced server-side** (issue #55): `PUT`/`DELETE /cards/:id/labels/:labelId` apply them in the same transaction as the attach/detach (promotion order = label creation order, `created_at, id`, matched by the snapshot and the store) and return `{ card_id, label_id, category_label_id }` (detach is 200, not 204); `PATCH /cards/:id` rejects a `category_label_id` not attached to the card (400). The store's `attachLabel`/`detachLabel` carry the Category in the same optimistic step (predict with `resolveAttach`/`resolveDetach`, settle to the server's value), so a failed attach/detach rolls both back together — `CardPanel` no longer fires a second category patch. Settle adopts the server's Category only if the card's Category is still what apply predicted (a ★ pressed mid-flight wins). The ★ toggle still uses `patchCard({ categoryLabelId })`.
 - **Multiple assignees** (ADR-0002): modeled like labels — a `cardAssignees: [{cardId,userId}]` join in the store, optimistic `attachAssignee`/`detachAssignee` (`PUT`/`DELETE /cards/:id/assignees/:userId`). Replaced the single `assignee_id`. `AssigneePicker` is a multi-toggle list; the card face shows up to 3 overlapping avatars then `+N` via `common/AvatarStack`.
 - **Card completion** (see [ADR-0003](docs/adr/0003-card-completion-model.md), issues #35–#37): a per-card **done** state independent of column, stored as `completed_at DATE NULL` on `cards`; the boolean is derived (`completedAt !== null`). Toggled only in `CardPanel` (full-width button at the top of the body) — no card-face control. Client stamps the date (`patchCard({ completedAt: toYMD(new Date()) })`; clear with `null`) through the generic card patch — no new store action. Soft client-side guard: marking done with unchecked subtasks fires a `window.confirm`; un-marking and no-subtask cards warn nothing. Card face reflects done with a ✓ badge + ~0.6 opacity; the foot shows the completion date in place of the due date (no overdue styling) while keeping subtask progress; the card stays in place (no move/hide). Logic lives in the new deep module `domain/completion.js` (`isDone`, `completionPatch`, `incompleteSubtasks`). `normalizeCard()`/`cardPatchToApi()` map `completed_at` ↔ `completedAt`.
 - **Card title inline edit** (issue #38): the card title is editable **inline in `CardPanel`** — click the `<h2>` header (hover wash + `cursor: text`) to swap it for an input (`autoFocus` + select-all). **Enter** commits, **Escape** cancels, **blur** commits when valid / reverts when invalid. Empty/over-255 on Enter shows an inline error with the input kept open; no `maxLength` (lets `validateCardTitle` explain). Saves through the generic `patchCard({ title })` (optimistic + rollback) — no new store action. Card face stays read-only; done cards remain editable. The save/revert/error branching lives in the deep module `domain/titleEdit.js` (`resolveTitleCommit({ trigger, value, current })`); a `skipTitleBlur` ref suppresses the unmount-blur that a keyboard commit would otherwise re-fire.
@@ -97,7 +97,7 @@ Validation runs client-side (UX) and is enforced by the backend (authoritative).
 
 ## Tests
 
-### Unit tests (149)
+### Unit tests (156)
 `src/domain/` (incl. `progress.test.js`, `accent.test.js`, `dates.test.js`, `completion.test.js`, `titleEdit.test.js`, `dragDrop.test.js`, `category.test.js`, `assignees.test.js`), `src/api/client.test.js` (response normalization, no token storage), `src/hooks/`, `src/store/useSession.test.js`, `src/store/useBoardStore.test.js`. Run: `npm test -- --watchAll=false`
 
 Not unit-tested: components — covered by E2E.
@@ -106,7 +106,7 @@ Not unit-tested: components — covered by E2E.
 
 ### E2E tests (Playwright)
 
-`e2e/` — 64 tests across 14 files. Require the full stack (`docker compose up`).
+`e2e/` — 65 tests across 14 files. Require the full stack (`docker compose up`).
 
 | File | Flows covered | Status |
 |---|---|---|
@@ -122,7 +122,7 @@ Not unit-tested: components — covered by E2E.
 | `assignee.spec.js` | assign two members → stack of two avatars, persists | ✅ |
 | `completion.spec.js` | mark done → ✓ badge + fade + footer date → reload → unmark; subtask warn (cancel/accept) | ✅ |
 | `list-view.spec.js` | toggle Board↔List; sections per column w/ sticky Accent-tinted headers; rows sorted by position; category (or neutral dot)/due/progress/done state/assignee avatars on rows; no DnD; cross-tab polling; row click/Enter opens Card panel + panel push/close on view switch; "+ New card" per section (success + rollback) | ✅ |
-| `op-error.spec.js` | failed column rename / subtask toggle / column create / label create / assignee toggle / card delete → rollback + op-error banner, no uncaught page error; failed board rename on `/boards` → rollback, form closes, error shown, no uncaught page error | ✅ |
+| `op-error.spec.js` | failed column rename / subtask toggle / column create / label create / assignee toggle / card delete → rollback + op-error banner, no uncaught page error; failed label attach → no orphaned Category on the server snapshot or card face (#55); failed board rename on `/boards` → rollback, form closes, error shown, no uncaught page error | ✅ |
 | `deleted-card.spec.js` | drag a card deleted server-side → removed (no snap-back) + "card not found" banner; polling drops the open card → panel closes + notice, in Board and List view; deleting an already-deleted card → just gone, no banner | ✅ |
 
 Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **Flaky under parallel** (single shared Postgres → contention; tests time out waiting for elements). Re-run, or use `npx playwright test --workers=1` for a deterministic pass.
@@ -139,7 +139,7 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs both `test-frontend` (149 unit tests) and `test-api` (132 integration tests, postgres:16-alpine service) on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs both `test-frontend` (156 unit tests) and `test-api` (140 integration tests, postgres:16-alpine service) on every push/PR to `main`.
 
 ## API
 
@@ -189,7 +189,7 @@ Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env
 
 ### Tests
 
-132 integration tests across 7 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
+140 integration tests across 7 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
 
 **Critical**: use `--maxWorkers=1`, NOT `--runInBand`. Jest 30 runs test files in parallel by default.
 
@@ -197,7 +197,7 @@ Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env
 
 - **Board snapshot**: `GET /boards/:id` returns the board's own fields at the top level (`id`, `name`, `owner_id`, …) plus `columns[]` (each with nested `cards[]`, each card carrying `label_ids[]`, `assignees[]`, `subtasks[]`), `labels[]`, and `members[]` — one call for initial render. `client.js` `normalizeSnapshot()` flattens it to `{ board, columns[], cards[], labels[], members[], cardLabels[], cardAssignees[], subtasks[] }`.
 - **Card completion**: `cards.completed_at DATE NULL` — null = not done. `PATCH /cards/:id` accepts it. No server-side subtask check (client-side UX guard only).
-- **Card Category**: `cards.category_label_id` (nullable FK → labels, `ON DELETE SET NULL`). Snapshot returns it per card.
+- **Card Category**: `cards.category_label_id` (nullable FK → labels, `ON DELETE SET NULL`). Snapshot returns it per card. Label attach/detach auto-set/promote it transactionally using the shared `src/domain/category.js`; PATCH only accepts an attached label (or null), checked in the same transaction. Every Category path locks the card row **first** (`lockCard` — `SELECT … FOR UPDATE`): locking after the `card_labels` INSERT deadlocks concurrent attaches (its FK check holds KEY SHARE on the card). A card deleted mid-request returns 404.
 - **Multiple assignees**: `card_assignees (card_id, user_id)` join. `PUT`/`DELETE /cards/:id/assignees/:userId`.
 - **Authorization**: board membership resolved via FK chain; never trust client-supplied role claims.
 - **Rate limiter**: bypassed when `NODE_ENV === 'development'` or `'test'` to avoid accumulation across test runs.

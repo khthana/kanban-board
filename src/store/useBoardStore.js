@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import * as client from '../api/client';
 import { positionBetween } from '../domain/ordering';
+import { resolveAttach, resolveDetach } from '../domain/category';
 
 // Optimistic-update helper for mutations on the active `board`:
 //   1. snapshot current board
@@ -28,6 +29,24 @@ const nextPosition = (items, getPos = i => i.position) =>
   positionBetween(items.length > 0 ? Math.max(...items.map(getPos)) : null, null);
 
 const mapById = (arr, id, fn) => arr.map(x => x.id === id ? fn(x) : x);
+
+// board with one card's Category recomputed from that card
+const withCategory = (b, cardId, resolve) => ({
+  ...b,
+  cards: mapById(b.cards, cardId, c => ({ ...c, categoryLabelId: resolve(c) })),
+});
+
+// settle an attach/detach to the server's Category — unless the card's Category
+// changed since apply predicted it (e.g. ★ pressed while the request was in flight)
+const settleCategory = (b, cardId, predicted, server) =>
+  withCategory(b, cardId, c => ((c.categoryLabelId ?? null) === predicted ? server : c.categoryLabelId));
+
+// a card's attached label ids in board label order (label creation order, as the
+// server returns them) — the order the server uses to promote the next Category
+const attachedInLabelOrder = (b, cardId) => {
+  const attached = new Set(b.cardLabels.filter(cl => cl.cardId === cardId).map(cl => cl.labelId));
+  return b.labels.filter(l => attached.has(l.id)).map(l => l.id);
+};
 
 // board without a card and everything that hangs off it
 const withoutCard = (b, cardId) => ({
@@ -214,15 +233,29 @@ const useBoardStore = create((set, get) => ({
     commit: () => client.deleteLabel(labelId, userId),
   }),
 
-  attachLabel: async (cardId, labelId, userId) => optimistic(get, set, {
-    apply: b => ({ ...b, cardLabels: [...b.cardLabels, { cardId, labelId }] }),
-    commit: () => client.attachLabel(cardId, labelId, userId),
-  }),
+  // Attach/detach carry the card's Category with them (ADR-0002): one optimistic
+  // step applies both, the server applies the same rule atomically, and settle
+  // takes the server's Category — so a failure never splits the two (#55).
+  attachLabel: async (cardId, labelId, userId) => {
+    let predicted;
+    return optimistic(get, set, {
+      apply: b => withCategory({ ...b, cardLabels: [...b.cardLabels, { cardId, labelId }] }, cardId,
+        c => (predicted = resolveAttach(c.categoryLabelId ?? null, labelId))),
+      commit: () => client.attachLabel(cardId, labelId, userId),
+      settle: (b, r) => settleCategory(b, cardId, predicted, r.categoryLabelId),
+    });
+  },
 
-  detachLabel: async (cardId, labelId, userId) => optimistic(get, set, {
-    apply: b => ({ ...b, cardLabels: b.cardLabels.filter(cl => !(cl.cardId === cardId && cl.labelId === labelId)) }),
-    commit: () => client.detachLabel(cardId, labelId, userId),
-  }),
+  detachLabel: async (cardId, labelId, userId) => {
+    let predicted;
+    return optimistic(get, set, {
+      apply: b => withCategory(
+        { ...b, cardLabels: b.cardLabels.filter(cl => !(cl.cardId === cardId && cl.labelId === labelId)) }, cardId,
+        c => (predicted = resolveDetach(attachedInLabelOrder(b, cardId), labelId, c.categoryLabelId ?? null))),
+      commit: () => client.detachLabel(cardId, labelId, userId),
+      settle: (b, r) => settleCategory(b, cardId, predicted, r.categoryLabelId),
+    });
+  },
 
   // ── assignees ────────────────────────────────────────────────────────────────
 
