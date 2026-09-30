@@ -16,7 +16,7 @@
 | [4](#4-subtasks-checklist) | Subtasks (Checklist) | Implemented |
 | [5](#5-card-color-bands-superseded-by-card-editorial-redesign) | Card Color Bands | **Superseded** โดยหัวข้อ 6 ([ADR-0002](../docs/adr/0002-card-editorial-model.md)) |
 | [6](#6-card-editorial-redesign-option-c) | Card "Editorial" Redesign (Option C) | Implemented |
-| [7](#7-label-color-picker--pastel-presets) | Label Color Picker — Pastel Presets | Implemented |
+| [7](#7-label-color-picker--pastel-presets) | Label Color Picker — Pastel Presets (+ label edit) | Implemented |
 | [8](#8-card-completion-per-card-done-state) | Card Completion (Per-card Done State) | Implemented (#35–#37) |
 | [9](#9-card-title-edit-inline-ใน-cardpanel) | Card Title Edit (Inline ใน CardPanel) | Implemented (#38) |
 | [10](#10-monorepo-migration-รวม-api-เข้า-frontend-repo) | Monorepo Migration | Implemented |
@@ -90,7 +90,7 @@ Kanban Board เป็น web application สำหรับทีมเล็�
 
 **Authorization Model (MVP — แบบเรียบง่าย):** ใช้โมเดล authorization 2 ระดับเท่านั้น: **owner** (ผู้สร้าง board — ลบ board / จัดการสมาชิกได้) และ **member** (สมาชิกที่ถูกเชิญ — สร้าง/แก้ไข/ลบ column และ card ได้ทั้งหมด แต่ลบ board ไม่ได้) ผู้ที่ไม่ใช่ owner หรือ member ของ board เข้าถึง board นั้นไม่ได้เลย การ enforce ทำที่ backend ทุก endpoint โดยตรวจว่า `user_id` เป็นสมาชิกของ board ที่เกี่ยวข้องก่อนเสมอ (ไม่เชื่อถือ client) ระบบ role ละเอียด (viewer/editor/admin) เลื่อนไป Phase ถัดไป
 
-**Ordering Strategy (สำคัญ):** ลำดับของ column ภายใน board และ card ภายใน column เก็บด้วยฟิลด์ `position` แบบ **fractional/float** (หรือ lexicographic rank string) ไม่ใช่ integer index ต่อเนื่อง เพื่อให้การย้าย 1 รายการไม่ต้อง re-write ทุก record ในคอลัมน์ เมื่อย้าย card ไปแทรกระหว่าง card A (position 1.0) และ B (position 2.0) ระบบกำหนด position ใหม่เป็นค่ากึ่งกลาง (1.5) Backend ทำ periodic rebalancing เมื่อ precision เริ่มตัน แนวทางนี้รองรับ drag-and-drop ที่ตอบสนองเร็วโดยอัปเดต record เดียว
+**Ordering Strategy (สำคัญ):** ลำดับของ column ภายใน board และ card ภายใน column เก็บด้วยฟิลด์ `position` แบบ **fractional/float** (หรือ lexicographic rank string) ไม่ใช่ integer index ต่อเนื่อง เพื่อให้การย้าย 1 รายการไม่ต้อง re-write ทุก record ในคอลัมน์ เมื่อย้าย card ไปแทรกระหว่าง card A (position 1.0) และ B (position 2.0) ระบบกำหนด position ใหม่เป็นค่ากึ่งกลาง (1.5) Backend rebalance ตอนเขียน (on write) เมื่อช่องว่าง position ติดกัน < 1e-9 แนวทางนี้รองรับ drag-and-drop ที่ตอบสนองเร็วโดยอัปเดต record เดียว
 
 **Data Model / Schema (เชิงตรรกะ):** ตารางหลักและความสัมพันธ์ (ใช้ UUID เป็น primary key, มี `created_at` / `updated_at` ทุกตาราง):
 
@@ -135,7 +135,7 @@ DELETE /cards/:id/labels/:labelId    → ถอด label
 
 ไลบรารี drag-and-drop แนะนำเป็น library ที่ดูแลต่อเนื่องและรองรับ accessibility/keyboard (เช่น dnd-kit) — ตัดสินใจหลีกเลี่ยง library ที่หยุด maintain แล้ว
 
-**Concurrency & Conflict (MVP):** เนื่องจาก MVP ใช้ polling + last-write-wins การแก้ field เดียวกันพร้อมกันจาก 2 คน ผลลัพธ์คือคนที่บันทึกทีหลังชนะ ถือว่ายอมรับได้สำหรับทีมเล็ก สำหรับการย้าย card ที่ position ชนกัน backend จะ assign position ใหม่ให้เสมอ ดังนั้นจะไม่เกิด card ทับซ้อนที่ position เดียวกัน
+**Concurrency & Conflict (MVP):** เนื่องจาก MVP ใช้ polling + last-write-wins การแก้ field เดียวกันพร้อมกันจาก 2 คน ผลลัพธ์คือคนที่บันทึกทีหลังชนะ ถือว่ายอมรับได้สำหรับทีมเล็ก สำหรับการย้าย card/column **client เป็นผู้เสนอ position** แบบ fractional float (`positionBetween(prev, next)` จาก `domain/ordering`) แล้ว backend บันทึกค่านั้นตามที่ส่งมา — หลังบันทึก backend ตรวจ sibling ทั้งคอลัมน์ (หรือทั้งบอร์ดสำหรับ column) ถ้าช่องว่างระหว่าง position ติดกันใด ๆ < 1e-9 (รวมกรณีสองการย้ายพร้อมกันลงที่ position เดียวกัน ซึ่งช่องว่างเป็น 0) จะ `rebalance` ให้เป็น 1, 2, 3, … ใน transaction เดียว ดังนั้นในทางปฏิบัติ card จะไม่ทับกันค้างที่ position เดียว (best-effort — การ SELECT sibling อยู่นอก transaction ของ rebalance จึงอาจมี race ที่ยากมากสำหรับทีมเล็ก) ลำดับระหว่างสองการ์ดที่ชนกันไม่ถูกกำหนดแน่นอน (ยอมรับได้แบบ last-write-wins) และเนื่องจาก `PATCH` คืน row ก่อน rebalance ทั้ง client ที่ย้ายและ client อื่นจะเห็นลำดับสุดท้ายในรอบ polling ถัดไป ตอน **สร้าง** card/column backend เป็นผู้กำหนด position เอง (`MAX(position) + 1` ของคอลัมน์/บอร์ด) — position ที่ client ใช้ใน optimistic placeholder เป็นเพียงค่าชั่วคราวและถูกแทนด้วยค่าจาก server (ตัดสินใจใน #53: แก้ PRD ให้ตรงกับ fractional-float decision แทนการย้ายการคำนวณไป backend)
 
 **Validation Rules (ระดับ contract):** `board.name` และ `column.name` ต้องไม่ว่างและยาวไม่เกิน 100 ตัวอักษร, `card.title` ต้องไม่ว่าง ยาวไม่เกิน 255, `card.description` ไม่เกิน ~5,000 ตัวอักษร, `label.color` ต้องเป็นค่า hex color ที่ valid, การเชิญสมาชิกต้องเป็น email ที่มี user อยู่ในระบบแล้ว (MVP ยังไม่ทำ invite ผู้ที่ยังไม่สมัคร) Validation ทำทั้งฝั่ง client (UX) และ backend (authoritative)
 
@@ -790,6 +790,8 @@ Category เป็น entity แยกต่างหาก (Category คือ 
 
 **Validation:** เรียก `validateLabelColor()` เดิมก่อน submit เหมือนเดิม ไม่เปลี่ยน validation logic
 
+**Label edit (เพิ่มภายหลัง, ยืนยันใน #53):** label ที่มีอยู่แล้วแก้ไขได้ทั้งชื่อและสี — แต่ละแถวใน LabelPicker มีปุ่ม ✎ เปิดฟอร์มแก้ไข inline (รูปแบบเดียวกับ Column `RenameForm`) ใช้ swatch row ชุดเดียวกับตอนสร้าง (shared `ColorPicker`) และ highlight swatch ตาม user story 11–12 บันทึกผ่าน `PATCH /labels/:id` ด้วย optimistic `patchLabel` (apply → API → rollback เมื่อ error) ที่อัปเดต `board.labels` ในที่เดียว — เพราะ Category ของ card อ้าง label ด้วย id ([ADR-0002](../docs/adr/0002-card-editorial-model.md)) ทุก card ที่ใช้ label นั้นเป็น Category จะแสดงชื่อ/สีใหม่บนหน้า card และ List row ทันที โดยไม่ต้องแก้ card เอง Validation เหมือนตอนสร้าง (ชื่อไม่ว่าง ≤ 100 ตัวอักษร, hex ที่ valid) บังคับทั้ง client และ backend E2E: `category.spec.js` (rename label → card ที่ใช้เป็น Category แสดงชื่อใหม่)
+
 ### Testing Decisions
 
 Test rendered output สำหรับ color input ต่างๆ — ไม่ test internal state transition assert ว่า swatch ที่ถูกต้องได้ selection-ring class และฟอร์ม submit ด้วยค่า hex ที่ถูกต้อง LabelPicker rendering ครอบคลุมโดย E2E (Playwright) สอดคล้องกับการตัดสินใจไม่ unit-test React component แยกเดี่ยว
@@ -798,7 +800,7 @@ E2E ที่เกี่ยวข้อง: เปิด card → คลิก 
 
 ### Out of Scope
 
-การเพิ่ม/เปลี่ยน 8 preset สี (palette ตายตัว); โชว์ hex readout; แก้สีของ label ที่มีอยู่แล้ว (PRD นี้ครอบคลุมแค่ตอนสร้างใหม่); custom palette ต่อบอร์ด (8 preset เป็น global); database/API changes
+การเพิ่ม/เปลี่ยน 8 preset สี (palette ตายตัว); โชว์ hex readout; custom palette ต่อบอร์ด (8 preset เป็น global); database/API changes
 
 ### Further Notes
 
