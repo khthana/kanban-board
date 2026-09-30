@@ -72,8 +72,7 @@ router.patch('/:id', async (req, res) => {
     }
   }
 
-  const { board_id: _, ...responseCol } = updated;
-  return res.json({ ...responseCol, color: responseCol.color ?? null });
+  return res.json({ ...updated, color: updated.color ?? null });
 });
 
 router.post('/:id/cards', async (req, res) => {

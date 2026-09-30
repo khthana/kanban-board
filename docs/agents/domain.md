@@ -25,7 +25,7 @@ Single-context repo:
 └── src/
 ```
 
-(The backend `kanban-board-api` is a separate repo with its own `CLAUDE.md`; it has no `CONTEXT.md` of its own.)
+(This is a monorepo — the backend in `api/` shares the root `CONTEXT.md` and `CLAUDE.md`.)
 
 ## Use the glossary's vocabulary
 

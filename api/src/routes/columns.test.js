@@ -163,6 +163,7 @@ describe('PATCH /columns/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.name).toBe('Backlog');
     expect(res.body.position).toBe(1.0);
+    expect(res.body.board_id).toBe(board.id);
   });
 
   it('reposition column → 200, position updated', async () => {
@@ -192,6 +193,8 @@ describe('POST /boards/:id/columns', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.position).toBe(2.0);
+    expect(res.body.board_id).toBe(board.id);
+    expect(res.body.color).toBeNull();
   });
 
   it('first column gets position 1.0 → 201', async () => {

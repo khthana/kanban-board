@@ -28,6 +28,20 @@ test('create → open → rename → delete board', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Renamed Board' })).not.toBeVisible();
 });
 
+test('a newly created board shows the owner-only Rename/Delete buttons without a reload', async ({ page }) => {
+  await register(page, `user-${uid()}@test.com`, PW, 'Test User');
+
+  await page.fill('input[placeholder="New board name…"]', 'Fresh Board');
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/boards') && r.request().method() === 'POST' && r.status() === 201),
+    page.click('button:has-text("Create Board")'),
+  ]);
+
+  await expect(page.getByRole('link', { name: 'Fresh Board' })).toBeVisible();
+  await expect(page.locator('button[title="Rename"]')).toBeVisible();
+  await expect(page.locator('button[title="Delete"]')).toBeVisible();
+});
+
 test('member cannot delete board', async ({ page, browser }) => {
   const ownerEmail = `owner-${uid()}@test.com`;
   const memberEmail = `member-${uid()}@test.com`;

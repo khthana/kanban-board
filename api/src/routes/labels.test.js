@@ -36,6 +36,7 @@ describe('POST /boards/:id/labels', () => {
     expect(res.body.id).toBeTruthy();
     expect(res.body.name).toBe('Bug');
     expect(res.body.color).toBe('#ff0000');
+    expect(res.body.board_id).toBe(board.id);
   });
 
   it('accepts 3-char hex shorthand (#f00) → 201', async () => {
@@ -86,6 +87,7 @@ describe('PATCH /labels/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.name).toBe('Feature');
     expect(res.body.color).toBe('#ff0000');
+    expect(res.body.board_id).toBe(board.id);
   });
 
   it('update color with invalid hex → 400', async () => {

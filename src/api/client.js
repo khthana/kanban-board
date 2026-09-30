@@ -1,4 +1,4 @@
-import { apiFetch, setToken, setRefreshToken } from './auth';
+import { apiFetch } from './auth';
 
 // ── shape normalizers ────────────────────────────────────────────────────────
 
@@ -25,15 +25,21 @@ function normalizeSubtask(s) {
   };
 }
 
-function normalizeBoard(raw) {
+function normalizeBoard(b) {
+  return { id: b.id, name: b.name, ownerId: b.owner_id, createdAt: b.created_at };
+}
+
+function normalizeColumn(c) {
+  return { id: c.id, boardId: c.board_id, name: c.name, position: c.position, color: c.color ?? null };
+}
+
+function normalizeLabel(l) {
+  return { id: l.id, boardId: l.board_id, name: l.name, color: l.color };
+}
+
+function normalizeSnapshot(raw) {
   // raw.columns is nested: [{...col, cards: [{...card, label_ids: [...], subtasks: [...]}]}]
-  const columns = (raw.columns ?? []).map(col => ({
-    id: col.id,
-    boardId: raw.id,
-    name: col.name,
-    position: col.position,
-    color: col.color ?? null,
-  }));
+  const columns = (raw.columns ?? []).map(col => normalizeColumn({ ...col, board_id: raw.id }));
 
   const cards = [];
   const cardLabels = [];
@@ -54,18 +60,9 @@ function normalizeBoard(raw) {
     }
   }
 
-  const labels = (raw.labels ?? []).map(l => ({
-    id: l.id,
-    boardId: raw.id,
-    name: l.name,
-    color: l.color,
-  }));
+  const labels = (raw.labels ?? []).map(l => normalizeLabel({ ...l, board_id: raw.id }));
 
-  const board = {
-    id: raw.id,
-    name: raw.name,
-    ownerId: raw.owner_id,
-  };
+  const board = normalizeBoard(raw);
 
   const members = raw.members ?? [];
 
@@ -74,19 +71,9 @@ function normalizeBoard(raw) {
 
 // ── auth ─────────────────────────────────────────────────────────────────────
 
-export async function login(email, password) {
-  const data = await apiFetch('POST', '/auth/login', { email, password });
-  setToken(data.token);
-  if (data.refreshToken) setRefreshToken(data.refreshToken);
-  return data;
-}
-
-export async function register(email, password, displayName) {
-  const data = await apiFetch('POST', '/auth/register', { email, password, displayName });
-  setToken(data.token);
-  if (data.refreshToken) setRefreshToken(data.refreshToken);
-  return data;
-}
+// Token storage is the caller's job (useSession) — client.js has no token knowledge.
+export const login    = (email, password)              => apiFetch('POST', '/auth/login', { email, password });
+export const register = (email, password, displayName) => apiFetch('POST', '/auth/register', { email, password, displayName });
 
 export const getMe = () => apiFetch('GET', '/auth/me');
 export const patchMe = (patch) => apiFetch('PATCH', '/auth/me', patch);
@@ -94,18 +81,14 @@ export const patchMePassword = (body) => apiFetch('PATCH', '/auth/me/password', 
 
 // ── boards ───────────────────────────────────────────────────────────────────
 
-export const getBoards  = ()              =>
-  apiFetch('GET', '/boards').then(rows =>
-    rows.map(b => ({ id: b.id, name: b.name, ownerId: b.owner_id, createdAt: b.created_at }))
-  );
-export const createBoard  = (_uid, data)  => apiFetch('POST',   '/boards', data);
-export const patchBoard   = (id, _uid, p) => apiFetch('PATCH',  `/boards/${id}`, p)
-  .then(b => ({ id: b.id, name: b.name, ownerId: b.owner_id, createdAt: b.created_at }));
+export const getBoards    = ()            => apiFetch('GET',    '/boards').then(rows => rows.map(normalizeBoard));
+export const createBoard  = (_uid, data)  => apiFetch('POST',   '/boards', data).then(normalizeBoard);
+export const patchBoard   = (id, _uid, p) => apiFetch('PATCH',  `/boards/${id}`, p).then(normalizeBoard);
 export const deleteBoard  = (id)          => apiFetch('DELETE', `/boards/${id}`);
 
 export async function getBoard(boardId) {
   const raw = await apiFetch('GET', `/boards/${boardId}`);
-  return normalizeBoard(raw);
+  return normalizeSnapshot(raw);
 }
 
 // ── members ──────────────────────────────────────────────────────────────────
@@ -115,8 +98,8 @@ export const removeMember = (boardId, _uid, { memberId })   => apiFetch('DELETE'
 
 // ── columns ──────────────────────────────────────────────────────────────────
 
-export const createColumn = (boardId, _uid, data)   => apiFetch('POST',   `/boards/${boardId}/columns`, data);
-export const patchColumn  = (id, _uid, patch)       => apiFetch('PATCH',  `/columns/${id}`, patch);
+export const createColumn = (boardId, _uid, data)   => apiFetch('POST',   `/boards/${boardId}/columns`, data).then(normalizeColumn);
+export const patchColumn  = (id, _uid, patch)       => apiFetch('PATCH',  `/columns/${id}`, patch).then(normalizeColumn);
 export const deleteColumn = (id)                    => apiFetch('DELETE', `/columns/${id}`);
 
 // ── cards ────────────────────────────────────────────────────────────────────
@@ -150,15 +133,17 @@ export async function moveCard(cardId, _uid, { columnId, position }) {
 
 // ── labels ───────────────────────────────────────────────────────────────────
 
-export const createLabel  = (boardId, _uid, data)          => apiFetch('POST',   `/boards/${boardId}/labels`, data);
-export const patchLabel   = (id, _uid, patch)              => apiFetch('PATCH',  `/labels/${id}`, patch);
+export const createLabel  = (boardId, _uid, data)          => apiFetch('POST',   `/boards/${boardId}/labels`, data).then(normalizeLabel);
+export const patchLabel   = (id, _uid, patch)              => apiFetch('PATCH',  `/labels/${id}`, patch).then(normalizeLabel);
 export const deleteLabel  = (id)                           => apiFetch('DELETE', `/labels/${id}`);
-export const attachLabel  = (cardId, labelId, _uid)        => apiFetch('PUT',    `/cards/${cardId}/labels/${labelId}`);
+export const attachLabel  = (cardId, labelId, _uid)        => apiFetch('PUT',    `/cards/${cardId}/labels/${labelId}`)
+  .then(r => ({ cardId: r.card_id, labelId: r.label_id }));
 export const detachLabel  = (cardId, labelId, _uid)        => apiFetch('DELETE', `/cards/${cardId}/labels/${labelId}`);
 
 // ── assignees ──────────────────────────────────────────────────────────────────
 
-export const attachAssignee = (cardId, userId) => apiFetch('PUT',    `/cards/${cardId}/assignees/${userId}`);
+export const attachAssignee = (cardId, userId) => apiFetch('PUT',    `/cards/${cardId}/assignees/${userId}`)
+  .then(r => ({ cardId: r.card_id, userId: r.user_id }));
 export const detachAssignee = (cardId, userId) => apiFetch('DELETE', `/cards/${cardId}/assignees/${userId}`);
 
 // ── subtasks ─────────────────────────────────────────────────────────────────

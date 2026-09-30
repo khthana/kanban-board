@@ -71,6 +71,7 @@ describe('PATCH /boards/:id', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.name).toBe('New Name');
+    expect(res.body.created_at).toBeTruthy();
   });
 
   it('non-owner → 403', async () => {

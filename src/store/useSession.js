@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { login as apiLogin, register as apiRegister, getMe, patchMe } from '../api/client';
-import { clearToken, clearRefreshToken, getToken, getRefreshToken } from '../api/auth';
+import { clearToken, clearRefreshToken, getToken, getRefreshToken, setToken, setRefreshToken } from '../api/auth';
 
 function decodeJwt(token) {
   try {
@@ -27,6 +27,11 @@ function initFromToken() {
   return { currentUserId: null, isAuthenticated: false };
 }
 
+function storeTokens({ token, refreshToken }) {
+  setToken(token);
+  if (refreshToken) setRefreshToken(refreshToken);
+}
+
 const useSession = create((set) => ({
   ...initFromToken(),
   displayName: null,
@@ -34,6 +39,7 @@ const useSession = create((set) => ({
 
   login: async (email, password) => {
     const data = await apiLogin(email, password);
+    storeTokens(data);
     const payload = decodeJwt(data.token);
     const profile = await getMe();
     set({ currentUserId: payload.sub, isAuthenticated: true, displayName: profile.displayName, email: profile.email });
@@ -41,6 +47,7 @@ const useSession = create((set) => ({
 
   register: async (email, password, displayName) => {
     const data = await apiRegister(email, password, displayName);
+    storeTokens(data);
     const payload = decodeJwt(data.token);
     const profile = await getMe();
     set({ currentUserId: payload.sub, isAuthenticated: true, displayName: profile.displayName, email: profile.email });

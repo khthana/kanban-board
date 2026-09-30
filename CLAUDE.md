@@ -42,7 +42,7 @@ A Kanban board SPA for small teams (2–15 people). **Fully implemented** — Re
 
 `src/api/auth.js` — token storage (6 functions), silent-refresh logic (single in-flight promise), and `apiFetch(method, path, body)`. This is the auth seam: `apiFetch` is the only export callers need for requests. 401 clears both tokens and redirects to `/login`. `useSession.js` imports token helpers directly from here.
 
-`src/api/client.js` — 35 CRUD functions, each calling `apiFetch` + normalizing responses. No token knowledge. Normalizes backend snake_case responses to camelCase for the store.
+`src/api/client.js` — 29 exported API functions, each calling `apiFetch` + normalizing responses. No token knowledge (`login`/`register` return the API body; `useSession` stores the tokens via `auth.js`). Every function that returns an entity returns camelCase keys only — see the normalizers below. Unit-tested in `src/api/client.test.js` (`apiFetch` mocked).
 
 In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/columns`, `/cards`, `/labels`, `/subtasks`) to `API_PROXY_TARGET` (default `http://localhost:4000`). **Proxy skips requests with `Accept: text/html`** so browser navigation to `/boards/:id` etc. is handled by React's historyApiFallback (serves `index.html`), not forwarded to the API.
 
@@ -63,7 +63,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 - **Fractional float position**: `positionBetween(prev, next)` for drag-and-drop and subtask reordering — single record update, backend rebalances when gap < 1e-9
 - **Optimistic UI**: snapshot → apply → API → rollback on error
 - **Board snapshot**: `GET /boards/:id` returns nested shape; `client.js` flattens to `{ board, columns[], cards[], labels[], members[], cardLabels[], cardAssignees[], subtasks[] }`
-- **snake_case ↔ camelCase**: `normalizeCard()` / `normalizeSubtask()` / `cardPatchToApi()` in `client.js` handle conversion
+- **snake_case ↔ camelCase**: `normalizeBoard()` / `normalizeColumn()` / `normalizeLabel()` / `normalizeCard()` / `normalizeSubtask()` (responses), `normalizeSnapshot()` (the nested `GET /boards/:id` body), and `cardPatchToApi()` (requests) in `client.js` handle conversion. `attachLabel`/`attachAssignee` return the store's `{cardId, labelId}` / `{cardId, userId}` join shape. The API returns `board_id` on column/label create and patch so the normalizers never have to guess it (#52).
 - **Profile endpoints**: `GET /auth/me`, `PATCH /auth/me`, `PATCH /auth/me/password` — implemented in `api/src/routes/auth.js`
 - **Refresh tokens**: 60-minute access token + 7-day refresh token. On 401, `src/api/auth.js` `apiFetch` attempts silent refresh with single in-flight promise; failure clears both tokens and redirects to `/login`
 - **Subtasks**: Nested per card, limit 20 per card, stored with float position (not array index). Support toggle (checked), rename, reorder (↑/↓), delete. Progress shown on the card via `domain/progress.js` `progressView(done,total)` — adaptive **segments** (≤ 8 subtasks) vs continuous **mini-bar** (> 8) + `done/total` count (turns green when complete).
@@ -79,7 +79,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 - **Label edit**: existing labels are editable (name + color) via the ✎ button per row in `LabelPicker` → inline edit form (mirrors Column `RenameForm`). Optimistic `patchLabel(labelId, userId, patch)` updates `board.labels` in place, so any card using that label as its Category re-renders with the new name/color instantly. Backend `PATCH /labels/:id` + client `patchLabel` already existed.
 - **Shared `ColorPicker`**: `src/components/common/ColorPicker.jsx` is the single swatch picker used by both the column-color (`allowClear` → renders "✕" clear, value can be `null`) and label-color editors. Palette lives in `src/domain/colors.js` (`PRESET_COLORS`). Keeps `data-swatch` attrs (`<hex>` / `custom` / `clear`) that the column-color E2E selectors depend on.
 - **Date helpers**: `src/domain/dates.js` — `fromYMD`/`toYMD` (timezone-safe local-day conversion for the `YYYY-MM-DD` due-date strings), `formatDueDate` (th-TH), `isOverdue`. Used by `Card.jsx` and `DueDateField.jsx`.
-- **Store optimistic helper**: `useBoardStore.js` wraps every `board`-scoped mutation in an `optimistic(get, set, { apply, commit, settle })` helper (snapshot → apply → await commit → settle → rollback on error → rethrow). Every mutation rethrows, so callers must handle the rejection: `BoardPage` routes failures to its dismissable op-error banner via `reportOpError(promise)`; `BoardListPage` swallows them because the store's `error` is already rendered there (issue #49). `moveSubtaskUp/Down` delegate to one `moveSubtask(id, dir)`.
+- **Store optimistic helper**: `useBoardStore.js` wraps every `board`-scoped mutation except `addMember` in an `optimistic(get, set, { apply, commit, settle })` helper (snapshot → apply → await commit → settle → rollback on error → rethrow). Every mutation rethrows, so callers must handle the rejection: `BoardPage` routes failures to its dismissable op-error banner via `reportOpError(promise)`; `BoardListPage` swallows them because the store's `error` is already rendered there (issue #49). `moveSubtaskUp/Down` delegate to one `moveSubtask(id, dir)`. `addMember` is deliberately not optimistic — the invitee's id isn't known until the server resolves the email — so it refetches the board after success.
 - **Card deleted by another member** (issue #50, PRD §1.5): `moveCard`/`patchCard` are wrapped in `dropCardIfGone` — on a 404 the card (plus its `cardLabels`/`cardAssignees`/`subtasks`, via `withoutCard`) is removed instead of restored from the rollback snapshot, then the error is rethrown. `BoardPage` announces "This card was deleted by another member." and closes the Card panel only where a deletion is actually detected: `handleReconcile` (the open card is missing from a polled snapshot) and `handleSaveCard` (a panel `patchCard` 404). Any other disappearance of the open card (e.g. its column deleted locally) closes the panel silently.
 
 ### Validation Constraints
@@ -97,8 +97,8 @@ Validation runs client-side (UX) and is enforced by the backend (authoritative).
 
 ## Tests
 
-### Unit tests (140)
-`src/domain/` (incl. `progress.test.js`, `accent.test.js`, `dates.test.js`, `completion.test.js`, `titleEdit.test.js`, `dragDrop.test.js`, `category.test.js`, `assignees.test.js`), `src/hooks/`, `src/store/useSession.test.js`, `src/store/useBoardStore.test.js`. Run: `npm test -- --watchAll=false`
+### Unit tests (147)
+`src/domain/` (incl. `progress.test.js`, `accent.test.js`, `dates.test.js`, `completion.test.js`, `titleEdit.test.js`, `dragDrop.test.js`, `category.test.js`, `assignees.test.js`), `src/api/client.test.js` (response normalization, no token storage), `src/hooks/`, `src/store/useSession.test.js`, `src/store/useBoardStore.test.js`. Run: `npm test -- --watchAll=false`
 
 Not unit-tested: components — covered by E2E.
 
@@ -106,7 +106,7 @@ Not unit-tested: components — covered by E2E.
 
 ### E2E tests (Playwright)
 
-`e2e/` — 58 tests across 14 files. Require the full stack (`docker compose up`).
+`e2e/` — 59 tests across 14 files. Require the full stack (`docker compose up`).
 
 | File | Flows covered | Status |
 |---|---|---|
@@ -115,7 +115,7 @@ Not unit-tested: components — covered by E2E.
 | `dnd.spec.js` | drag card cross-column → persist on refresh | ✅ |
 | `profile.spec.js` | update name, email conflict, change password, wrong password | ✅ |
 | `subtask.spec.js` | create, toggle, rename, reorder, delete subtasks; max 20 limit | ✅ |
-| `board.spec.js` | create/rename/delete board; member cannot delete | ✅ |
+| `board.spec.js` | create/rename/delete board; owner-only buttons show on a new board without reload; member cannot delete | ✅ |
 | `member.spec.js` | invite member → member sees board | ✅ |
 | `column-color.spec.js` | set column color, persist after reload, clear color | ✅ |
 | `category.spec.js` | attach label → auto-set as category → shows on card; rename label → card reflects it | ✅ |
@@ -139,7 +139,7 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs both `test-frontend` (140 unit tests) and `test-api` (132 integration tests, postgres:16-alpine service) on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs both `test-frontend` (147 unit tests) and `test-api` (132 integration tests, postgres:16-alpine service) on every push/PR to `main`.
 
 ## API
 
@@ -173,7 +173,6 @@ Docker is the recommended way to run the API in development — `docker compose 
 | `api/src/routes/cards.js` | Card PATCH/DELETE, assignees, category |
 | `api/src/routes/subtasks.js` | POST/PATCH/DELETE subtasks |
 | `api/src/routes/labels.js` | Label PATCH/DELETE |
-| `api/src/domain/ordering.js` | needsRebalance + rebalance (CJS, ported from frontend) |
 | `api/src/test/helpers.js` | createUser(), clearDb() for integration tests |
 | `api/src/test/globalSetup.js` | Runs migrations on TEST_DATABASE_URL before test run |
 
@@ -196,7 +195,7 @@ Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env
 
 ### Key Decisions
 
-- **Board snapshot**: `GET /boards/:id` returns `{ board, columns[], cards[], labels[], members[], cardAssignees[], cardLabels[], subtasks[] }` — one call for initial render (flattened by `client.js`).
+- **Board snapshot**: `GET /boards/:id` returns the board's own fields at the top level (`id`, `name`, `owner_id`, …) plus `columns[]` (each with nested `cards[]`, each card carrying `label_ids[]`, `assignees[]`, `subtasks[]`), `labels[]`, and `members[]` — one call for initial render. `client.js` `normalizeSnapshot()` flattens it to `{ board, columns[], cards[], labels[], members[], cardLabels[], cardAssignees[], subtasks[] }`.
 - **Card completion**: `cards.completed_at DATE NULL` — null = not done. `PATCH /cards/:id` accepts it. No server-side subtask check (client-side UX guard only).
 - **Card Category**: `cards.category_label_id` (nullable FK → labels, `ON DELETE SET NULL`). Snapshot returns it per card.
 - **Multiple assignees**: `card_assignees (card_id, user_id)` join. `PUT`/`DELETE /cards/:id/assignees/:userId`.

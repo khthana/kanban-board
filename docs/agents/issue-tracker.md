@@ -13,7 +13,7 @@ Issues and PRDs for this repo live as GitHub issues (`khthana/kanban-board`). Us
 
 Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
 
-> Note: the backend lives in a separate repo (`khthana/kanban-board-api`). When an issue concerns the API, create/track it there instead — `gh` picks the repo from the clone you run it in.
+> Note: this is a monorepo — the backend lives in `api/`, so API issues are tracked here too.
 
 ## When a skill says "publish to the issue tracker"
 

@@ -39,7 +39,7 @@ router.patch('/:id', async (req, res) => {
   values.push(id);
 
   const { rows } = await pool.query(
-    `UPDATE labels SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING id, name, color`,
+    `UPDATE labels SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING id, board_id, name, color`,
     values
   );
   return res.json(rows[0]);

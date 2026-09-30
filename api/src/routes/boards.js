@@ -149,7 +149,7 @@ router.patch('/:id', requireOwner('id'), async (req, res) => {
   if (name.trim().length > 100) return res.status(400).json({ error: 'name too long' });
 
   const { rows } = await pool.query(
-    `UPDATE boards SET name = $1, updated_at = now() WHERE id = $2 RETURNING id, name, owner_id`,
+    `UPDATE boards SET name = $1, updated_at = now() WHERE id = $2 RETURNING id, name, owner_id, created_at`,
     [name.trim(), id]
   );
   if (rows.length === 0) return res.status(404).json({ error: 'board not found' });
@@ -173,7 +173,7 @@ router.post('/:id/columns', requireMembership('id'), async (req, res) => {
   const position = maxRows[0].max_pos + 1.0;
 
   const { rows } = await pool.query(
-    `INSERT INTO columns (board_id, name, position) VALUES ($1, $2, $3) RETURNING id, name, position`,
+    `INSERT INTO columns (board_id, name, position) VALUES ($1, $2, $3) RETURNING id, board_id, name, position, color`,
     [id, name.trim(), position]
   );
   return res.status(201).json(rows[0]);
@@ -212,7 +212,7 @@ router.post('/:id/labels', requireMembership('id'), async (req, res) => {
   if (!color || !isValidHex(color)) return res.status(400).json({ error: 'color must be a valid hex color' });
 
   const { rows } = await pool.query(
-    `INSERT INTO labels (board_id, name, color) VALUES ($1, $2, $3) RETURNING id, name, color`,
+    `INSERT INTO labels (board_id, name, color) VALUES ($1, $2, $3) RETURNING id, board_id, name, color`,
     [id, name.trim(), color]
   );
   return res.status(201).json(rows[0]);

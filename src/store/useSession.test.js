@@ -36,6 +36,21 @@ test('register() populates displayName and email from getMe', async () => {
   expect(useSession.getState().isAuthenticated).toBe(true);
 });
 
+test('login() and register() store the access and refresh tokens', async () => {
+  const token = makeToken('user-1');
+  client.login.mockResolvedValue({ token, refreshToken: 'refresh-1' });
+  client.register.mockResolvedValue({ token, refreshToken: 'refresh-2' });
+
+  await useSession.getState().login('alice@example.com', 'secret123');
+  expect(auth.setToken).toHaveBeenCalledWith(token);
+  expect(auth.setRefreshToken).toHaveBeenCalledWith('refresh-1');
+
+  jest.clearAllMocks();
+  await useSession.getState().register('alice@example.com', 'secret123', 'Alice');
+  expect(auth.setToken).toHaveBeenCalledWith(token);
+  expect(auth.setRefreshToken).toHaveBeenCalledWith('refresh-2');
+});
+
 test('logout() clears displayName and email', async () => {
   useSession.setState({ displayName: 'Alice', email: 'alice@example.com', isAuthenticated: true });
 

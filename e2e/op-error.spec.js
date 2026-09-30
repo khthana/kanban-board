@@ -81,9 +81,6 @@ test('a failed board rename rolls back, closes the form, and shows the error', a
   page.on('pageerror', err => errors.push(err.message));
 
   await registerAndCreateBoard(page, 'Keep Me');
-  // Reload so the list comes from GET /boards: createBoard's response isn't
-  // normalized (owner_id vs ownerId, #52), which hides the owner-only buttons.
-  await page.reload();
   await failRequests(page, '**/boards/*', 'PATCH');
 
   await page.click('button[title="Rename"]');
