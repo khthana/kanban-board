@@ -4,7 +4,8 @@ import requireAuth from '../middleware/requireAuth.js';
 import requireAccess from '../middleware/requireAccess.js';
 import isParentGone from '../db/isParentGone.js';
 import { MAX_NAME_LENGTH, MAX_CARD_TITLE_LENGTH, MAX_CARD_DESCRIPTION_LENGTH } from '../../../src/domain/validation.js';
-import { needsRebalance, rebalance } from '../../../src/domain/ordering.js';
+import inTransaction from '../db/inTransaction.js';
+import { moveColumn } from '../db/reposition.js';
 import { isValidHex } from '../lib/validation.js';
 
 const router = express.Router();
@@ -32,38 +33,15 @@ router.patch('/:id', requireAccess('column'), async (req, res) => {
   sets.push(`updated_at = now()`);
   values.push(id);
 
-  const { rows } = await pool.query(
+  const updateColumn = async client => (await client.query(
     `UPDATE columns SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING id, name, position, color, board_id`,
     values
-  );
-  const updated = rows[0];
+  )).rows[0] ?? null;
+  // A move re-spaces the board's Columns in the same transaction (#66).
+  const updated = await inTransaction(client => position === undefined
+    ? updateColumn(client)
+    : moveColumn(client, req.access.board_id, updateColumn));
   if (!updated) return res.status(404).json({ error: 'column not found' });
-
-  if (position !== undefined) {
-    const { rows: siblings } = await pool.query(
-      `SELECT id, position FROM columns WHERE board_id = $1 ORDER BY position`,
-      [updated.board_id]
-    );
-    if (needsRebalance(siblings.map(r => r.position))) {
-      const rebalanced = rebalance(siblings);
-      const client = await pool.connect();
-      try {
-        await client.query('BEGIN');
-        for (const r of rebalanced) {
-          await client.query(
-            `UPDATE columns SET position = $1, updated_at = now() WHERE id = $2`,
-            [r.position, r.id]
-          );
-        }
-        await client.query('COMMIT');
-      } catch (err) {
-        await client.query('ROLLBACK');
-        throw err;
-      } finally {
-        client.release();
-      }
-    }
-  }
 
   return res.json({ ...updated, color: updated.color ?? null });
 });

@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../db/pool.js';
+import inTransaction from '../db/inTransaction.js';
 import { MAX_NAME_LENGTH } from '../../../src/domain/validation.js';
 import requireAuth from '../middleware/requireAuth.js';
 import { requireMembership, requireOwner } from '../middleware/requireMembership.js';
@@ -13,26 +14,18 @@ router.post('/', async (req, res) => {
   if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
   if (name.trim().length > MAX_NAME_LENGTH) return res.status(400).json({ error: 'name too long' });
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
+  const board = await inTransaction(async client => {
     const { rows } = await client.query(
       `INSERT INTO boards (name, owner_id) VALUES ($1, $2) RETURNING id, name, owner_id, created_at`,
       [name.trim(), req.user.id]
     );
-    const board = rows[0];
     await client.query(
       `INSERT INTO board_members (board_id, user_id, role) VALUES ($1, $2, 'owner')`,
-      [board.id, req.user.id]
+      [rows[0].id, req.user.id]
     );
-    await client.query('COMMIT');
-    return res.status(201).json(board);
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+    return rows[0];
+  });
+  return res.status(201).json(board);
 });
 
 router.get('/', async (req, res) => {

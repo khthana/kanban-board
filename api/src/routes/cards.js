@@ -6,7 +6,7 @@ import requireAuth from '../middleware/requireAuth.js';
 import requireAccess from '../middleware/requireAccess.js';
 import isParentGone from '../db/isParentGone.js';
 import { MAX_CARD_TITLE_LENGTH, MAX_CARD_DESCRIPTION_LENGTH } from '../../../src/domain/validation.js';
-import { needsRebalance, rebalance } from '../../../src/domain/ordering.js';
+import { moveCard } from '../db/reposition.js';
 import { resolveAttach, resolveDetach } from '../../../src/domain/category.js';
 
 const router = express.Router();
@@ -57,52 +57,30 @@ router.patch('/:id', requireAccess('card'), async (req, res) => {
   sets.push(`updated_at = now()`);
   values.push(id);
 
-  const outcome = await inTransaction(async client => {
+  // Returns the updated row, or null when the card is gone; throws (→ rollback) to reject.
+  const updateCard = async client => {
     if (category_label_id !== undefined && category_label_id !== null) {
       // Lock the card before checking, so a concurrent detach can't orphan the Category (#55).
-      if (!await lockCard(client, id)) return { updated: null };
+      if (!await lockCard(client, id)) return null;
       const { rows: attached } = await client.query(
         `SELECT 1 FROM card_labels WHERE card_id = $1 AND label_id = $2`, [id, category_label_id]
       );
-      if (attached.length === 0) return { error: 'category label is not attached to the card' };
+      if (attached.length === 0) {
+        throw Object.assign(new Error('category label is not attached to the card'), { status: 400 });
+      }
     }
     const { rows } = await client.query(
       `UPDATE cards SET ${sets.join(', ')} WHERE id = $${values.length}
        RETURNING id, column_id, title, description, due_date, position, category_label_id, completed_at`,
       values
     );
-    return { updated: rows[0] ?? null };
-  });
-  if (outcome.error) return res.status(400).json({ error: outcome.error });
-  const { updated } = outcome;
+    return rows[0] ?? null;
+  };
+  // A move re-spaces the target Column in the same transaction (#66).
+  const updated = await inTransaction(client => position === undefined
+    ? updateCard(client)
+    : moveCard(client, id, column_id, updateCard));
   if (!updated) return res.status(404).json({ error: 'card not found' });
-
-  if (position !== undefined) {
-    const targetColumnId = column_id ?? updated.column_id;
-    const { rows: siblings } = await pool.query(
-      `SELECT id, position FROM cards WHERE column_id = $1 ORDER BY position`,
-      [targetColumnId]
-    );
-    if (needsRebalance(siblings.map(r => r.position))) {
-      const rebalanced = rebalance(siblings);
-      const client = await pool.connect();
-      try {
-        await client.query('BEGIN');
-        for (const r of rebalanced) {
-          await client.query(
-            `UPDATE cards SET position = $1, updated_at = now() WHERE id = $2`,
-            [r.position, r.id]
-          );
-        }
-        await client.query('COMMIT');
-      } catch (err) {
-        await client.query('ROLLBACK');
-        throw err;
-      } finally {
-        client.release();
-      }
-    }
-  }
 
   return res.json(updated);
 });

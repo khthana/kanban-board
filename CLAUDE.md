@@ -62,7 +62,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 
 ### Key Decisions
 
-- **Fractional float position**: `positionBetween(prev, next)` for drag-and-drop and subtask reordering — single record update; for cards and columns the backend rebalances on write when any gap < 1e-9 (subtasks never rebalance). The client proposes the position on move and the backend stores it as sent (a concurrent collision has gap 0, so it triggers a rebalance); on create the backend assigns `MAX(position) + 1` and the placeholder's position is replaced — PRD §1.3, decided in #53
+- **Fractional float position**: `positionBetween(prev, next)` for drag-and-drop and subtask reordering — single record update; for cards and columns the backend rebalances on write when any gap < 1e-9 (subtasks never rebalance) — in the **same transaction** as the move, via `api/src/db/reposition.js` (#66), which locks the scope rows (source + target Column for Cards, the board for Columns) before the write so concurrent moves into one scope take turns. A request rejected inside the transaction (e.g. an unattached Category) throws an error carrying `status`, so the move rolls back too. The client proposes the position on move and the backend stores it as sent (a concurrent collision has gap 0, so it triggers a rebalance); on create the backend assigns `MAX(position) + 1` and the placeholder's position is replaced — PRD §1.3, decided in #53
 - **Optimistic UI**: snapshot → apply → API → rollback on error
 - **Board snapshot**: `GET /boards/:id` returns nested shape; `client.js` flattens to `{ board, columns[], cards[], labels[], members[], cardLabels[], cardAssignees[], subtasks[] }`
 - **snake_case ↔ camelCase**: `normalizeBoard()` / `normalizeColumn()` / `normalizeLabel()` / `normalizeCard()` / `normalizeSubtask()` (responses), `normalizeSnapshot()` (the nested `GET /boards/:id` body), and `cardPatchToApi()` (requests) in `client.js` handle conversion. `attachLabel`/`attachAssignee` return the store's `{cardId, labelId}` / `{cardId, userId}` join shape. The API returns `board_id` on column/label create and patch so the normalizers never have to guess it (#52).
@@ -142,7 +142,7 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs both `test-frontend` (198 unit tests) and `test-api` (196 integration tests, postgres:16-alpine service) on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs both `test-frontend` (198 unit tests) and `test-api` (201 integration tests, postgres:16-alpine service) on every push/PR to `main`.
 
 ## API
 
@@ -167,6 +167,8 @@ Docker is the recommended way to run the API in development — `docker compose 
 | `api/src/app.js` | Express app — cors, json middleware, route mounts |
 | `api/src/index.js` | HTTP server (PORT=3350) |
 | `api/src/db/pool.js` | pg Pool — `DATABASE_URL` or `TEST_DATABASE_URL` from env |
+| `api/src/db/inTransaction.js` | `inTransaction(fn)` — BEGIN/COMMIT/ROLLBACK on one client; the only place routes get a transaction (no hand-written BEGIN/COMMIT) |
+| `api/src/db/reposition.js` | `moveCard(client, cardId, targetColumnId, write)` / `moveColumn(client, boardId, write)` — lock scope(s) → write → rebalance if crowded, in the caller's transaction (#66). A Card move locks its source **and** target Column in id order (else opposite cross-column moves deadlock); a Card moved by another request between read and lock → 409 |
 | `api/src/db/migrate.js` | Idempotent migration runner (schema_migrations table) |
 | `api/src/db/migrations/` | SQL migration files 001–007 |
 | `api/src/middleware/requireAuth.js` | JWT verify → `req.user.id` |
@@ -193,7 +195,7 @@ Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env
 
 ### Tests
 
-196 integration tests across 8 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
+201 integration tests across 8 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
 
 **Critical**: use `--maxWorkers=1`, NOT `--runInBand`. Jest 30 runs test files in parallel by default.
 
@@ -201,11 +203,11 @@ Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env
 
 - **Board snapshot**: `GET /boards/:id` returns the board's own fields at the top level (`id`, `name`, `owner_id`, …) plus `columns[]` (each with nested `cards[]`, each card carrying `label_ids[]`, `assignees[]`, `subtasks[]`), `labels[]`, and `members[]` — one call for initial render. `client.js` `normalizeSnapshot()` flattens it to `{ board, columns[], cards[], labels[], members[], cardLabels[], cardAssignees[], subtasks[] }`.
 - **Card completion**: `cards.completed_at DATE NULL` — null = not done. `PATCH /cards/:id` accepts it. No server-side subtask check (client-side UX guard only).
-- **Card Category**: `cards.category_label_id` (nullable FK → labels, `ON DELETE SET NULL`). Snapshot returns it per card. Label attach/detach auto-set/promote it transactionally using the shared `src/domain/category.js`; PATCH only accepts an attached label (or null), checked in the same transaction. Every Category path locks the card row **first** (`lockCard` — `SELECT … FOR UPDATE`): locking after the `card_labels` INSERT deadlocks concurrent attaches (its FK check holds KEY SHARE on the card). A card deleted mid-request returns 404.
+- **Card Category**: `cards.category_label_id` (nullable FK → labels, `ON DELETE SET NULL`). Snapshot returns it per card. Label attach/detach auto-set/promote it transactionally using the shared `src/domain/category.js`; PATCH only accepts an attached label (or null), checked in the same transaction. Every Category path locks the card row **first** among card-level locks (`lockCard` — `SELECT … FOR UPDATE`; only a move's Column locks, #66, come before it): locking after the `card_labels` INSERT deadlocks concurrent attaches (its FK check holds KEY SHARE on the card). A card deleted mid-request returns 404.
 - **Multiple assignees**: `card_assignees (card_id, user_id)` join. `PUT`/`DELETE /cards/:id/assignees/:userId`.
 - **Authorization**: board membership resolved via FK chain; never trust client-supplied role claims. Board-id routes use `requireMembership`/`requireOwner`; every route reached by a Card, Subtask, Column or Label id uses `requireAccess(kind)` (#65), so all answer alike **before body validation**: unknown or malformed id → 404, non-member → 403 (matrix in `requireAccess.test.js`). An entity deleted after the check → 404 too: every PATCH that updates no row returns 404 (DELETE of a Card/Column/Label stays an idempotent 204; DELETE of a Subtask returns 404), and the two INSERTs whose only FK parent is the resolved entity (POST a Card into a Column, PUT an assignee) map an FK violation to 404 via `db/isParentGone.js` — not globally, since a Card PATCH whose target Column/Label vanished must not read as "card deleted". Length limits come from `src/domain/validation.js` (`MAX_NAME_LENGTH`, `MAX_CARD_TITLE_LENGTH`, `MAX_CARD_DESCRIPTION_LENGTH`, `MAX_SUBTASK_TITLE_LENGTH`) — no hard-coded numbers in routes.
 - **Rate limiter**: bypassed when `NODE_ENV === 'development'` or `'test'` to avoid accumulation across test runs.
-- **ESM**: `api/` uses `"type": "module"` (full ESM). `api/src/routes/columns.js` and `cards.js` import `positionBetween`/`needsRebalance`/`rebalance` directly from the shared `src/domain/ordering.js` — there is no separate backend copy. `cross-env` in test scripts ensures `NODE_OPTIONS=--experimental-vm-modules` works on Windows and Linux.
+- **ESM**: `api/` uses `"type": "module"` (full ESM). `api/src/db/reposition.js` imports `needsRebalance`/`rebalance` directly from the shared `src/domain/ordering.js` — there is no separate backend copy. `cross-env` in test scripts ensures `NODE_OPTIONS=--experimental-vm-modules` works on Windows and Linux.
 
 ## Agent skills
 

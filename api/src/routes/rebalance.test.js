@@ -131,3 +131,114 @@ describe('column position rebalancing', () => {
     expect(colPositions[1] - colPositions[0]).toBeGreaterThanOrEqual(1e-9);
   });
 });
+
+// #66 — move and rebalance commit together, and concurrent moves serialise on
+// the scope, so positions always end up strictly ordered.
+const MIN_GAP = 1e-9;
+const strictlyOrdered = positions =>
+  positions.every((p, i) => i === 0 || p - positions[i - 1] >= MIN_GAP);
+
+async function cardPositions(token, boardId, columnId) {
+  const snap = await request(app).get(`/boards/${boardId}`).set('Authorization', `Bearer ${token}`);
+  return snap.body.columns.find(c => c.id === columnId).cards
+    .slice().sort((a, b) => a.position - b.position);
+}
+
+describe('reposition (#66)', () => {
+  it('a move that triggers a rebalance keeps the moved order, strictly spaced', async () => {
+    const { user, board, column } = await setup();
+    const a = await createCard(user.token, column.id, 'A');
+    const b = await createCard(user.token, column.id, 'B');
+    const c = await createCard(user.token, column.id, 'C');
+
+    // C squeezed in just after A → A, C, B
+    const res = await request(app).patch(`/cards/${c.id}`)
+      .set('Authorization', `Bearer ${user.token}`).send({ position: 1.0 + 5e-10 });
+    expect(res.status).toBe(200);
+
+    const cards = await cardPositions(user.token, board.id, column.id);
+    expect(cards.map(x => x.id)).toEqual([a.id, c.id, b.id]);
+    expect(strictlyOrdered(cards.map(x => x.position))).toBe(true);
+  });
+
+  it('concurrent card moves into the same gap end up strictly ordered', async () => {
+    const { user, board, column } = await setup();
+    await createCard(user.token, column.id, 'A');   // 1
+    await createCard(user.token, column.id, 'B');   // 2
+    const movers = [];
+    for (let i = 0; i < 6; i++) movers.push(await createCard(user.token, column.id, `M${i}`));
+
+    // every mover lands on the same proposed position between A and B
+    const results = await Promise.all(movers.map(m =>
+      request(app).patch(`/cards/${m.id}`).set('Authorization', `Bearer ${user.token}`).send({ position: 1.5 })));
+    expect(results.map(r => r.status)).toEqual(movers.map(() => 200));
+
+    const positions = (await cardPositions(user.token, board.id, column.id)).map(x => x.position);
+    expect(positions).toHaveLength(8);
+    expect(strictlyOrdered(positions)).toBe(true);
+  });
+
+  it('concurrent column moves into the same gap end up strictly ordered', async () => {
+    const { user, board } = await setup();   // column at 1
+    const auth = { Authorization: `Bearer ${user.token}` };
+    await request(app).post(`/boards/${board.id}/columns`).set(auth).send({ name: 'Two' });  // 2
+    const movers = [];
+    for (let i = 0; i < 6; i++) {
+      movers.push((await request(app).post(`/boards/${board.id}/columns`).set(auth).send({ name: `M${i}` })).body);
+    }
+
+    const results = await Promise.all(movers.map(m =>
+      request(app).patch(`/columns/${m.id}`).set(auth).send({ position: 1.5 })));
+    expect(results.map(r => r.status)).toEqual(movers.map(() => 200));
+
+    const snap = await request(app).get(`/boards/${board.id}`).set(auth);
+    const positions = snap.body.columns.map(c => c.position).sort((x, y) => x - y);
+    expect(positions).toHaveLength(8);
+    expect(strictlyOrdered(positions)).toBe(true);
+  });
+});
+
+describe('reposition — cross-column moves (#66)', () => {
+  it('concurrent swaps between two crowded columns neither deadlock nor misplace cards', async () => {
+    const { user, board, column: colC } = await setup();
+    const auth = { Authorization: `Bearer ${user.token}` };
+    const colD = (await request(app).post(`/boards/${board.id}/columns`).set(auth).send({ name: 'D' })).body;
+    const inC = [], inD = [];
+    for (let i = 0; i < 4; i++) {
+      inC.push(await createCard(user.token, colC.id, `C${i}`));
+      inD.push(await createCard(user.token, colD.id, `D${i}`));
+    }
+
+    // every C card moves to D and every D card to C, all landing on 1.5 → each move rebalances
+    const moves = [
+      ...inC.map(c => ({ id: c.id, column_id: colD.id })),
+      ...inD.map(c => ({ id: c.id, column_id: colC.id })),
+    ];
+    const results = await Promise.all(moves.map(m =>
+      request(app).patch(`/cards/${m.id}`).set(auth).send({ column_id: m.column_id, position: 1.5 })));
+    expect(results.map(r => r.status)).toEqual(moves.map(() => 200));
+
+    const snap = await request(app).get(`/boards/${board.id}`).set(auth);
+    const col = id => snap.body.columns.find(c => c.id === id).cards;
+    expect(col(colC.id).map(c => c.id).sort()).toEqual(inD.map(c => c.id).sort());
+    expect(col(colD.id).map(c => c.id).sort()).toEqual(inC.map(c => c.id).sort());
+    for (const id of [colC.id, colD.id]) {
+      expect(strictlyOrdered(col(id).map(c => c.position).sort((a, b) => a - b))).toBe(true);
+    }
+  });
+
+  it('a move with an unattached Category is rejected and changes no positions', async () => {
+    const { user, board, column } = await setup();
+    const auth = { Authorization: `Bearer ${user.token}` };
+    const a = await createCard(user.token, column.id, 'A');
+    const b = await createCard(user.token, column.id, 'B');
+    const label = (await request(app).post(`/boards/${board.id}/labels`).set(auth).send({ name: 'L', color: '#f00' })).body;
+
+    const res = await request(app).patch(`/cards/${b.id}`).set(auth)
+      .send({ position: 1.0 + 5e-10, category_label_id: label.id });
+    expect(res.status).toBe(400);
+
+    const cards = await cardPositions(user.token, board.id, column.id);
+    expect(cards.map(c => [c.id, c.position])).toEqual([[a.id, 1], [b.id, 2]]);
+  });
+});
