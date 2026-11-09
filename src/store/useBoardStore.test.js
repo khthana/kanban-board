@@ -39,17 +39,17 @@ describe('patchLabel', () => {
     withLabel();
     client.patchLabel.mockResolvedValue({ id: 'l1', name: 'New', color: '#93c5fd' });
 
-    await useBoardStore.getState().patchLabel('l1', 'u1', { name: 'New', color: '#93c5fd' });
+    await useBoardStore.getState().patchLabel('l1', { name: 'New', color: '#93c5fd' });
 
     expect(useBoardStore.getState().board.labels[0]).toMatchObject({ name: 'New', color: '#93c5fd' });
-    expect(client.patchLabel).toHaveBeenCalledWith('l1', 'u1', { name: 'New', color: '#93c5fd' });
+    expect(client.patchLabel).toHaveBeenCalledWith('l1', { name: 'New', color: '#93c5fd' });
   });
 
   test('rolls back on API failure', async () => {
     withLabel();
     client.patchLabel.mockRejectedValue(new Error('boom'));
 
-    await expect(useBoardStore.getState().patchLabel('l1', 'u1', { name: 'New' })).rejects.toThrow('boom');
+    await expect(useBoardStore.getState().patchLabel('l1', { name: 'New' })).rejects.toThrow('boom');
 
     expect(useBoardStore.getState().board.labels[0].name).toBe('Old');
   });
@@ -74,7 +74,7 @@ describe('label attach/detach carries the Category (ADR-0002, #55)', () => {
     let resolve;
     client.attachLabel.mockReturnValue(new Promise(r => { resolve = r; }));
 
-    const pending = useBoardStore.getState().attachLabel('card1', 'l1', 'u1');
+    const pending = useBoardStore.getState().attachLabel('card1', 'l1');
     expect(card().categoryLabelId).toBe('l1');
     expect(useBoardStore.getState().board.cardLabels).toEqual([{ cardId: 'card1', labelId: 'l1' }]);
 
@@ -89,7 +89,7 @@ describe('label attach/detach carries the Category (ADR-0002, #55)', () => {
     let resolve;
     client.attachLabel.mockReturnValue(new Promise(r => { resolve = r; }));
 
-    const pending = useBoardStore.getState().attachLabel('card1', 'l1', 'u1');
+    const pending = useBoardStore.getState().attachLabel('card1', 'l1');
     const b = useBoardStore.getState().board;
     useBoardStore.setState({ board: { ...b, cards: b.cards.map(c => ({ ...c, categoryLabelId: 'l1' })) } });
 
@@ -102,7 +102,7 @@ describe('label attach/detach carries the Category (ADR-0002, #55)', () => {
     withLabels();
     client.attachLabel.mockRejectedValue(new Error('boom'));
 
-    await expect(useBoardStore.getState().attachLabel('card1', 'l1', 'u1')).rejects.toThrow('boom');
+    await expect(useBoardStore.getState().attachLabel('card1', 'l1')).rejects.toThrow('boom');
 
     expect(useBoardStore.getState().board.cardLabels).toEqual([]);
     expect(card().categoryLabelId).toBeNull();
@@ -116,7 +116,7 @@ describe('label attach/detach carries the Category (ADR-0002, #55)', () => {
     let resolve;
     client.detachLabel.mockReturnValue(new Promise(r => { resolve = r; }));
 
-    const pending = useBoardStore.getState().detachLabel('card1', 'l1', 'u1');
+    const pending = useBoardStore.getState().detachLabel('card1', 'l1');
     expect(card().categoryLabelId).toBe('l2');
 
     resolve({ cardId: 'card1', labelId: 'l1', categoryLabelId: 'l2' });
@@ -128,7 +128,7 @@ describe('label attach/detach carries the Category (ADR-0002, #55)', () => {
     withLabels({ cardLabels: [{ cardId: 'card1', labelId: 'l1' }], categoryLabelId: 'l1' });
     client.detachLabel.mockRejectedValue(new Error('boom'));
 
-    await expect(useBoardStore.getState().detachLabel('card1', 'l1', 'u1')).rejects.toThrow('boom');
+    await expect(useBoardStore.getState().detachLabel('card1', 'l1')).rejects.toThrow('boom');
 
     expect(useBoardStore.getState().board.cardLabels).toEqual([{ cardId: 'card1', labelId: 'l1' }]);
     expect(card().categoryLabelId).toBe('l1');
@@ -138,7 +138,7 @@ describe('label attach/detach carries the Category (ADR-0002, #55)', () => {
     withLabels({ cardLabels: [{ cardId: 'card1', labelId: 'l1' }], categoryLabelId: 'l1' });
     client.detachLabel.mockResolvedValue({ cardId: 'card1', labelId: 'l1', categoryLabelId: 'l2' });
 
-    await useBoardStore.getState().detachLabel('card1', 'l1', 'u1');
+    await useBoardStore.getState().detachLabel('card1', 'l1');
 
     expect(card().categoryLabelId).toBe('l2');
   });
@@ -181,7 +181,7 @@ describe('patchCard', () => {
   test('applies optimistically then settles with server record', async () => {
     client.patchCard.mockResolvedValue({ id: 'card1', columnId: 'c1', title: 'Server', position: 1 });
 
-    const result = await useBoardStore.getState().patchCard('card1', 'u1', { title: 'New' });
+    const result = await useBoardStore.getState().patchCard('card1', { title: 'New' });
 
     expect(result).toMatchObject({ title: 'Server' });
     expect(useBoardStore.getState().board.cards[0].title).toBe('Server');
@@ -191,7 +191,7 @@ describe('patchCard', () => {
   test('rolls back and rethrows on API failure', async () => {
     client.patchCard.mockRejectedValue(new Error('boom'));
 
-    await expect(useBoardStore.getState().patchCard('card1', 'u1', { title: 'New' }))
+    await expect(useBoardStore.getState().patchCard('card1', { title: 'New' }))
       .rejects.toThrow('boom');
 
     expect(useBoardStore.getState().board.cards[0].title).toBe('Old');
@@ -203,16 +203,16 @@ describe('card completion', () => {
   test('marking done applies completedAt optimistically and settles with the server card', async () => {
     client.patchCard.mockResolvedValue({ id: 'card1', columnId: 'c1', title: 'Old', position: 1, completedAt: '2026-06-15' });
 
-    await useBoardStore.getState().patchCard('card1', 'u1', { completedAt: '2026-06-15' });
+    await useBoardStore.getState().patchCard('card1', { completedAt: '2026-06-15' });
 
     expect(useBoardStore.getState().board.cards[0].completedAt).toBe('2026-06-15');
-    expect(client.patchCard).toHaveBeenCalledWith('card1', 'u1', { completedAt: '2026-06-15' });
+    expect(client.patchCard).toHaveBeenCalledWith('card1', { completedAt: '2026-06-15' });
   });
 
   test('a newly created card starts not completed', async () => {
     client.createCard.mockResolvedValue({ id: 'real', columnId: 'c1', title: 'X', position: 2, completedAt: null });
 
-    await useBoardStore.getState().createCard('c1', 'u1', { title: 'X' });
+    await useBoardStore.getState().createCard('c1', { title: 'X' });
 
     const created = useBoardStore.getState().board.cards.find(c => c.id === 'real');
     expect(created.completedAt).toBeNull();
@@ -223,7 +223,7 @@ describe('deleteColumn', () => {
   test('removes column and its cards, rolls back on failure', async () => {
     client.deleteColumn.mockRejectedValue(new Error('nope'));
 
-    await expect(useBoardStore.getState().deleteColumn('c1', 'u1')).rejects.toThrow('nope');
+    await expect(useBoardStore.getState().deleteColumn('c1')).rejects.toThrow('nope');
 
     expect(useBoardStore.getState().board.columns).toHaveLength(1);
     expect(useBoardStore.getState().board.cards).toHaveLength(1);
@@ -254,7 +254,7 @@ describe('deleteColumn', () => {
     test("removes the Column's Cards' labels, assignees and Subtasks; other Columns untouched", async () => {
       client.deleteColumn.mockResolvedValue(undefined);
 
-      await useBoardStore.getState().deleteColumn('c1', 'u1');
+      await useBoardStore.getState().deleteColumn('c1');
 
       expect(useBoardStore.getState().board.cards.map(c => c.id)).toEqual(['card2']);
       expect(cardIdsIn('cardLabels')).toEqual(['card2']);
@@ -265,7 +265,7 @@ describe('deleteColumn', () => {
     test('a failed delete restores Columns, Cards and their records together', async () => {
       client.deleteColumn.mockRejectedValue(new Error('nope'));
 
-      await expect(useBoardStore.getState().deleteColumn('c1', 'u1')).rejects.toThrow('nope');
+      await expect(useBoardStore.getState().deleteColumn('c1')).rejects.toThrow('nope');
 
       expect(useBoardStore.getState().board.columns).toHaveLength(2);
       expect(useBoardStore.getState().board.cards).toHaveLength(2);
@@ -280,7 +280,7 @@ describe('createCard', () => {
   test('replaces the temp placeholder with the server card', async () => {
     client.createCard.mockResolvedValue({ id: 'real', columnId: 'c1', title: 'X', position: 2 });
 
-    await useBoardStore.getState().createCard('c1', 'u1', { title: 'X' });
+    await useBoardStore.getState().createCard('c1', { title: 'X' });
 
     const ids = useBoardStore.getState().board.cards.map(c => c.id);
     expect(ids).toContain('real');
@@ -459,7 +459,7 @@ describe('removeMember', () => {
   test('removes member optimistically', async () => {
     client.removeMember.mockResolvedValue(undefined);
 
-    await useBoardStore.getState().removeMember('b1', 'u1', { memberId: 'u2' });
+    await useBoardStore.getState().removeMember('b1', { memberId: 'u2' });
 
     expect(useBoardStore.getState().board.members.map(m => m.userId)).toEqual(['u1']);
   });
@@ -482,7 +482,7 @@ describe('card deleted by another member (404)', () => {
   test('moveCard removes the card and its labels, assignees, and subtasks, then rethrows', async () => {
     client.moveCard.mockRejectedValue(notFound());
 
-    await expect(useBoardStore.getState().moveCard('card1', 'u1', { columnId: 'c1', position: 5 }))
+    await expect(useBoardStore.getState().moveCard('card1', { columnId: 'c1', position: 5 }))
       .rejects.toThrow('card not found');
 
     const b = useBoardStore.getState().board;
@@ -496,7 +496,7 @@ describe('card deleted by another member (404)', () => {
   test('moveCard still rolls back on other errors', async () => {
     client.moveCard.mockRejectedValue(Object.assign(new Error('boom'), { status: 500 }));
 
-    await expect(useBoardStore.getState().moveCard('card1', 'u1', { columnId: 'c1', position: 5 }))
+    await expect(useBoardStore.getState().moveCard('card1', { columnId: 'c1', position: 5 }))
       .rejects.toThrow('boom');
 
     expect(useBoardStore.getState().board.cards).toEqual([
@@ -507,7 +507,7 @@ describe('card deleted by another member (404)', () => {
   test('deleteCard keeps the card gone on 404 instead of restoring it', async () => {
     client.deleteCard.mockRejectedValue(notFound());
 
-    await expect(useBoardStore.getState().deleteCard('card1', 'u1')).rejects.toThrow('card not found');
+    await expect(useBoardStore.getState().deleteCard('card1')).rejects.toThrow('card not found');
 
     const b = useBoardStore.getState().board;
     expect(b.cards).toEqual([]);
@@ -518,7 +518,7 @@ describe('card deleted by another member (404)', () => {
   test('deleteCard still restores the card on other errors', async () => {
     client.deleteCard.mockRejectedValue(Object.assign(new Error('boom'), { status: 500 }));
 
-    await expect(useBoardStore.getState().deleteCard('card1', 'u1')).rejects.toThrow('boom');
+    await expect(useBoardStore.getState().deleteCard('card1')).rejects.toThrow('boom');
 
     expect(useBoardStore.getState().board.cards.map(c => c.id)).toEqual(['card1']);
     expect(useBoardStore.getState().board.cardLabels).toHaveLength(1);
@@ -527,7 +527,7 @@ describe('card deleted by another member (404)', () => {
   test('patchCard removes the card on 404', async () => {
     client.patchCard.mockRejectedValue(notFound());
 
-    await expect(useBoardStore.getState().patchCard('card1', 'u1', { title: 'New' }))
+    await expect(useBoardStore.getState().patchCard('card1', { title: 'New' }))
       .rejects.toThrow('card not found');
 
     expect(useBoardStore.getState().board.cards).toEqual([]);

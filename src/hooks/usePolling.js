@@ -2,11 +2,11 @@ import { useEffect } from 'react';
 import { getBoard } from '../api/client';
 import { POLLING_INTERVAL_MS } from '../constants';
 
-export function usePolling({ boardId, userId, intervalMs = POLLING_INTERVAL_MS, onReconcile, onForbidden, onNotFound }) {
+export function usePolling({ boardId, intervalMs = POLLING_INTERVAL_MS, onReconcile, onForbidden, onNotFound }) {
   useEffect(() => {
     async function reconcile() {
       try {
-        const data = await getBoard(boardId, userId);
+        const data = await getBoard(boardId);
         onReconcile?.(data);
       } catch (err) {
         if (err.status === 403) onForbidden?.();
@@ -16,5 +16,5 @@ export function usePolling({ boardId, userId, intervalMs = POLLING_INTERVAL_MS, 
 
     const timer = setInterval(reconcile, intervalMs);
     return () => clearInterval(timer);
-  }, [boardId, userId, intervalMs, onReconcile, onForbidden, onNotFound]);
+  }, [boardId, intervalMs, onReconcile, onForbidden, onNotFound]);
 }

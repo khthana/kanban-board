@@ -82,8 +82,8 @@ export const patchMePassword = (body) => apiFetch('PATCH', '/auth/me/password', 
 // ── boards ───────────────────────────────────────────────────────────────────
 
 export const getBoards    = ()            => apiFetch('GET',    '/boards').then(rows => rows.map(normalizeBoard));
-export const createBoard  = (_uid, data)  => apiFetch('POST',   '/boards', data).then(normalizeBoard);
-export const patchBoard   = (id, _uid, p) => apiFetch('PATCH',  `/boards/${id}`, p).then(normalizeBoard);
+export const createBoard  = (data)        => apiFetch('POST',   '/boards', data).then(normalizeBoard);
+export const patchBoard   = (id, p)       => apiFetch('PATCH',  `/boards/${id}`, p).then(normalizeBoard);
 export const deleteBoard  = (id)          => apiFetch('DELETE', `/boards/${id}`);
 
 export async function getBoard(boardId) {
@@ -93,13 +93,13 @@ export async function getBoard(boardId) {
 
 // ── members ──────────────────────────────────────────────────────────────────
 
-export const addMember    = (boardId, _uid, data)           => apiFetch('POST',   `/boards/${boardId}/members`, data);
-export const removeMember = (boardId, _uid, { memberId })   => apiFetch('DELETE', `/boards/${boardId}/members/${memberId}`);
+export const addMember    = (boardId, data)                 => apiFetch('POST',   `/boards/${boardId}/members`, data);
+export const removeMember = (boardId, { memberId })         => apiFetch('DELETE', `/boards/${boardId}/members/${memberId}`);
 
 // ── columns ──────────────────────────────────────────────────────────────────
 
-export const createColumn = (boardId, _uid, data)   => apiFetch('POST',   `/boards/${boardId}/columns`, data).then(normalizeColumn);
-export const patchColumn  = (id, _uid, patch)       => apiFetch('PATCH',  `/columns/${id}`, patch).then(normalizeColumn);
+export const createColumn = (boardId, data)         => apiFetch('POST',   `/boards/${boardId}/columns`, data).then(normalizeColumn);
+export const patchColumn  = (id, patch)             => apiFetch('PATCH',  `/columns/${id}`, patch).then(normalizeColumn);
 export const deleteColumn = (id)                    => apiFetch('DELETE', `/columns/${id}`);
 
 // ── cards ────────────────────────────────────────────────────────────────────
@@ -116,31 +116,31 @@ function cardPatchToApi(patch) {
   return out;
 }
 
-export const createCard = (columnId, _uid, data)    =>
+export const createCard = (columnId, data)          =>
   apiFetch('POST', `/columns/${columnId}/cards`, data).then(normalizeCard);
 
 export const deleteCard = (id)                      => apiFetch('DELETE', `/cards/${id}`);
 
-export async function patchCard(cardId, _uid, patch) {
+export async function patchCard(cardId, patch) {
   const raw = await apiFetch('PATCH', `/cards/${cardId}`, cardPatchToApi(patch));
   return raw ? normalizeCard(raw) : null;
 }
 
-export async function moveCard(cardId, _uid, { columnId, position }) {
+export async function moveCard(cardId, { columnId, position }) {
   const raw = await apiFetch('PATCH', `/cards/${cardId}`, { column_id: columnId, position });
   return raw ? normalizeCard(raw) : null;
 }
 
 // ── labels ───────────────────────────────────────────────────────────────────
 
-export const createLabel  = (boardId, _uid, data)          => apiFetch('POST',   `/boards/${boardId}/labels`, data).then(normalizeLabel);
-export const patchLabel   = (id, _uid, patch)              => apiFetch('PATCH',  `/labels/${id}`, patch).then(normalizeLabel);
+export const createLabel  = (boardId, data)                => apiFetch('POST',   `/boards/${boardId}/labels`, data).then(normalizeLabel);
+export const patchLabel   = (id, patch)                    => apiFetch('PATCH',  `/labels/${id}`, patch).then(normalizeLabel);
 export const deleteLabel  = (id)                           => apiFetch('DELETE', `/labels/${id}`);
 // Attach/detach also return the card's resulting Category — the server applies
 // the ADR-0002 auto-set/promotion rules in the same transaction (#55).
 const normalizeCardLabel = r => ({ cardId: r.card_id, labelId: r.label_id, categoryLabelId: r.category_label_id ?? null });
-export const attachLabel  = (cardId, labelId, _uid)        => apiFetch('PUT',    `/cards/${cardId}/labels/${labelId}`).then(normalizeCardLabel);
-export const detachLabel  = (cardId, labelId, _uid)        => apiFetch('DELETE', `/cards/${cardId}/labels/${labelId}`).then(normalizeCardLabel);
+export const attachLabel  = (cardId, labelId)              => apiFetch('PUT',    `/cards/${cardId}/labels/${labelId}`).then(normalizeCardLabel);
+export const detachLabel  = (cardId, labelId)              => apiFetch('DELETE', `/cards/${cardId}/labels/${labelId}`).then(normalizeCardLabel);
 
 // ── assignees ──────────────────────────────────────────────────────────────────
 

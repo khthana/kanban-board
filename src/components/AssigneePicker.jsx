@@ -1,6 +1,6 @@
 import styles from './AssigneePicker.module.css';
 
-export default function AssigneePicker({ members, assigneeIds = [], onAttach, onDetach }) {
+export default function AssigneePicker({ cardId, members, assigneeIds = [], actions }) {
   const assigned = new Set(assigneeIds);
 
   return (
@@ -15,7 +15,7 @@ export default function AssigneePicker({ members, assigneeIds = [], onAttach, on
               className={`${styles.memberBtn} ${isAssigned ? styles.assigned : ''}`}
               data-testid="assignee-toggle"
               aria-pressed={isAssigned}
-              onClick={() => (isAssigned ? onDetach(m.userId) : onAttach(m.userId))}
+              onClick={() => (isAssigned ? actions.detachAssignee(cardId, m.userId) : actions.attachAssignee(cardId, m.userId))}
             >
               {m.user.displayName}
               {isAssigned && <span className={styles.check}>✓</span>}

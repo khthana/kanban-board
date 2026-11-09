@@ -10,19 +10,9 @@ import DueDateField from './DueDateField';
 import SubtaskSection from './SubtaskSection';
 import styles from './CardPanel.module.css';
 
-export default function CardPanel({
-  card, board, boardId,
-  onSave, onDelete, onClose,
-  onCreateLabel, onPatchLabel, onDeleteLabel, onAttachLabel, onDetachLabel,
-  onAttachAssignee, onDetachAssignee,
-  userId,
-  onCreateSubtasks,
-  onToggleSubtask,
-  onRenameSubtask,
-  onDeleteSubtask,
-  onMoveSubtaskUp,
-  onMoveSubtaskDown,
-}) {
+// The Card panel: the open Card plus the board actions (#68), which own every
+// mutation and what its failure means — no per-mutation callbacks.
+export default function CardPanel({ card, board, actions, onClose }) {
   const [desc, setDesc]           = useState(card.description ?? '');
   const [dirty, setDirty]         = useState(false);
   const [error, setError]         = useState(null);
@@ -32,30 +22,9 @@ export default function CardPanel({
   // A keyboard commit (Enter/Escape) closes the editor, which unmounts the
   // focused input and can fire onBlur — skip that follow-up blur commit.
   const skipTitleBlur = useRef(false);
-  // Attaches still in flight, counted per `${cardId}:${labelId}` (a label can be
-  // re-attached before its first PUT settles; the panel can switch cards). The
-  // server rejects such a label as the Category until its attach commits, so
-  // LabelPicker keeps its ☆/★ disabled meanwhile (#56).
-  const [pendingAttaches, setPendingAttaches] = useState(() => new Map());
   const { labels: allLabels = [], members = [] } = board;
   const { labelIds: attachedIds, assigneeIds, subtasks, progress } = cardView(board, card);
-  const pendingLabelIds = new Set(
-    allLabels.filter(l => pendingAttaches.has(`${card.id}:${l.id}`)).map(l => l.id));
-
-  function countPending(key, delta) {
-    setPendingAttaches(m => {
-      const next = new Map(m);
-      const n = (next.get(key) ?? 0) + delta;
-      if (n > 0) next.set(key, n); else next.delete(key);
-      return next;
-    });
-  }
-
-  function handleAttachLabel(labelId) {
-    const key = `${card.id}:${labelId}`;
-    countPending(key, 1);
-    onAttachLabel(card.id, labelId, userId).finally(() => countPending(key, -1));
-  }
+  const saveCard = patch => actions.patchCard(card.id, patch);
 
   useEffect(() => {
     setDesc(card.description ?? '');
@@ -79,7 +48,7 @@ export default function CardPanel({
   function commitTitle(trigger) {
     const result = resolveTitleCommit({ trigger, value: titleInput, current: card.title });
     if (result.action === 'error') { setTitleError(result.message); return; }
-    if (result.action === 'save') onSave({ title: result.title });
+    if (result.action === 'save') saveCard({ title: result.title });
     skipTitleBlur.current = true;
     setEditingTitle(false);
     setTitleError(null);
@@ -105,13 +74,13 @@ export default function CardPanel({
   function handleSave() {
     const err = validateCardDescription(desc);
     if (err) { setError(err); return; }
-    onSave({ description: desc });
+    saveCard({ description: desc });
     setDirty(false);
   }
 
   function handleDelete() {
     if (!window.confirm(`Delete "${card.title}"?`)) return;
-    onDelete(card.id);
+    actions.deleteCard(card.id);
     onClose();
   }
 
@@ -121,7 +90,7 @@ export default function CardPanel({
         !window.confirm(`ยังมี subtask ที่ยังไม่เสร็จ ${remaining}/${progress.total} — ทำเครื่องหมายว่าเสร็จเลยไหม?`)) {
       return;
     }
-    onSave(completionPatch(true));
+    saveCard(completionPatch(true));
   }
 
   return (
@@ -159,7 +128,7 @@ export default function CardPanel({
             <button
               className={styles.unmarkBtn}
               data-testid="complete-toggle"
-              onClick={() => onSave(completionPatch(false))}
+              onClick={() => saveCard(completionPatch(false))}
             >เลิกทำเครื่องหมาย</button>
           </div>
         ) : (
@@ -171,42 +140,30 @@ export default function CardPanel({
         )}
 
         <LabelPicker
-          boardId={boardId}
-          userId={userId}
+          cardId={card.id}
           allLabels={allLabels}
           attachedLabelIds={attachedIds}
           categoryLabelId={card.categoryLabelId}
-          pendingLabelIds={pendingLabelIds}
-          // The Category follows attach/detach inside the store action (#55).
-          onAttach={handleAttachLabel}
-          onDetach={labelId => onDetachLabel(card.id, labelId, userId)}
-          onSetCategory={labelId => onSave({ categoryLabelId: labelId })}
-          onCreateLabel={onCreateLabel}
-          onPatchLabel={onPatchLabel}
-          onDeleteLabel={onDeleteLabel}
+          actions={actions}
         />
 
         <AssigneePicker
+          cardId={card.id}
           members={members}
           assigneeIds={assigneeIds}
-          onAttach={uid => onAttachAssignee(card.id, uid)}
-          onDetach={uid => onDetachAssignee(card.id, uid)}
+          actions={actions}
         />
 
         <DueDateField
           dueDate={card.dueDate}
-          onChange={dueDate => onSave({ dueDate })}
+          onChange={dueDate => saveCard({ dueDate })}
         />
 
         <SubtaskSection
           key={card.id}
+          cardId={card.id}
           subtasks={subtasks}
-          onCreateMany={onCreateSubtasks}
-          onToggle={onToggleSubtask}
-          onRename={onRenameSubtask}
-          onDelete={onDeleteSubtask}
-          onMoveUp={onMoveSubtaskUp}
-          onMoveDown={onMoveSubtaskDown}
+          actions={actions}
         />
 
         <div className={styles.descSection}>

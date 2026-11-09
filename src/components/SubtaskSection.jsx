@@ -10,16 +10,9 @@ import styles from './SubtaskSection.module.css';
 // into a batch box (PRD §12); a typed title is added as a batch of one (#67).
 // Done Subtasks are hidden until revealed, and start hidden on every mount (the
 // Card panel keys this by Card). Owns only its own UI state; every mutation goes
-// through the callbacks, which may reject (shown inline).
-export default function SubtaskSection({
-  subtasks = [],
-  onCreateMany,
-  onToggle,
-  onRename,
-  onDelete,
-  onMoveUp,
-  onMoveDown,
-}) {
+// through the board actions (#68) — add and rename reject on failure (shown
+// inline), the rest report to the banner.
+export default function SubtaskSection({ cardId, subtasks = [], actions }) {
   const [adding, setAdding]         = useState(false);
   const [input, setInput]           = useState('');
   const [inputError, setInputError] = useState(null);
@@ -46,7 +39,7 @@ export default function SubtaskSection({
     if (invalid) { setInputError(describeSubtaskBatchError(invalid)); return; }
     submitting.current = true;
     try {
-      await onCreateMany([input.trim()]);
+      await actions.createSubtasks(cardId, [input.trim()]);
       setInput('');
       setInputError(null);
     } catch (err) {
@@ -84,7 +77,7 @@ export default function SubtaskSection({
     if (invalid) { setInputError(describeSubtaskBatchError(invalid)); return; }
     submitting.current = true;
     try {
-      await onCreateMany(items.map(item => item.title));
+      await actions.createSubtasks(cardId, items.map(item => item.title));
       leaveBatch();
     } catch (err) {
       setInputError(err.message); // keep the text so it can be fixed and retried
@@ -100,7 +93,7 @@ export default function SubtaskSection({
     const err = validateSubtaskTitle(editInput);
     if (err) { setEditError(err); return; }
     try {
-      await onRename?.(subtaskId, editInput.trim());
+      await actions.renameSubtask(subtaskId, editInput.trim());
       setEditingId(null);
       setEditError(null);
     } catch (err) {
@@ -118,7 +111,7 @@ export default function SubtaskSection({
             type="checkbox"
             className={styles.check}
             checked={s.checked}
-            onChange={() => onToggle?.(s.id)}
+            onChange={() => actions.toggleSubtask(s.id)}
           />
           {editingId === s.id ? (
             <div className={styles.editRow}>
@@ -144,18 +137,18 @@ export default function SubtaskSection({
             <button
               className={styles.moveBtn}
               disabled={idx === 0}
-              onClick={() => onMoveUp?.(s.id, { hideDone })}
+              onClick={() => actions.moveSubtaskUp(s.id, { hideDone })}
               title="Move up"
             >↑</button>
             <button
               className={styles.moveBtn}
               disabled={idx === arr.length - 1}
-              onClick={() => onMoveDown?.(s.id, { hideDone })}
+              onClick={() => actions.moveSubtaskDown(s.id, { hideDone })}
               title="Move down"
             >↓</button>
             <button
               className={styles.deleteBtn}
-              onClick={() => onDelete?.(s.id)}
+              onClick={() => actions.deleteSubtask(s.id)}
               title="Delete subtask"
             >✕</button>
           </div>

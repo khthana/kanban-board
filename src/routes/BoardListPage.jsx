@@ -78,8 +78,8 @@ export default function BoardListPage() {
   }
 
   useEffect(() => {
-    fetchBoards(currentUserId);
-  }, [currentUserId, fetchBoards]);
+    fetchBoards();
+  }, [fetchBoards]);
 
   function handleCreate(name) {
     createBoard(currentUserId, { name }).catch(handledByStore);
@@ -87,12 +87,12 @@ export default function BoardListPage() {
 
   function handleRename(boardId, name) {
     setRenamingId(null);
-    renameBoard(boardId, currentUserId, { name }).catch(handledByStore);
+    renameBoard(boardId, { name }).catch(handledByStore);
   }
 
   function handleDelete(boardId) {
     if (!window.confirm('Delete this board? This cannot be undone.')) return;
-    deleteBoard(boardId, currentUserId).catch(handledByStore);
+    deleteBoard(boardId).catch(handledByStore);
   }
 
   return (
