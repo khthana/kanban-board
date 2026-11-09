@@ -21,6 +21,7 @@
 | [9](#9-card-title-edit-inline-ใน-cardpanel) | Card Title Edit (Inline ใน CardPanel) | Implemented (#38) |
 | [10](#10-monorepo-migration-รวม-api-เข้า-frontend-repo) | Monorepo Migration | Implemented |
 | [11](#11-board-list-view) | Board "List View" | Implemented (#45–#48) |
+| [12](#12-subtask-batch-add--ซ่อน-subtask-ที่เสร็จแล้ว) | Subtask Batch Add + ซ่อน Subtask ที่เสร็จแล้ว | ready-for-agent |
 
 ---
 
@@ -1140,3 +1141,125 @@ sticky section header คือสิ่งที่แก้ปัญหา "�
 เพราะทั้งสอง view ใช้ store เดียวกัน Card ที่ถูกสร้าง/แก้/ย้ายใน view หนึ่งจะสะท้อนในอีก view ทันทีตอน render หรือ poll ถัดไป — ไม่ต้อง wiring เพิ่ม
 
 Toggle อยู่บน `TopBar` (ไม่ใช่ sub-toolbar แยก) วางห่างจากขอบที่ panel เลื่อนเข้ามา จึงเข้าถึงได้เสมอและไม่รก ไม่ว่า Card panel จะเปิดอยู่หรือไม่
+
+---
+
+## 12. Subtask Batch Add + ซ่อน Subtask ที่เสร็จแล้ว
+
+**สถานะ:** ready-for-agent — [#57](https://github.com/khthana/kanban-board/issues/57)
+**ขอบเขต:** Enhancement ต่อจากหัวข้อ 4 (Subtasks)
+**วันที่:** 9 พฤศจิกายน 2026
+**Decisions of record:** ไม่มี ADR ใหม่ — ทุกการตัดสินใจย้อนกลับได้ง่าย ไม่เปลี่ยน data model (schema ของ `subtasks` เดิมทุกประการ)
+**Glossary:** [CONTEXT.md](../CONTEXT.md) — **Subtask** (เพิ่มในรอบนี้), **Card**, **Position** ไม่มีคำศัพท์ใหม่อื่น — "batch add" และ "ซ่อนที่เสร็จแล้ว" เป็นพฤติกรรมของ UI ไม่ใช่ entity
+
+### Problem Statement
+
+Subtask ของงานบางประเภทซ้ำเป็นรูปแบบ เช่น อาจารย์ที่ใช้ Card หนึ่งใบต่อหนึ่งรายวิชา ต้องแตกงานเป็น `ครั้งที่ 1 – เตรียม slide`, `ครั้งที่ 1 – lecture note`, `ครั้งที่ 1 – แบบฝึกหัด`, `ครั้งที่ 2 – …` ไปจนครบ 12 ครั้ง ปัจจุบันต้องพิมพ์ทีละรายการในช่อง "+ Add subtask" — ช่องเปิดค้างให้พิมพ์ต่อได้ แต่ทุกตัวอักษรยังต้องพิมพ์เอง แม้ผู้ใช้จะมีรายการเตรียมไว้แล้วใน Excel/Notes/syllabus ก็ตาม (การวางข้อความหลายบรรทัดลงในช่องบรรทัดเดียว เบราว์เซอร์จะต่อทุกบรรทัดเป็นบรรทัดเดียว)
+
+นอกจากนี้ ลิมิต 20 subtask ต่อ Card ตึงเกินไป — 12 ครั้ง × 3 งาน = 36 รายการ ทางเลือกเดียวตอนนี้คือแตกเป็นหลาย Card หรือต้องมี "subtask ของ subtask" ซึ่งยุ่งยากกว่า และเมื่อ Card มี subtask 36–50 แถว `CardPanel` จะยาวและรก — ส่วนใหญ่เป็นงานที่ทำเสร็จไปแล้วซึ่งไม่ต้องดูอีก
+
+### Solution
+
+1. **Batch add ด้วยการวาง** — วางข้อความหลายบรรทัดลงในช่อง "+ Add subtask" → ช่องขยายเป็นกล่องหลายบรรทัดให้เห็นทุกบรรทัด พร้อมคำใบ้ `Enter เพื่อเพิ่ม N รายการ · Esc ยกเลิก` → กด Enter ได้ Subtask หนึ่งรายการต่อหนึ่งบรรทัด ต่อท้ายรายการเดิมตามลำดับบรรทัด แต่ละบรรทัดตั้งชื่ออิสระ (ไม่มี syntax รันเลข) — **ทั้งหมดหรือไม่เลย**: ถ้าผิดกติกาข้อใด ไม่เพิ่มสักรายการ ข้อความค้างในกล่องให้แก้แล้วกด Enter ใหม่
+2. **ขยายลิมิตเป็น 50 subtask ต่อ Card** (ทั้งเพิ่มทีละรายการและแบบ batch) — Subtask ยังเป็นชั้นเดียว
+3. **ซ่อน Subtask ที่เสร็จแล้ว** — `CardPanel` แสดงเฉพาะ Subtask ที่ยังไม่ติ๊ก ท้ายรายการมีบรรทัดเดียว `▸ แสดงที่เสร็จแล้ว (N)` กดแล้วกางรายการที่ติ๊กแล้วกลับมาในตำแหน่งเดิม (กลายเป็น `▾ ซ่อนที่เสร็จแล้ว`) ทุกครั้งที่เปิด panel จะ **ซ่อนเสมอ** (ไม่จำสถานะที่กาง) ในโหมดซ่อน ปุ่ม ↑ ↓ **ข้ามรายการที่ซ่อนอยู่** — สลับกับรายการถัดไปที่ *มองเห็น*
+
+```
+Subtasks (36)
+☐ ครั้งที่ 5 – เตรียม slide          ↑ ↓ ✕
+☐ ครั้งที่ 5 – lecture note           ↑ ↓ ✕
+  …
++ Add subtask
+▸ แสดงที่เสร็จแล้ว (14)
+```
+
+ทั้งหมดอยู่ใน `CardPanel` ซึ่ง Board view และ List view ใช้ร่วมกัน จึงได้ทั้งสอง view
+
+### User Stories
+
+1. As a board member, I want to paste a multi-line list into the "+ Add subtask" input, so that I can create many subtasks at once instead of typing each one.
+2. As a board member, I want each pasted line to become its own subtask with its own title, so that I can name each item differently (e.g. `ครั้งที่ 1 แนะนำวิชา`, `ครั้งที่ 2 ตัวแปร`).
+3. As a board member, I want the input to expand into a multi-line box showing every pasted line, so that I can check what I pasted before committing.
+4. As a board member, I want a hint `Enter เพื่อเพิ่ม N รายการ · Esc ยกเลิก` to appear only when I paste multiple lines, so that the panel stays clean the rest of the time.
+5. As a board member, I want to edit or delete lines inside the expanded box before pressing Enter, so that I can fix a bad copy without creating junk subtasks.
+6. As a board member, I want Enter to commit the whole batch, so that adding 36 subtasks takes one keystroke after pasting.
+7. As a board member, I want Escape to cancel the batch and clear the box, so that a wrong paste costs nothing.
+8. As a board member, I want blank lines to be skipped, so that spacing in my source list doesn't create empty subtasks.
+9. As a board member, I want leading/trailing whitespace trimmed from each line, so that indentation from my source doesn't leak into titles.
+10. As a board member, I want the new subtasks appended after the existing ones in the order of my lines, so that my list order is preserved.
+11. As a board member, I want nothing to be added if any line exceeds 100 characters, with a message naming the offending line number, so that I can fix just that line.
+12. As a board member, I want nothing to be added if the batch would push the Card over 50 subtasks, with a message saying how many more I can add, so that I know exactly how many lines to remove.
+13. As a board member, I want my pasted text to stay in the box after any validation or server error, so that I don't lose it and can retry.
+14. As a board member, I want the batch to appear instantly (optimistic) and roll back entirely if the server rejects it, so that the list is never left half-added.
+15. As a board member, I want the server to accept or reject the whole batch atomically, so that a network hiccup or a teammate adding subtasks at the same moment can't leave a partial batch or exceed the limit.
+16. As a board member, I want pasting a single line to behave exactly like typing one subtask today, so that the familiar flow doesn't change.
+17. As a board member, I want up to 50 subtasks per Card, so that a full semester (12 sessions × several tasks) fits in one Card without nesting.
+18. As a board member, I want the "Maximum subtasks" hint and hidden "+ Add subtask" button to kick in at 50 instead of 20, so that the limit messaging stays consistent.
+19. As a board member, I want ticked subtasks hidden from the panel by default, so that I only see work that's still left.
+20. As a board member, I want a single `▸ แสดงที่เสร็จแล้ว (N)` line under the list, so that I know how many are done and can reveal them without extra clutter.
+21. As a board member, I want revealed done subtasks shown in their original positions (strikethrough as today), so that I can see the full sequence in context.
+22. As a board member, I want the done subtasks hidden again every time I open a Card panel, so that the default view is always "what's left".
+23. As a board member, I want a subtask I tick to disappear from the list immediately while hidden mode is on, so that the remaining list shrinks as I progress.
+24. As a board member, I want a subtask I tick or untick while done items are revealed to stay visible, so that the list doesn't jump while I'm reviewing it.
+25. As a board member, I want ↑/↓ to swap with the next *visible* subtask while done items are hidden, so that every press visibly moves the item.
+26. As a board member, I want done subtasks skipped by ↑/↓ to keep their own positions, so that reordering visible items doesn't shuffle hidden ones.
+27. As a board member, I want the header count and the Card-face progress (segments/mini-bar + `done/total`) to keep counting all subtasks, hidden or not, so that progress stays accurate.
+28. As a board member, I want a Card whose subtasks are all done to show just the `▸ แสดงที่เสร็จแล้ว (N)` line and the "+ Add subtask" affordance, so that a finished checklist looks finished.
+29. As a board member, I want batch add and hiding to work identically from Board view and List view, so that I don't need to learn two flows.
+30. As a board member, I want batch-added subtasks to appear for teammates on the next poll, so that collaboration works as it does for single subtasks.
+
+### Implementation Decisions
+
+**Domain module ใหม่ (pure, ใช้ร่วม frontend + API)** — โมดูล batch ของ Subtask ใน domain layer แนวเดียวกับ `domain/category.js` ที่ API import ไปใช้ เพื่อให้กติกาตรงกันทั้งสองฝั่ง มีหน้าที่:
+- **แปลงข้อความที่วาง → รายการชื่อ**: แตกบรรทัด (รองรับ `\r\n`), trim, ข้ามบรรทัดว่าง
+- **ตรวจ batch**: รับรายการชื่อ + จำนวน subtask ที่ Card มีอยู่ คืน `{ titles }` หรือ error ที่บอก *สาเหตุ* ได้ชัด — บรรทัดที่ยาวเกิน 100 (ระบุเลขบรรทัดของข้อความที่วาง) หรือเกินลิมิต (ระบุจำนวนที่ยังเพิ่มได้) ทั้งหมดหรือไม่เลย
+- **หาเพื่อนบ้านที่มองเห็น** สำหรับ ↑ ↓: รับ subtask ของ Card (เรียงตาม position), id ที่จะย้าย, ทิศ, และว่าซ่อนรายการที่เสร็จแล้วหรือไม่ คืนรายการที่จะสลับด้วย (หรือไม่มีถ้าอยู่ขอบ) แล้ว store ใช้ `positionBetween` คำนวณ position ใหม่ระหว่างเพื่อนบ้านที่มองเห็นตัวนั้นกับตัวถัดไปในลำดับจริง (รายการที่ซ่อนคง position เดิม)
+
+**ลิมิต 50** — ค่าคงที่เดียวที่ทั้ง client validation (`validateSubtaskCount`) และ API (ทั้ง endpoint เดิมและ endpoint ใหม่) ใช้ร่วมกัน แทนเลข 20 ที่ hard-code อยู่สองที่ ไม่มี DB constraint ต้องเปลี่ยน
+
+**API endpoint ใหม่** — แยก path จาก endpoint เดิมเพื่อไม่เปลี่ยน response shape ของการเพิ่มทีละรายการ:
+
+```
+POST /cards/:cardId/subtasks/batch   body: { titles: string[] }  → 201 [subtask, …] (เรียงตาม position)
+```
+
+- auth + ตรวจ board membership ผ่าน card → column → board chain เหมือน endpoint เดิม (404 card ไม่พบ, 403 ไม่ใช่ member)
+- validate ด้วย domain module เดียวกัน (array ไม่ว่าง, แต่ละชื่อ non-empty หลัง trim และ ≤ 100) → 400 พร้อมข้อความ
+- ทั้งหมดใน **transaction เดียว**: lock แถว Card ก่อน (`SELECT … FOR UPDATE` — pattern เดียวกับ `lockCard` ของ Category) → นับ subtask ที่มีอยู่ → ถ้า `count + titles.length > 50` → 400 → insert ทุกรายการด้วย position `MAX(position) + 1, + 2, …` ตามลำดับ array → commit Card ถูกลบระหว่าง request → 404
+- endpoint เพิ่มทีละรายการเดิมเปลี่ยนลิมิตเป็น 50 และควร lock แถว Card แบบเดียวกัน เพื่อไม่ให้การเพิ่มพร้อมกันจากสองแท็บทะลุลิมิต
+
+**API client** — `createSubtasks(cardId, titles)` เรียก endpoint ใหม่ normalize ทุกรายการด้วย `normalizeSubtask()`
+
+**Store** — action ใหม่ `createSubtasks(cardId, titles)` ผ่าน `optimistic()` helper: apply ใส่ placeholder ทั้งชุด (temp id, position ต่อท้ายจาก `nextPosition`) → commit → settle แทน placeholder ทั้งชุดด้วยรายการจากเซิร์ฟเวอร์ → rollback ทั้งชุด + rethrow เมื่อล้มเหลว `moveSubtask(id, dir)` รับ option ว่าซ่อนรายการที่เสร็จแล้วหรือไม่ และใช้ domain module หาเพื่อนบ้าน (ยังคง filter ด้วย `cardId` ตามบั๊กเดิมที่แก้ไปแล้ว)
+
+**`CardPanel`**
+- ช่อง "+ Add subtask" ดัก `paste`: ถ้าข้อความมี ≥ 2 บรรทัดที่ไม่ว่าง → `preventDefault` แล้วสลับเป็นกล่องหลายบรรทัดที่ใส่ข้อความที่วาง + คำใบ้ ถ้าบรรทัดเดียว → พฤติกรรมเดิม
+- ในกล่องหลายบรรทัด: **Enter** = commit batch, **Shift+Enter** = ขึ้นบรรทัดใหม่ (ให้แก้/เพิ่มบรรทัดเองได้), **Escape** = ยกเลิก + กลับเป็นช่องบรรทัดเดียว ข้อผิดพลาด (validation หรือจากเซิร์ฟเวอร์) แสดง inline ที่เดียวกับ error ของการเพิ่ม subtask เดิม ข้อความค้างอยู่ — ตาม pattern เดิมที่ subtask create จับ error แล้วแสดง inline (ไม่ใช้ op-error banner)
+- สำเร็จ → กลับเป็นช่องบรรทัดเดียวว่างที่ยังเปิดอยู่ (เหมือนหลังเพิ่มทีละรายการ)
+- state "แสดงที่เสร็จแล้ว" เป็น local state ของ panel เริ่มเป็นซ่อน reset ทุกครั้งที่เปิด panel หรือเปลี่ยน Card ไม่ persist
+- โหมดซ่อน: render เฉพาะรายการที่ยังไม่ติ๊ก + บรรทัด toggle `▸ แสดงที่เสร็จแล้ว (N)` (แสดงเมื่อ N > 0) โหมดกาง: render ทั้งหมดตาม position (เหมือนวันนี้) + `▾ ซ่อนที่เสร็จแล้ว`
+- ↑ ↓ ส่งโหมดปัจจุบันไปให้ `moveSubtask`; การ disable ปุ่ม ↑ ของรายการแรก / ↓ ของรายการสุดท้าย คิดจากรายการที่ *มองเห็น*
+- header `Subtasks (N)` และ progress บน Card face ไม่เปลี่ยน — นับทั้งหมด
+
+### Testing Decisions
+
+เทสที่ดียืนยัน **พฤติกรรมภายนอก** ผ่าน interface สาธารณะของแต่ละ seam ไม่ผูกกับโครงสร้างภายใน
+
+- **Domain module ใหม่ (unit)** — seam หลัก ครอบคลุมมากที่สุด: แตกบรรทัด/trim/ข้ามบรรทัดว่าง/`\r\n`; บรรทัด 100 vs 101 ตัวอักษร (ระบุเลขบรรทัดถูก); ขอบลิมิต (มีอยู่ 0/14/50 + batch ที่ได้ 50 พอดี vs เกิน 1) และข้อความ "เพิ่มได้อีก N"; เพื่อนบ้านที่มองเห็น (ข้ามรายการติ๊กแล้ว, อยู่ขอบบน/ล่าง, โหมดกางคือเพื่อนบ้านติดกันจริง, subtask ของ Card อื่นไม่ถูกนับ) Prior art: `category.test.js`, `titleEdit.test.js`
+- **Store (unit)** — `createSubtasks`: apply ใส่ทั้งชุดต่อท้าย → settle แทนด้วย id จริง → commit ล้มเหลว rollback ทั้งชุดและ rethrow; `moveSubtask` ในโหมดซ่อน: position ใหม่อยู่ระหว่างเพื่อนบ้านที่มองเห็น และรายการที่ซ่อนไม่เปลี่ยน Prior art: `useBoardStore.test.js` (mock API client, เรียก action ผ่าน `getState()`)
+- **API client (unit)** — `createSubtasks` normalize ทุกรายการ Prior art: `client.test.js`
+- **API integration** — endpoint batch: happy path (ลำดับ position ตาม array, คืน 201 array); ทั้งหมดหรือไม่เลย (ชื่อหนึ่งยาวเกิน → 400 และไม่มีอะไรถูก insert); ลิมิตรวมของเดิม (มี 40 + batch 11 → 400, batch 10 → 201); array ว่าง/ไม่ใช่ array → 400; non-member → 403; card ไม่พบ → 404; endpoint เดิมยอมรับรายการที่ 50 และปฏิเสธรายการที่ 51 Prior art: subtasks route tests
+- **Component** — ไม่มี unit test (ตามแนวทางเดิม) ครอบคลุมด้วย E2E
+- **E2E (Playwright)** ใน subtask spec: วางหลายบรรทัด (dispatch paste event) → กล่องขยาย + คำใบ้ → Enter → รายการครบตามลำดับ → reload ยังอยู่; วางเกินลิมิต → ไม่เพิ่ม ข้อความค้าง + ข้อความเตือน; Escape ยกเลิก; ติ๊ก → รายการหาย + บรรทัด "แสดงที่เสร็จแล้ว (1)" → กาง → เห็น → เปิด panel ใหม่ → ซ่อนอีก; ↑ ข้ามรายการที่ซ่อน → ลำดับ persist หลัง reload; เทส "max 20" เดิมเปลี่ยนเป็น 50 (seed ผ่าน batch เพื่อให้เร็ว) รอ response ของ POST/PATCH ก่อน assert ตาม wait pattern เดิมของ subtask spec
+
+### Out of Scope
+
+Syntax รันเลขอัตโนมัติ (เช่น `ครั้งที่ {1..15}`); ปุ่มคัดลอก/duplicate ต่อแถว; Subtask ซ้อน Subtask (ยังเป็นชั้นเดียว); Checklist template / ชุด Subtask ที่บันทึกไว้ใช้ซ้ำ; คัดลอก Subtask จาก Card อื่น หรือ duplicate Card; ลบ/ติ๊กหลายรายการพร้อมกัน; จำสถานะ "แสดงที่เสร็จแล้ว" ข้ามการเปิด panel; ซ่อน Subtask ที่เสร็จแล้วบน Card face หรือ List view row (ที่นั่นแสดงแค่ progress อยู่แล้ว); drag-and-drop reorder ของ Subtask; เปลี่ยน schema ของ `subtasks`
+
+### Further Notes
+
+ที่มาของการตัดสินใจ (grilling session 9 พ.ย. 2026): งานซ้ำ *ภายใน Card ใบเดียว* ไม่ใช่ข้าม Card จึงเลือก "วางหลายบรรทัด" ซึ่งไม่เพิ่ม UI ถาวรและรองรับชื่อที่ต่างกันทุกบรรทัด แทน syntax รันเลข (ไวยากรณ์ลับ ค้นพบยาก) หรือปุ่มคัดลอกต่อแถว (รก) เลือกขยายลิมิตแทนการทำ Subtask ซ้อนเพราะงานจริงคือ "12 ครั้ง × 2–3 งานย่อย" ซึ่งรายการแบนชั้นเดียวที่มีชื่อ `ครั้งที่ N – งาน` อ่านได้พอและง่ายกว่ามาก
+
+ลิมิต 50 กับ progress view: > 8 subtask ใช้ mini-bar อยู่แล้ว (หัวข้อ 6) จึงไม่กระทบ Card face Fractional position: batch insert ใช้ `MAX + 1, +2, …` (ช่องห่าง 1) และ ↑ ↓ ข้ามรายการที่ซ่อนยังเป็นการ PATCH แถวเดียว ช่องห่างแคบลงครึ่งต่อการย้ายหนึ่งครั้งที่ตำแหน่งเดียวกัน — ที่ 50 รายการยังห่างจาก 1e-9 มาก (Subtask ไม่ rebalance ตามหัวข้อ 4)
+
+"ทั้งหมดหรือไม่เลย" ต้องเป็นจริงถึงเซิร์ฟเวอร์ (transaction + lock แถว Card) ไม่ใช่แค่ client-side — แนวเดียวกับ #55 ที่ย้ายกฎ Category ไปบังคับที่เซิร์ฟเวอร์ การส่ง `POST` ทีละรายการวนลูปถูกปฏิเสธเพราะเน็ตสะดุดกลางทางจะได้ batch ครึ่งๆ และลิมิตทะลุได้เมื่อสองแท็บเพิ่มพร้อมกัน

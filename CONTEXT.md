@@ -7,6 +7,7 @@ Use these terms consistently in code and discussion.
 - **Card** — งานหนึ่งชิ้นภายใน Column มี title, description (optional), assignee(s), due date, labels, category และ `position`
 - **Category** — Label ตัวที่ถูกเลือกเป็น "ตัวหลัก" ของ Card (ชี้ด้วย `category_label_id`) แสดงบนหน้าการ์ดเป็นชื่อพิมพ์ใหญ่ + จุดสี Card ยังมี Label อื่น ๆ (many-to-many) ได้ แต่บนหน้าการ์ดโชว์เฉพาะ Category ส่วน Label ที่เหลือจัดการ/ดูได้ใน CardPanel เท่านั้น
 - **Card Accent** — สีของ Card ที่ใช้ทาจุด (dot), ตัวอักษร Category และแถบ progress = สีของ Label ที่เป็น Category (ไม่ใช่ field สีแยกต่างหาก) เมื่อ Card ไม่มี Category จะใช้สีกลาง (เทา) — คนละตัวกับ [Column] Accent
+- **Subtask** — รายการย่อยแบบ checklist ภายใน Card หนึ่งใบ มีชื่อ, สถานะติ๊ก (done) และลำดับ (`position`) เป็นของ Card ใบนั้นเท่านั้น (ไม่แชร์ข้าม Card) ใช้คำนวณ progress บนหน้าการ์ด
 - **Member** — User ที่เข้าถึง Board ได้ role เป็น **owner** (ผู้สร้าง — ลบ board / จัดการสมาชิกได้) หรือ **member** (CRUD column/card ได้ทั้งหมด แต่ลบ board ไม่ได้)
 - **Assignee** — Member ที่รับผิดชอบ Card มีได้ **หลายคน** (เก็บใน join `card_assignees`) คนละความหมายกับผู้สร้าง card บนหน้าการ์ดแสดงเป็น avatar ซ้อนกัน
 - **Position** — ค่า ordering แบบ fractional float แทรกระหว่าง A(1.0) กับ B(2.0) ได้ 1.5 ไม่ใช่ index ต่อเนื่อง
