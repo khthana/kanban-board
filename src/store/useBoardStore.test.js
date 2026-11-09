@@ -228,6 +228,52 @@ describe('deleteColumn', () => {
     expect(useBoardStore.getState().board.columns).toHaveLength(1);
     expect(useBoardStore.getState().board.cards).toHaveLength(1);
   });
+
+  describe("drops the deleted Column's Card records too (#63)", () => {
+    // c1 holds card1, c2 holds card2; each Card has a label, an assignee and a Subtask.
+    beforeEach(() => {
+      useBoardStore.setState({
+        board: {
+          ...makeBoard(),
+          columns: [{ id: 'c1', name: 'Todo', position: 1 }, { id: 'c2', name: 'Done', position: 2 }],
+          cards: [
+            { id: 'card1', columnId: 'c1', title: 'One', position: 1 },
+            { id: 'card2', columnId: 'c2', title: 'Two', position: 1 },
+          ],
+          cardLabels:    [{ cardId: 'card1', labelId: 'l1' }, { cardId: 'card2', labelId: 'l1' }],
+          cardAssignees: [{ cardId: 'card1', userId: 'u1' }, { cardId: 'card2', userId: 'u1' }],
+          subtasks: [
+            { id: 's1', cardId: 'card1', title: 'A', checked: false, position: 1 },
+            { id: 's2', cardId: 'card2', title: 'B', checked: false, position: 1 },
+          ],
+        },
+      });
+    });
+    const cardIdsIn = key => useBoardStore.getState().board[key].map(r => r.cardId);
+
+    test("removes the Column's Cards' labels, assignees and Subtasks; other Columns untouched", async () => {
+      client.deleteColumn.mockResolvedValue(undefined);
+
+      await useBoardStore.getState().deleteColumn('c1', 'u1');
+
+      expect(useBoardStore.getState().board.cards.map(c => c.id)).toEqual(['card2']);
+      expect(cardIdsIn('cardLabels')).toEqual(['card2']);
+      expect(cardIdsIn('cardAssignees')).toEqual(['card2']);
+      expect(cardIdsIn('subtasks')).toEqual(['card2']);
+    });
+
+    test('a failed delete restores Columns, Cards and their records together', async () => {
+      client.deleteColumn.mockRejectedValue(new Error('nope'));
+
+      await expect(useBoardStore.getState().deleteColumn('c1', 'u1')).rejects.toThrow('nope');
+
+      expect(useBoardStore.getState().board.columns).toHaveLength(2);
+      expect(useBoardStore.getState().board.cards).toHaveLength(2);
+      expect(cardIdsIn('cardLabels')).toEqual(['card1', 'card2']);
+      expect(cardIdsIn('cardAssignees')).toEqual(['card1', 'card2']);
+      expect(cardIdsIn('subtasks')).toEqual(['card1', 'card2']);
+    });
+  });
 });
 
 describe('createCard', () => {

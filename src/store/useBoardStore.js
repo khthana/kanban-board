@@ -49,14 +49,17 @@ const attachedInLabelOrder = (b, cardId) => {
   return b.labels.filter(l => attached.has(l.id)).map(l => l.id);
 };
 
-// board without a card and everything that hangs off it
-const withoutCard = (b, cardId) => ({
-  ...b,
-  cards:         b.cards.filter(c => c.id !== cardId),
-  cardLabels:    (b.cardLabels ?? []).filter(cl => cl.cardId !== cardId),
-  cardAssignees: (b.cardAssignees ?? []).filter(ca => ca.cardId !== cardId),
-  subtasks:      (b.subtasks ?? []).filter(s => s.cardId !== cardId),
-});
+// board without these cards and everything that hangs off them
+const withoutCards = (b, cardIds) => {
+  const gone = new Set(cardIds);
+  return {
+    ...b,
+    cards:         b.cards.filter(c => !gone.has(c.id)),
+    cardLabels:    (b.cardLabels ?? []).filter(cl => !gone.has(cl.cardId)),
+    cardAssignees: (b.cardAssignees ?? []).filter(ca => !gone.has(ca.cardId)),
+    subtasks:      (b.subtasks ?? []).filter(s => !gone.has(s.cardId)),
+  };
+};
 
 // A 404 on a card mutation means another member deleted the card: drop it
 // instead of restoring it from the rollback snapshot (PRD §1.5). Still rethrows.
@@ -64,7 +67,7 @@ async function dropCardIfGone(set, cardId, pending) {
   try {
     return await pending;
   } catch (err) {
-    if (err.status === 404) set(s => ({ board: withoutCard(s.board, cardId) }));
+    if (err.status === 404) set(s => ({ board: withoutCards(s.board, [cardId]) }));
     throw err;
   }
 }
@@ -164,11 +167,11 @@ const useBoardStore = create((set, get) => ({
   },
 
   deleteColumn: async (columnId, userId) => optimistic(get, set, {
-    apply: b => ({
-      ...b,
-      columns: b.columns.filter(c => c.id !== columnId),
-      cards: b.cards.filter(c => c.columnId !== columnId),
-    }),
+    // The Column's Cards go with it, and so do their labels, assignees and Subtasks (#63).
+    apply: b => {
+      const columnCardIds = b.cards.filter(c => c.columnId === columnId).map(c => c.id);
+      return { ...withoutCards(b, columnCardIds), columns: b.columns.filter(c => c.id !== columnId) };
+    },
     commit: () => client.deleteColumn(columnId, userId),
   }),
 
@@ -192,7 +195,7 @@ const useBoardStore = create((set, get) => ({
   })),
 
   deleteCard: async (cardId, userId) => dropCardIfGone(set, cardId, optimistic(get, set, {
-    apply: b => withoutCard(b, cardId),
+    apply: b => withoutCards(b, [cardId]),
     commit: () => client.deleteCard(cardId, userId),
   })),
 
