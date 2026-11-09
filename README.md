@@ -37,27 +37,27 @@ kanban-board/
 
 ### Option A — Docker (full stack, recommended)
 
-Runs postgres + api + frontend together. Frontend is served on **port 3700**.
+Runs postgres + api + frontend together. Frontend is served on **port 3300**.
 
 ```bash
 # first run only
 npm install && npx playwright install chromium
 
-docker compose up           # postgres + api + frontend (http://localhost:3700)
+docker compose up           # postgres + api + frontend (http://localhost:3300)
 docker compose down         # stop all
 docker compose down -v      # stop and delete the database volume
 ```
 
 ### Option B — frontend only
 
-Requires the backend already running on port 4000.
+Requires the backend already running on port 3350.
 
 ```bash
 npm install
 npm start                   # dev server at http://localhost:3000
 ```
 
-In development `src/setupProxy.js` forwards API routes to `http://localhost:4000` automatically — no CORS configuration needed.
+In development `src/setupProxy.js` forwards API routes to `http://localhost:3350` automatically — no CORS configuration needed.
 
 ### Option C — backend only (native)
 
@@ -65,14 +65,14 @@ In development `src/setupProxy.js` forwards API routes to `http://localhost:4000
 cp api/.env.example api/.env   # then edit DATABASE_URL, JWT_SECRET
 cd api && npm install
 cd api && npm run migrate       # create tables
-cd api && npm run dev           # API at http://localhost:4000
+cd api && npm run dev           # API at http://localhost:3350
 ```
 
 ## Environment
 
 ```bash
-# .env.development.local (optional — defaults to http://localhost:4000)
-REACT_APP_API_URL=http://localhost:4000
+# .env.development.local (optional — defaults to http://localhost:3350)
+REACT_APP_API_URL=http://localhost:3350
 ```
 
 For production set `REACT_APP_API_URL` to your backend URL before building.
@@ -93,7 +93,7 @@ npm run test:e2e                         # Playwright E2E (28 tests, requires do
 **Backend** (run from `api/`):
 
 ```bash
-cd api && npm run dev                    # API server with --watch at localhost:4000
+cd api && npm run dev                    # API server with --watch at localhost:3350
 cd api && npm run migrate               # run DB migrations
 cd api && npm test                       # 132 integration tests (requires local postgres)
 ```

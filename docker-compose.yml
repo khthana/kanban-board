@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: kanban_dev
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,11 +20,11 @@ services:
       context: ./api
       dockerfile: Dockerfile.dev
     ports:
-      - "4000:4000"
+      - "3350:3350"
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/kanban_dev
       JWT_SECRET: dev-secret-key-kanban
-      PORT: "4000"
+      PORT: "3350"
       NODE_ENV: development
     volumes:
       - ./api:/app
@@ -43,9 +43,9 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     ports:
-      - "3700:3000"
+      - "3300:3000"
     environment:
-      API_PROXY_TARGET: http://api:4000
+      API_PROXY_TARGET: http://api:3350
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
     volumes:

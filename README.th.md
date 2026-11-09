@@ -12,7 +12,7 @@
 - **React Router v7** — client-side routing
 - **react-datepicker** — ตัวเลือกวันครบกำหนด (`dd/MM/yyyy`)
 
-Backend อยู่ใน `api/` — Node.js + Express + PostgreSQL รันบน port 4000
+Backend อยู่ใน `api/` — Node.js + Express + PostgreSQL รันบน port 3350
 
 ## สิ่งที่ต้องติดตั้งก่อน
 
@@ -29,27 +29,27 @@ Backend อยู่ใน `api/` — Node.js + Express + PostgreSQL รัน�
 # ครั้งแรกเท่านั้น
 npm install && npx playwright install chromium
 
-docker compose up           # postgres + api + frontend (http://localhost:3700)
+docker compose up           # postgres + api + frontend (http://localhost:3300)
 docker compose down         # หยุดทั้งหมด
 docker compose down -v      # หยุดและลบ volume ของฐานข้อมูล
 ```
 
 ### ตัวเลือก B — frontend อย่างเดียว
 
-ต้องมี backend รันอยู่บน port 4000 แล้ว
+ต้องมี backend รันอยู่บน port 3350 แล้ว
 
 ```bash
 npm install
 npm start                   # dev server ที่ http://localhost:3000
 ```
 
-ในโหมด dev `src/setupProxy.js` จะส่ง API request ไปยัง `http://localhost:4000` โดยอัตโนมัติ — ไม่ต้องตั้งค่า CORS เพิ่มเติม
+ในโหมด dev `src/setupProxy.js` จะส่ง API request ไปยัง `http://localhost:3350` โดยอัตโนมัติ — ไม่ต้องตั้งค่า CORS เพิ่มเติม
 
 ## Environment Variables
 
 ```bash
-# .env.development.local (ไม่บังคับ — ค่าเริ่มต้นคือ http://localhost:4000)
-REACT_APP_API_URL=http://localhost:4000
+# .env.development.local (ไม่บังคับ — ค่าเริ่มต้นคือ http://localhost:3350)
+REACT_APP_API_URL=http://localhost:3350
 ```
 
 สำหรับ production ให้กำหนด `REACT_APP_API_URL` เป็น URL ของ backend ก่อน build

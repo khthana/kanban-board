@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm start                                # Dev server at localhost:3000 (proxies API to localhost:4000)
+npm start                                # Dev server at localhost:3000 (proxies API to localhost:3350)
 npm test                                 # Run tests in watch mode
 npm test -- --watchAll=false             # Run tests once (CI mode)
 npm test -- --testPathPattern="polling"  # Run a single test file
@@ -16,7 +16,7 @@ npm run test:e2e                         # Run Playwright E2E tests (requires ap
 ### Docker (recommended for full-stack dev)
 
 ```bash
-docker compose up                        # Start postgres + api + frontend (frontend on :3700)
+docker compose up                        # Start postgres + api + frontend (frontend on :3300)
 docker compose down                      # Stop all
 docker compose down -v                   # Stop and delete database volume
 ```
@@ -30,7 +30,7 @@ First run only: `npm install && npx playwright install chromium`
 A Kanban board SPA for small teams (2–15 people). **Fully implemented** — React frontend connected to a real Node.js/PostgreSQL backend. Includes User Profile page (view/edit displayName, email, password), Subtasks with progress tracking, and a read-oriented List view alongside the default Board view.
 
 - **Frontend** (`src/`): React + Zustand + dnd-kit
-- **Backend** (`api/`): Node.js + Express + PostgreSQL, runs on port 4000
+- **Backend** (`api/`): Node.js + Express + PostgreSQL, runs on port 3350
 - **Full PRD (all features, merged, Thai)**: [requirement/Kanban-Board-PRD.md](requirement/Kanban-Board-PRD.md)
 - **User Profile PRD**: [requirement/Kanban-Board-PRD.md §3](requirement/Kanban-Board-PRD.md#3-user-profile)
 
@@ -46,7 +46,7 @@ A Kanban board SPA for small teams (2–15 people). **Fully implemented** — Re
 
 `src/api/client.js` — 30 exported API functions, each calling `apiFetch` + normalizing responses. No token knowledge (`login`/`register` return the API body; `useSession` stores the tokens via `auth.js`). Every function that returns an entity returns camelCase keys only — see the normalizers below. Unit-tested in `src/api/client.test.js` (`apiFetch` mocked).
 
-In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/columns`, `/cards`, `/labels`, `/subtasks`) to `API_PROXY_TARGET` (default `http://localhost:4000`). **Proxy skips requests with `Accept: text/html`** so browser navigation to `/boards/:id` etc. is handled by React's historyApiFallback (serves `index.html`), not forwarded to the API.
+In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/columns`, `/cards`, `/labels`, `/subtasks`) to `API_PROXY_TARGET` (default `http://localhost:3350`). **Proxy skips requests with `Accept: text/html`** so browser navigation to `/boards/:id` etc. is handled by React's historyApiFallback (serves `index.html`), not forwarded to the API.
 
 ### State
 
@@ -150,7 +150,7 @@ The Node.js + Express + PostgreSQL backend lives in `api/`. Run all API commands
 ### Commands
 
 ```bash
-cd api && npm run dev                              # API server with --watch at localhost:4000
+cd api && npm run dev                              # API server with --watch at localhost:3350
 cd api && npm run migrate                          # Run DB migrations (kanban_dev)
 cd api && npm run migrate:test                     # Run DB migrations (kanban_test)
 cd api && npm test                                 # Run all tests (--maxWorkers=1 --forceExit)
@@ -164,7 +164,7 @@ Docker is the recommended way to run the API in development — `docker compose 
 | File | Purpose |
 |---|---|
 | `api/src/app.js` | Express app — cors, json middleware, route mounts |
-| `api/src/index.js` | HTTP server (PORT=4000) |
+| `api/src/index.js` | HTTP server (PORT=3350) |
 | `api/src/db/pool.js` | pg Pool — `DATABASE_URL` or `TEST_DATABASE_URL` from env |
 | `api/src/db/migrate.js` | Idempotent migration runner (schema_migrations table) |
 | `api/src/db/migrations/` | SQL migration files 001–007 |
@@ -181,10 +181,10 @@ Docker is the recommended way to run the API in development — `docker compose 
 ### Environment (`api/.env` — gitignored)
 
 ```
-DATABASE_URL=postgres://postgres:PASSWORD@127.0.0.1:5432/kanban_dev
-TEST_DATABASE_URL=postgres://postgres:PASSWORD@127.0.0.1:5432/kanban_test
+DATABASE_URL=postgres://postgres:PASSWORD@127.0.0.1:5434/kanban_dev
+TEST_DATABASE_URL=postgres://postgres:PASSWORD@127.0.0.1:5434/kanban_test
 JWT_SECRET=dev-secret-key-kanban
-PORT=4000
+PORT=3350
 ```
 
 Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env` is only needed for non-Docker local dev and running tests natively.
