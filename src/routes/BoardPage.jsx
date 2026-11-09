@@ -25,7 +25,7 @@ export default function BoardPage() {
   const { boardId } = useParams();
   const navigate    = useNavigate();
   const { currentUserId } = useSession();
-  const { board, loading, error, fetchBoard, pollBoard } = useBoardStore();
+  const { board, loading, error, failedCreate, fetchBoard, pollBoard } = useBoardStore();
 
   const [activeCard, setActiveCard]   = useState(null);
   const [inviteOpen, setInviteOpen]   = useState(false);
@@ -63,10 +63,14 @@ export default function BoardPage() {
     }
   }, [board?.cards, board?.cardLabels]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // only navigate away for fetch/auth errors (403/404), not mutation errors
+  // only navigate away for fetch/auth errors (403/404, or the Board's create
+  // failed), not mutation errors. A failed create's error goes along, since
+  // the list's fetch on mount clears the store's (#76).
   useEffect(() => {
-    if (error && (loading === false && !board)) navigate('/boards', { replace: true });
-  }, [error, loading, board, navigate]);
+    if (error && (loading === false && !board)) {
+      navigate('/boards', { replace: true, state: failedCreate ? { error: failedCreate } : undefined });
+    }
+  }, [error, failedCreate, loading, board, navigate]);
 
   // Polling (pollBoard has already written the snapshot into the store): if
   // the open card is now missing from the board, another member deleted it.

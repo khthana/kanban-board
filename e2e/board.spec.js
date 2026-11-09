@@ -105,3 +105,31 @@ test('open a new board while its POST is still in flight → it opens once the c
   await expect(page.getByText('+ Add column')).toBeVisible();
   expect(page.url()).toBe(url);
 });
+
+// #76: clicking into a new Board whose create then fails → back on /boards, the
+// create's error is still shown (the list's fetch on mount used to clear it).
+test('open a new board, then its POST fails → back on /boards with the error shown', async ({ page }) => {
+  await register(page, `user-${uid()}@test.com`, PW, 'Test User');
+
+  let release;
+  const held = new Promise(r => { release = r; });
+  await page.route(/\/boards$/, async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    await held;
+    return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Server error' }) });
+  });
+
+  await page.fill('input[placeholder="New board name…"]', 'Doomed Board');
+  await page.click('button:has-text("Create Board")');
+  await page.getByRole('link', { name: 'Doomed Board' }).click();
+  await expect(page).toHaveURL(/\/boards\/[0-9a-f-]{36}$/);
+
+  release();
+  await expect(page).toHaveURL(/\/boards$/);
+  await expect(page.getByText('Server error')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Doomed Board' })).toHaveCount(0);
+
+  await page.reload();                                   // shown once, not stored in history
+  await expect(page.getByRole('button', { name: 'Create Board' })).toBeVisible();
+  await expect(page.getByText('Server error')).toHaveCount(0);
+});

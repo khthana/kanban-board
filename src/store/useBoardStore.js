@@ -126,12 +126,37 @@ const useBoardStore = create((set, get) => {
   const boardCreates = new Map();
   const awaitBoardCreate = id => (boardCreates.get(id) ?? Promise.resolve()).then(() => null, err => err);
 
+  // Renames of a Board still in flight, by Board id (#76). The latest rename
+  // owns the name: an earlier one's answer never overwrites it, and if the
+  // latest fails the list falls back to the last name the server confirmed.
+  // { latest: token, latestName, latestDone: null | 'ok' | 'failed', confirmed, pending }
+  const boardRenames = new Map();
+  // Boards whose DELETE is in flight → { board }: what a failed delete puts back.
+  const boardDeletes = new Map();
+  const setBoardName = (id, name) => {
+    const deleting = boardDeletes.get(id);
+    if (deleting) deleting.board = { ...deleting.board, name };   // a failed delete restores this name
+    set(s => ({ boards: mapById(s.boards, id, b => ({ ...b, name })) }));
+  };
+  // A fetched /boards list with the list's in-flight creates, renames and
+  // deletes kept on top.
+  const withPendingBoards = (fetched, current) => [
+    ...fetched
+      .filter(b => !boardDeletes.has(b.id))
+      .map(b => {
+        const rename = boardRenames.get(b.id);
+        return rename?.latestDone === null ? { ...b, name: rename.latestName } : b;
+      }),
+    ...current.filter(b => boardCreates.has(b.id) && !fetched.some(f => f.id === b.id)),
+  ];
+
   return {
     boards: [],
     ops: null,
     board: null,
     loading: false,
     error: null,
+    failedCreate: null,   // the error of a just-opened Board whose create failed (#76)
 
     // ── boards ──────────────────────────────────────────────────────────────────
 
@@ -139,7 +164,7 @@ const useBoardStore = create((set, get) => {
       set({ loading: true, error: null });
       try {
         const boards = await client.getBoards();
-        set({ boards, loading: false });
+        set(s => ({ boards: withPendingBoards(boards, s.boards), loading: false }));
       } catch (err) {
         set({ error: err.message, loading: false });
       }
@@ -149,11 +174,12 @@ const useBoardStore = create((set, get) => {
     // snapshot like a poll, keeping its pending ops; another board starts a
     // fresh pending-ops board whose clock carries on, so an old poll is stale.
     fetchBoard: async (boardId) => {
-      set({ loading: true, error: null });
+      set({ loading: true, error: null, failedCreate: null });
       const createFailed = await awaitBoardCreate(boardId);
       if (createFailed) {                    // nothing to open: keep the create's error
         closeBoard();
-        set({ ops: null, board: null, error: createFailed.message, loading: false });
+        const error = createFailed.message;
+        set({ ops: null, board: null, error, failedCreate: error, loading: false });
         return;
       }
       const sent = get().ops && startPoll(get().ops);
@@ -196,7 +222,10 @@ const useBoardStore = create((set, get) => {
       boardCreates.set(id, post);
       try {
         const board = await post;
-        set(s => ({ boards: mapById(s.boards, id, () => board) }));
+        // A rename sent meanwhile owns the name; the create only confirms its own.
+        const renaming = boardRenames.get(id);
+        if (renaming) renaming.confirmed = board.name;
+        set(s => ({ boards: mapById(s.boards, id, b => (renaming ? { ...board, name: b.name } : board)) }));
         return board;
       } catch (err) {
         set(s => ({ boards: s.boards.filter(b => b.id !== id), error: err.message }));
@@ -207,34 +236,57 @@ const useBoardStore = create((set, get) => {
     },
 
     renameBoard: async (boardId, { name }) => {
-      const before = get().boards.find(b => b.id === boardId)?.name;
-      set(s => ({ boards: mapById(s.boards, boardId, b => ({ ...b, name })), error: null }));
+      const rename = boardRenames.get(boardId)
+        ?? { confirmed: get().boards.find(b => b.id === boardId)?.name, pending: 0 };
+      const mine = {};
+      Object.assign(rename, { latest: mine, latestName: name, latestDone: null, pending: rename.pending + 1 });
+      boardRenames.set(boardId, rename);
+      set({ error: null });
+      setBoardName(boardId, name);
       try {
         if (await awaitBoardCreate(boardId)) return undefined;   // never created: nothing to rename
         const board = await client.patchBoard(boardId, { name });
-        set(s => ({ boards: mapById(s.boards, boardId, () => board) }));
+        if (rename.latest === mine) {
+          rename.latestDone = 'ok';
+          rename.confirmed = board.name;
+          setBoardName(boardId, board.name);
+        } else if (rename.latestDone !== 'ok') {
+          rename.confirmed = board.name;                         // a later rename still owns the name…
+          if (rename.latestDone === 'failed') setBoardName(boardId, board.name);   // …unless it failed
+        }
         return board;
       } catch (err) {
-        set(s => ({ boards: mapById(s.boards, boardId, b => ({ ...b, name: before })), error: err.message }));
+        if (rename.latest === mine) {
+          rename.latestDone = 'failed';
+          setBoardName(boardId, rename.confirmed);
+          if (!boardDeletes.has(boardId)) set({ error: err.message });   // a delete was asked for since
+        }
         throw err;
+      } finally {
+        if (--rename.pending === 0) boardRenames.delete(boardId);
       }
     },
 
     deleteBoard: async (boardId) => {
       const index = get().boards.findIndex(b => b.id === boardId);
-      const removed = get().boards[index];
+      const deleting = { board: get().boards[index] };
+      boardDeletes.set(boardId, deleting);
       set(s => ({ boards: s.boards.filter(b => b.id !== boardId), error: null }));
       try {
         if (await awaitBoardCreate(boardId)) return undefined;   // never created: already gone
         await client.deleteBoard(boardId);
       } catch (err) {
-        // Put just this Board back, so a create that landed meanwhile stays.
+        // Put just this Board back — with any name a rename settled meanwhile —
+        // so a create that landed meanwhile stays.
+        const { board } = deleting;
         set(s => ({
-          boards: !removed || s.boards.some(b => b.id === boardId) ? s.boards
-            : [...s.boards.slice(0, index), removed, ...s.boards.slice(index)],
+          boards: !board || s.boards.some(b => b.id === boardId) ? s.boards
+            : [...s.boards.slice(0, index), board, ...s.boards.slice(index)],
           error: err.message,
         }));
         throw err;
+      } finally {
+        boardDeletes.delete(boardId);
       }
     },
 

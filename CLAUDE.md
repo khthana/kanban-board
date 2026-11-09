@@ -50,7 +50,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 
 ### State
 
-`src/store/useBoardStore.js` — the open board is a **pending-ops board** (#73): `ops` = the last server board + in-flight mutations, `board` = them replayed on it (`domain/pendingOps.js`). A failure removes only its own op. The `/boards` list is optimistic with per-record rollback; a new Board's id is client-chosen (#75), and opening, polling, renaming or deleting a Board whose `POST /boards` is still in flight waits for the create (`awaitBoardCreate`) — a failed create opens nothing and keeps its error.
+`src/store/useBoardStore.js` — the open board is a **pending-ops board** (#73): `ops` = the last server board + in-flight mutations, `board` = them replayed on it (`domain/pendingOps.js`). A failure removes only its own op. The `/boards` list is optimistic with per-record rollback; a new Board's id is client-chosen (#75), and opening, polling, renaming or deleting a Board whose `POST /boards` is still in flight waits for the create (`awaitBoardCreate`) — a failed create opens nothing and keeps its error (`failedCreate`, carried by `BoardPage`'s eject to `/boards` as navigation state, shown until the next list action and stripped from history — #76). The latest rename of a Board owns its name (an earlier answer never overwrites it; a failed latest falls back to the last server-confirmed name), a failed delete puts back only that Board, and `fetchBoards` keeps in-flight creates/renames/deletes on top of the fetched list (#76).
 
 `src/store/useSession.js` — JWT auth. `login()`/`register()` call the real backend, store token in localStorage, decode JWT `sub` → `currentUserId`. Also stores `displayName` and `email` fetched from `GET /auth/me` after auth. Exposes `fetchProfile()` (re-fetch on page reload) and `updateProfile()` (PATCH /auth/me).
 
@@ -102,7 +102,7 @@ Validation runs client-side (UX) and is enforced by the backend (authoritative).
 
 ## Tests
 
-### Unit tests (267)
+### Unit tests (275)
 `src/domain/` (incl. `progress.test.js`, `accent.test.js`, `dates.test.js`, `completion.test.js`, `titleEdit.test.js`, `dragDrop.test.js`, `category.test.js`, `assignees.test.js`, `subtaskBatch.test.js`, `subtaskVisibility.test.js`, `cardView.test.js`, `pendingOps.test.js`), `src/api/client.test.js` (response normalization, no token storage), `src/hooks/`, `src/store/useSession.test.js`, `src/store/useBoardStore.test.js`, `src/store/boardActions.test.js` (the error policy). Run: `npm test -- --watchAll=false`
 
 Not unit-tested: components — covered by E2E.
@@ -111,7 +111,7 @@ Not unit-tested: components — covered by E2E.
 
 ### E2E tests (Playwright)
 
-`e2e/` — 80 tests across 14 files. Require the full stack (`docker compose up`).
+`e2e/` — 81 tests across 14 files. Require the full stack (`docker compose up`).
 
 | File | Flows covered | Status |
 |---|---|---|
@@ -120,7 +120,7 @@ Not unit-tested: components — covered by E2E.
 | `dnd.spec.js` | drag card cross-column → persist on refresh; the dragged Card (drag overlay) shows the same Subtask progress and assignee avatars as the resting Card | ✅ |
 | `profile.spec.js` | update name, email conflict, change password, wrong password | ✅ |
 | `subtask.spec.js` | create, single-add inline validation in batch wording (no POST), toggle, rename, reorder, delete subtasks; max 50 limit; paste multi-line → batch box → Enter adds all in order (persists), single-line paste acts like typing, over-limit message keeps the text, Esc cancels, Shift+Enter adds a line, server failure rolls back, double Enter posts once; done Subtasks hidden behind a reveal line (resets on reopen), all-done card, ↑ skips a hidden Subtask → persists | ✅ |
-| `board.spec.js` | create/rename/delete board; owner-only buttons show on a new board without reload; member cannot delete; open a new board with its POST held → opens once it lands, persists (#75) | ✅ |
+| `board.spec.js` | create/rename/delete board; owner-only buttons show on a new board without reload; member cannot delete; open a new board with its POST held → opens once it lands, persists (#75); … then its POST fails → back on `/boards` with the error, gone after reload (#76) | ✅ |
 | `member.spec.js` | invite member → member sees board | ✅ |
 | `column-color.spec.js` | set column color, persist after reload, clear color | ✅ |
 | `category.spec.js` | attach label → auto-set as category → shows on card; rename label → card reflects it; ☆ pressed while the attach PUT is held → its PATCH is sent only after the PUT, Category set, no error banner (#56/#74) | ✅ |
@@ -144,7 +144,7 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs both `test-frontend` (267 unit tests) and `test-api` (218 integration tests, postgres:16-alpine service) on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs both `test-frontend` (275 unit tests) and `test-api` (218 integration tests, postgres:16-alpine service) on every push/PR to `main`.
 
 ## API
 

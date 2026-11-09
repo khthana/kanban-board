@@ -850,3 +850,139 @@ describe('createBoard with a client-chosen id (#75)', () => {
     expect(useBoardStore.getState().boards.map(b => b.id)).toEqual(['x', created.id]);
   });
 });
+
+// #76: /boards list renames — the latest rename owns the name.
+describe('renameBoard: the latest rename owns the name (#76)', () => {
+  const names = () => useBoardStore.getState().boards.map(b => b.name);
+
+  it('a rename during an in-flight create: the create landing keeps the renamed name (no flicker)', async () => {
+    const post = held();
+    const patch = held();
+    client.createBoard.mockReturnValueOnce(post.promise);
+    client.patchBoard.mockReturnValueOnce(patch.promise);
+    const creating = useBoardStore.getState().createBoard('u1', { name: 'New' });
+    const { id } = useBoardStore.getState().boards[0];
+    const renaming = useBoardStore.getState().renameBoard(id, { name: 'Renamed' });
+
+    post.resolve({ id, name: 'New', ownerId: 'u1' });
+    await creating;
+    expect(names()).toEqual(['Renamed']);
+    patch.resolve({ id, name: 'Renamed', ownerId: 'u1' });
+    await renaming;
+    expect(names()).toEqual(['Renamed']);
+  });
+
+  it('an earlier rename failing while a later one is in flight leaves the later name', async () => {
+    useBoardStore.setState({ boards: [{ id: 'x', name: 'Orig', ownerId: 'u1' }] });
+    const a = held(), b = held();
+    client.patchBoard.mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise);
+    const ra = useBoardStore.getState().renameBoard('x', { name: 'A' }).catch(() => {});
+    const rb = useBoardStore.getState().renameBoard('x', { name: 'B' });
+    await flush();
+
+    a.reject(new Error('nope'));
+    await ra;
+    expect(names()).toEqual(['B']);
+    b.resolve({ id: 'x', name: 'B', ownerId: 'u1' });
+    await rb;
+    expect(names()).toEqual(['B']);
+  });
+
+  it('the latest rename failing restores the last name the server confirmed', async () => {
+    useBoardStore.setState({ boards: [{ id: 'x', name: 'Orig', ownerId: 'u1' }] });
+    const a = held(), b = held();
+    client.patchBoard.mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise);
+    const ra = useBoardStore.getState().renameBoard('x', { name: 'A' });
+    const rb = useBoardStore.getState().renameBoard('x', { name: 'B' }).catch(() => {});
+    await flush();
+
+    a.resolve({ id: 'x', name: 'A', ownerId: 'u1' });
+    await ra;
+    expect(names()).toEqual(['B']);                 // A's answer doesn't undo the pending B
+    b.reject(new Error('nope'));
+    await rb;
+    expect(names()).toEqual(['A']);
+    expect(useBoardStore.getState().error).toBe('nope');
+  });
+
+  it('the latest failing first, then the earlier one succeeding → the earlier name (what the server holds)', async () => {
+    useBoardStore.setState({ boards: [{ id: 'x', name: 'Orig', ownerId: 'u1' }] });
+    const a = held(), b = held();
+    client.patchBoard.mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise);
+    const ra = useBoardStore.getState().renameBoard('x', { name: 'A' });
+    const rb = useBoardStore.getState().renameBoard('x', { name: 'B' }).catch(() => {});
+    await flush();
+    b.reject(new Error('b'));
+    await rb;
+    expect(names()).toEqual(['Orig']);
+    a.resolve({ id: 'x', name: 'A', ownerId: 'u1' });
+    await ra;
+    expect(names()).toEqual(['A']);
+  });
+
+  it('both failing → back to the original name', async () => {
+    useBoardStore.setState({ boards: [{ id: 'x', name: 'Orig', ownerId: 'u1' }] });
+    const a = held(), b = held();
+    client.patchBoard.mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise);
+    const ra = useBoardStore.getState().renameBoard('x', { name: 'A' }).catch(() => {});
+    const rb = useBoardStore.getState().renameBoard('x', { name: 'B' }).catch(() => {});
+    await flush();
+    b.reject(new Error('b'));
+    await rb;
+    a.reject(new Error('a'));
+    await ra;
+    expect(names()).toEqual(['Orig']);
+  });
+});
+
+describe('/boards list: renames, deletes and a list fetch in flight together (#76 review)', () => {
+  const names = () => useBoardStore.getState().boards.map(b => b.name);
+  const ids = () => useBoardStore.getState().boards.map(b => b.id);
+
+  it('delete with a rename pending; the rename then the delete fail → back under the confirmed name, no rename error', async () => {
+    useBoardStore.setState({ boards: [{ id: 'x', name: 'Orig', ownerId: 'u1' }] });
+    const patch = held(), del = held();
+    client.patchBoard.mockReturnValueOnce(patch.promise);
+    client.deleteBoard.mockReturnValueOnce(del.promise);
+    const renaming = useBoardStore.getState().renameBoard('x', { name: 'A' }).catch(() => {});
+    const deleting = useBoardStore.getState().deleteBoard('x').catch(() => {});
+    await flush();
+
+    patch.reject(new Error('rename failed'));
+    await renaming;
+    expect(useBoardStore.getState().error).toBeNull();   // the user asked to delete it
+    del.reject(new Error('delete failed'));
+    await deleting;
+    expect(names()).toEqual(['Orig']);
+    expect(useBoardStore.getState().error).toBe('delete failed');
+  });
+
+  it('a list fetch landing mid-flight keeps pending creates, renames and deletes on top', async () => {
+    useBoardStore.setState({ boards: [{ id: 'x', name: 'X', ownerId: 'u1' }, { id: 'y', name: 'Y', ownerId: 'u1' }] });
+    client.createBoard.mockReturnValueOnce(held().promise);
+    client.patchBoard.mockReturnValueOnce(held().promise);
+    client.deleteBoard.mockReturnValueOnce(held().promise);
+    useBoardStore.getState().createBoard('u1', { name: 'New' });
+    useBoardStore.getState().renameBoard('x', { name: 'X2' });
+    useBoardStore.getState().deleteBoard('y');
+    const newId = ids()[ids().length - 1];
+    await flush();
+
+    client.getBoards.mockResolvedValueOnce([
+      { id: 'x', name: 'X', ownerId: 'u1' }, { id: 'y', name: 'Y', ownerId: 'u1' }, { id: 'z', name: 'Z', ownerId: 'u2' },
+    ]);
+    await useBoardStore.getState().fetchBoards();
+    expect(useBoardStore.getState().boards.map(b => [b.id, b.name])).toEqual([['x', 'X2'], ['z', 'Z'], [newId, 'New']]);
+  });
+
+  it('opening a Board whose create failed flags it, so the eject can carry the error to /boards', async () => {
+    client.createBoard.mockRejectedValueOnce(new Error('boom'));
+    const creating = useBoardStore.getState().createBoard('u1', { name: 'New' }).catch(() => {});
+    const { id } = useBoardStore.getState().boards[0];
+    await Promise.all([creating, useBoardStore.getState().fetchBoard(id)]);
+    expect(useBoardStore.getState().failedCreate).toBe('boom');
+
+    await openBoard({ board: makeBoard() });
+    expect(useBoardStore.getState().failedCreate).toBeNull();
+  });
+});

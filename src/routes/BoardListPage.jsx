@@ -71,6 +71,17 @@ export default function BoardListPage() {
   const location = useLocation();
   const navigate  = useNavigate();
   const ejected   = location.state?.ejected ?? false;
+  // Why the Board just left didn't open — its create failed (#76). Shown until
+  // the next list action, and taken out of the history entry so a reload or
+  // Back doesn't bring it back. The list's own errors win.
+  const [failedCreate, setFailedCreate] = useState(location.state?.error ?? null);
+  useEffect(() => {
+    if (location.state?.error) {
+      const { error: _shown, ...rest } = location.state;
+      navigate(location.pathname, { replace: true, state: Object.keys(rest).length ? rest : null });
+    }
+  }, [location, navigate]);
+  const shownError = error ?? failedCreate;
 
   function handleLogout() {
     logout();
@@ -82,16 +93,19 @@ export default function BoardListPage() {
   }, [fetchBoards]);
 
   function handleCreate(name) {
+    setFailedCreate(null);
     createBoard(currentUserId, { name }).catch(handledByStore);
   }
 
   function handleRename(boardId, name) {
     setRenamingId(null);
+    setFailedCreate(null);
     renameBoard(boardId, { name }).catch(handledByStore);
   }
 
   function handleDelete(boardId) {
     if (!window.confirm('Delete this board? This cannot be undone.')) return;
+    setFailedCreate(null);
     deleteBoard(boardId).catch(handledByStore);
   }
 
@@ -106,7 +120,7 @@ export default function BoardListPage() {
         {ejected && (
           <p className={styles.ejected}>You were removed from that board.</p>
         )}
-        {error && <p className={styles.error}>{error}</p>}
+        {shownError && <p className={styles.error}>{shownError}</p>}
 
         <CreateBoardForm onSubmit={handleCreate} />
 
