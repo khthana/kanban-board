@@ -217,6 +217,16 @@ describe('receivePoll', () => {
   });
 });
 
+describe('init after another board', () => {
+  it('carries the clock on, so a poll sent from the previous state is stale', () => {
+    let s = init(board({ id: 'a', title: 'first visit' }));
+    const sent = startPoll(s);
+    s = init(board({ id: 'a', title: 'reopened' }), sent.state);
+    s = receivePoll(s, board({ id: 'a', title: 'first visit' }), sent.mark);
+    expect(titles(view(s))).toEqual(['a:reopened']);
+  });
+});
+
 describe('unknown op ids (already failed with its create, or reported twice)', () => {
   it('succeed and fail leave the state unchanged', () => {
     const s = init(board({ id: 'a', title: 'A' }));

@@ -4,32 +4,32 @@ import * as client from '../api/client';
 import { positionBetween } from '../domain/ordering';
 import { resolveAttach, resolveDetach } from '../domain/category';
 import { visibleNeighbour } from '../domain/subtaskVisibility';
+import { init, enqueue, ready, start, succeed, fail, startPoll, receivePoll, view } from '../domain/pendingOps';
 
-// Optimistic-update helper for mutations on the active `board`:
-//   1. snapshot current board
-//   2. apply(board) optimistically
-//   3. await commit() — the API call
-//   4. settle(board, result) to replace placeholders / merge server data
-//   5. on error, roll back to the snapshot and rethrow
-// Returns the commit() result so callers can return server records.
-async function optimistic(get, set, { apply, commit, settle }) {
-  const snapshot = get().board;
-  set(s => ({ board: apply(s.board), error: null }));
-  try {
-    const result = await commit();
-    if (settle) set(s => ({ board: settle(s.board, result) }));
-    return result;
-  } catch (err) {
-    set({ board: snapshot, error: err.message });
-    throw err;
-  }
-}
+// The open board is a pending-ops board (#73, design in #69, model in
+// domain/pendingOps.js): `ops` holds the last server board plus the mutations
+// in flight, and `board` is always view(ops) — the server board with every
+// pending op replayed on it. Each mutation is an op:
+//   { keys, creates?, apply(b), commit(), settle?(b, result), gone?(server) }
+// - keys: the record ids it touches. Ops sharing a key commit one after
+//   another (a Card added to a Column still being created waits for it); ops
+//   with disjoint keys run in parallel.
+// - apply / settle are replay-safe (upsert / ensure-present / ensure-absent):
+//   they run again on every newer server board a poll brings.
+// - New records get a client-chosen id (#71), so a placeholder is the record.
+// A failure removes just that op (and, for a create, the ops waiting on it);
+// a 404 runs `gone` on the server board. The caller's promise resolves with
+// the commit's result or rejects with its error, and `error` is set.
 
 // position after the last item in a collection (or first slot when empty)
 const nextPosition = (items, getPos = i => i.position) =>
   positionBetween(items.length > 0 ? Math.max(...items.map(getPos)) : null, null);
 
 const mapById = (arr, id, fn) => arr.map(x => x.id === id ? fn(x) : x);
+const hasId = (arr, id) => arr.some(x => x.id === id);
+const addIfAbsent = (arr, rec) => (hasId(arr, rec.id) ? arr : [...arr, rec]);
+// replace a placeholder (by its id) with the server's record
+const replaceWith = (arr, placeholderId, rec) => [...arr.filter(x => x.id !== placeholderId && x.id !== rec.id), rec];
 
 // board with one card's Category recomputed from that card
 const withCategory = (b, cardId, resolve) => ({
@@ -37,10 +37,9 @@ const withCategory = (b, cardId, resolve) => ({
   cards: mapById(b.cards, cardId, c => ({ ...c, categoryLabelId: resolve(c) })),
 });
 
-// settle an attach/detach to the server's Category — unless the card's Category
-// changed since apply predicted it (e.g. ★ pressed while the request was in flight)
-const settleCategory = (b, cardId, predicted, server) =>
-  withCategory(b, cardId, c => ((c.categoryLabelId ?? null) === predicted ? server : c.categoryLabelId));
+const isAttached = (b, cardId, labelId) => b.cardLabels.some(cl => cl.cardId === cardId && cl.labelId === labelId);
+const isAssigned = (b, cardId, userId) => b.cardAssignees.some(ca => ca.cardId === cardId && ca.userId === userId);
+const columnCardIds = (b, columnId) => b.cards.filter(c => c.columnId === columnId).map(c => c.id);
 
 // a card's attached label ids in board label order (label creation order, as the
 // server returns them) — the order the server uses to promote the next Category
@@ -61,308 +60,404 @@ const withoutCards = (b, cardIds) => {
   };
 };
 
-// A 404 on a card mutation means another member deleted the card: drop it
-// instead of restoring it from the rollback snapshot (PRD §1.5). Still rethrows.
-async function dropCardIfGone(set, cardId, pending) {
-  try {
-    return await pending;
-  } catch (err) {
-    if (err.status === 404) set(s => ({ board: withoutCards(s.board, [cardId]) }));
-    throw err;
-  }
-}
+// A 404 on a card op means another member deleted the card: it leaves the
+// server board with everything hanging off it (PRD §1.5).
+const cardGone = cardId => server => withoutCards(server, [cardId]);
 
-const useBoardStore = create((set, get) => ({
-  boards: [],
-  board: null,
-  loading: false,
-  error: null,
+// Ops that fail with a failed create never reached the server: they get its
+// message but not its status (a Card create's 404 must not read as "card deleted").
+const dependantError = err => new Error(err.message);
 
-  // ── boards ──────────────────────────────────────────────────────────────────
+const useBoardStore = create((set, get) => {
+  const setOps = (ops, extra) => set({ ops, board: view(ops), ...extra });
 
-  fetchBoards: async () => {
-    set({ loading: true, error: null });
-    try {
-      const boards = await client.getBoards();
-      set({ boards, loading: false });
-    } catch (err) {
-      set({ error: err.message, loading: false });
+  // Each pending op's caller, by op id: { resolve, reject }.
+  const callers = new Map();
+  const answer = (opId, how, value) => {
+    callers.get(opId)?.[how](value);
+    callers.delete(opId);
+  };
+  const isPending = opId => get().ops?.pending.some(o => o.id === opId);
+
+  // Commit every op the queue allows; on each outcome, report and go again.
+  // An op whose board was closed meanwhile only answers its caller.
+  const pump = () => {
+    for (const op of ready(get().ops)) {
+      setOps(start(get().ops, op.id));
+      new Promise(resolve => resolve(op.commit())).then(
+        result => {
+          if (isPending(op.id)) setOps(succeed(get().ops, op.id, result));
+          answer(op.id, 'resolve', result);
+          pump();
+        },
+        err => {
+          if (!isPending(op.id)) return answer(op.id, 'reject', err);
+          const { state, failed } = fail(get().ops, op.id, err);
+          setOps(state, { error: err.message });
+          failed.filter(id => id !== op.id).forEach(id => answer(id, 'reject', dependantError(err)));
+          answer(op.id, 'reject', err);
+          pump();
+        },
+      );
     }
-  },
+  };
 
-  fetchBoard: async (boardId) => {
-    set({ loading: true, error: null });
-    try {
-      const data = await client.getBoard(boardId);
-      set({ board: data, loading: false });
-    } catch (err) {
-      set({ error: err.message, loading: false });
+  // Another board opened: ops of the old one that never started won't run.
+  const closeBoard = () => {
+    for (const op of get().ops?.pending ?? []) {
+      if (!op.started) answer(op.id, 'reject', new Error('The board was closed.'));
     }
-  },
+  };
 
-  reconcileBoard: (data) => {
-    set({ board: data });
-  },
+  const run = op => {
+    const ops = get().ops;
+    if (!ops) return Promise.reject(new Error('no board is open'));
+    const id = uuidv4();
+    const done = new Promise((resolve, reject) => callers.set(id, { resolve, reject }));
+    setOps(enqueue(ops, { ...op, id }), { error: null });
+    pump();
+    return done;
+  };
 
-  // ownerId: the current user, so the placeholder shows owner-only controls.
-  createBoard: async (ownerId, { name }) => {
-    const tempId = uuidv4();
-    const placeholder = { id: tempId, name, ownerId };
-    const snapshot = get().boards;
-    set({ boards: [...snapshot, placeholder], error: null });
-    try {
-      const board = await client.createBoard({ name });
-      set(s => ({ boards: mapById(s.boards, tempId, () => board) }));
-      return board;
-    } catch (err) {
-      set({ boards: snapshot, error: err.message });
-      throw err;
-    }
-  },
+  return {
+    boards: [],
+    ops: null,
+    board: null,
+    loading: false,
+    error: null,
 
-  renameBoard: async (boardId, { name }) => {
-    const snapshot = get().boards;
-    set(s => ({ boards: mapById(s.boards, boardId, b => ({ ...b, name })), error: null }));
-    try {
-      const board = await client.patchBoard(boardId, { name });
-      set(s => ({ boards: mapById(s.boards, boardId, () => board) }));
-      return board;
-    } catch (err) {
-      set({ boards: snapshot, error: err.message });
-      throw err;
-    }
-  },
+    // ── boards ──────────────────────────────────────────────────────────────────
 
-  deleteBoard: async (boardId) => {
-    const snapshot = get().boards;
-    set(s => ({ boards: s.boards.filter(b => b.id !== boardId), error: null }));
-    try {
-      await client.deleteBoard(boardId);
-    } catch (err) {
-      set({ boards: snapshot, error: err.message });
-      throw err;
-    }
-  },
-
-  // ── columns ─────────────────────────────────────────────────────────────────
-
-  createColumn: async (boardId, { name }) => {
-    const position = nextPosition(get().board?.columns ?? []);
-    const tempId = uuidv4();
-    const placeholder = { id: tempId, boardId, name, position };
-    return optimistic(get, set, {
-      apply: b => ({ ...b, columns: [...(b?.columns ?? []), placeholder] }),
-      commit: () => client.createColumn(boardId, { name, position }),
-      settle: (b, col) => ({ ...b, columns: mapById(b.columns, tempId, () => col) }),
-    });
-  },
-
-  renameColumn: async (columnId, { name, color }) => {
-    const patch = { name };
-    if (color !== undefined) patch.color = color;
-    return optimistic(get, set, {
-      apply: b => ({ ...b, columns: mapById(b.columns, columnId, c => ({ ...c, name, color: color !== undefined ? color : c.color })) }),
-      commit: () => client.patchColumn(columnId, patch),
-      settle: (b, col) => ({ ...b, columns: mapById(b.columns, columnId, c => ({ ...c, ...col })) }),
-    });
-  },
-
-  deleteColumn: async (columnId) => optimistic(get, set, {
-    // The Column's Cards go with it, and so do their labels, assignees and Subtasks (#63).
-    apply: b => {
-      const columnCardIds = b.cards.filter(c => c.columnId === columnId).map(c => c.id);
-      return { ...withoutCards(b, columnCardIds), columns: b.columns.filter(c => c.id !== columnId) };
+    fetchBoards: async () => {
+      set({ loading: true, error: null });
+      try {
+        const boards = await client.getBoards();
+        set({ boards, loading: false });
+      } catch (err) {
+        set({ error: err.message, loading: false });
+      }
     },
-    commit: () => client.deleteColumn(columnId),
-  }),
 
-  // ── cards ────────────────────────────────────────────────────────────────────
+    // Opens a board. The board already open (e.g. back from /boards) takes the
+    // snapshot like a poll, keeping its pending ops; another board starts a
+    // fresh pending-ops board whose clock carries on, so an old poll is stale.
+    fetchBoard: async (boardId) => {
+      set({ loading: true, error: null });
+      const sent = get().ops && startPoll(get().ops);
+      if (sent) set({ ops: sent.state });
+      try {
+        const data = await client.getBoard(boardId);
+        const ops = get().ops;
+        if (ops && ops.server.board?.id === boardId) {
+          setOps(receivePoll(ops, data, sent.mark), { loading: false });
+        } else {
+          closeBoard();
+          setOps(init(data, ops), { loading: false });
+        }
+      } catch (err) {
+        set({ error: err.message, loading: false });
+      }
+    },
 
-  createCard: async (columnId, { title }) => {
-    const position = nextPosition(get().board?.cards.filter(c => c.columnId === columnId) ?? []);
-    const tempId = uuidv4();
-    const placeholder = { id: tempId, columnId, title, description: '', categoryLabelId: null, dueDate: null, completedAt: null, position };
-    return optimistic(get, set, {
-      apply: b => ({ ...b, cards: [...b.cards, placeholder] }),
-      commit: () => client.createCard(columnId, { title, position }),
-      settle: (b, card) => ({ ...b, cards: mapById(b.cards, tempId, () => card) }),
-    });
-  },
-
-  patchCard: async (cardId, patch) => dropCardIfGone(set, cardId, optimistic(get, set, {
-    apply: b => ({ ...b, cards: mapById(b.cards, cardId, c => ({ ...c, ...patch })) }),
-    commit: () => client.patchCard(cardId, patch),
-    settle: (b, card) => ({ ...b, cards: mapById(b.cards, cardId, () => card) }),
-  })),
-
-  deleteCard: async (cardId) => dropCardIfGone(set, cardId, optimistic(get, set, {
-    apply: b => withoutCards(b, [cardId]),
-    commit: () => client.deleteCard(cardId),
-  })),
-
-  moveCard: async (cardId, { columnId, position }) => dropCardIfGone(set, cardId, optimistic(get, set, {
-    apply: b => ({ ...b, cards: mapById(b.cards, cardId, c => ({ ...c, columnId, position })) }),
-    commit: () => client.moveCard(cardId, { columnId, position }),
-    settle: (b, card) => ({ ...b, cards: mapById(b.cards, cardId, () => card) }),
-  })),
-
-  moveColumn: async (columnId, { position }) => optimistic(get, set, {
-    apply: b => ({ ...b, columns: mapById(b.columns, columnId, c => ({ ...c, position })) }),
-    commit: () => client.patchColumn(columnId, { position }),
-    settle: (b, col) => ({ ...b, columns: mapById(b.columns, columnId, () => col) }),
-  }),
-
-  // ── labels ───────────────────────────────────────────────────────────────────
-
-  createLabel: async (boardId, { name, color }) => {
-    const tempId = uuidv4();
-    return optimistic(get, set, {
-      apply: b => ({ ...b, labels: [...b.labels, { id: tempId, boardId, name, color }] }),
-      commit: () => client.createLabel(boardId, { name, color }),
-      settle: (b, label) => ({ ...b, labels: mapById(b.labels, tempId, () => label) }),
-    });
-  },
-
-  patchLabel: async (labelId, patch) => optimistic(get, set, {
-    apply: b => ({ ...b, labels: mapById(b.labels, labelId, l => ({ ...l, ...patch })) }),
-    commit: () => client.patchLabel(labelId, patch),
-    settle: (b, label) => ({ ...b, labels: mapById(b.labels, labelId, l => ({ ...l, ...label })) }),
-  }),
-
-  deleteLabel: async (labelId) => optimistic(get, set, {
-    apply: b => ({
-      ...b,
-      labels: b.labels.filter(l => l.id !== labelId),
-      cardLabels: b.cardLabels.filter(cl => cl.labelId !== labelId),
-    }),
-    commit: () => client.deleteLabel(labelId),
-  }),
-
-  // Attach/detach carry the card's Category with them (ADR-0002): one optimistic
-  // step applies both, the server applies the same rule atomically, and settle
-  // takes the server's Category — so a failure never splits the two (#55).
-  attachLabel: async (cardId, labelId) => {
-    let predicted;
-    return optimistic(get, set, {
-      apply: b => withCategory({ ...b, cardLabels: [...b.cardLabels, { cardId, labelId }] }, cardId,
-        c => (predicted = resolveAttach(c.categoryLabelId ?? null, labelId))),
-      commit: () => client.attachLabel(cardId, labelId),
-      settle: (b, r) => settleCategory(b, cardId, predicted, r.categoryLabelId),
-    });
-  },
-
-  detachLabel: async (cardId, labelId) => {
-    let predicted;
-    return optimistic(get, set, {
-      apply: b => withCategory(
-        { ...b, cardLabels: b.cardLabels.filter(cl => !(cl.cardId === cardId && cl.labelId === labelId)) }, cardId,
-        c => (predicted = resolveDetach(attachedInLabelOrder(b, cardId), labelId, c.categoryLabelId ?? null))),
-      commit: () => client.detachLabel(cardId, labelId),
-      settle: (b, r) => settleCategory(b, cardId, predicted, r.categoryLabelId),
-    });
-  },
-
-  // ── assignees ────────────────────────────────────────────────────────────────
-
-  attachAssignee: async (cardId, userId) => optimistic(get, set, {
-    apply: b => ({ ...b, cardAssignees: [...b.cardAssignees, { cardId, userId }] }),
-    commit: () => client.attachAssignee(cardId, userId),
-  }),
-
-  detachAssignee: async (cardId, userId) => optimistic(get, set, {
-    apply: b => ({ ...b, cardAssignees: b.cardAssignees.filter(ca => !(ca.cardId === cardId && ca.userId === userId)) }),
-    commit: () => client.detachAssignee(cardId, userId),
-  }),
-
-  // ── members ──────────────────────────────────────────────────────────────────
-
-  addMember: async (boardId, { email }) => {
-    // optimistic not possible without knowing the invitee's id upfront —
-    // refetch after success instead
-    try {
-      await client.addMember(boardId, { email });
+    // A poll: replaces the server board unless a commit (or a newer poll) landed
+    // after it went out; pending ops replay on top. Resolves with the snapshot,
+    // rejects with the fetch error (usePolling routes 403/404).
+    pollBoard: async (boardId) => {
+      const sent = get().ops && startPoll(get().ops);
+      if (sent) setOps(sent.state);
       const data = await client.getBoard(boardId);
-      set({ board: data, error: null });
-    } catch (err) {
-      set(s => ({ error: err.message }));
-      throw err;
-    }
-  },
+      const ops = get().ops;
+      if (sent && ops?.server.board?.id === boardId) setOps(receivePoll(ops, data, sent.mark));
+      return data;
+    },
 
-  removeMember: async (boardId, { memberId }) => optimistic(get, set, {
-    apply: b => ({ ...b, members: b.members.filter(m => m.userId !== memberId) }),
-    commit: () => client.removeMember(boardId, { memberId }),
-  }),
+    // The /boards list keeps plain snapshot rollback (#69 decision 6).
+    // ownerId: the current user, so the placeholder shows owner-only controls.
+    createBoard: async (ownerId, { name }) => {
+      const tempId = uuidv4();
+      const placeholder = { id: tempId, name, ownerId };
+      const snapshot = get().boards;
+      set({ boards: [...snapshot, placeholder], error: null });
+      try {
+        const board = await client.createBoard({ name });
+        set(s => ({ boards: mapById(s.boards, tempId, () => board) }));
+        return board;
+      } catch (err) {
+        set({ boards: snapshot, error: err.message });
+        throw err;
+      }
+    },
 
-  // ── subtasks ─────────────────────────────────────────────────────────────────
+    renameBoard: async (boardId, { name }) => {
+      const snapshot = get().boards;
+      set(s => ({ boards: mapById(s.boards, boardId, b => ({ ...b, name })), error: null }));
+      try {
+        const board = await client.patchBoard(boardId, { name });
+        set(s => ({ boards: mapById(s.boards, boardId, () => board) }));
+        return board;
+      } catch (err) {
+        set({ boards: snapshot, error: err.message });
+        throw err;
+      }
+    },
 
-  // dir: -1 moves up, +1 moves down. Recomputes a float position from neighbours.
-  // `hideDone`: the panel is hiding checked Subtasks, so swap with the next
-  // *visible* one (PRD §12); hidden Subtasks keep their positions.
-  moveSubtask: async (subtaskId, dir, { hideDone = false } = {}) => {
-    const all = get().board?.subtasks ?? [];
-    const target = visibleNeighbour(all, subtaskId, dir, { hideDone });
-    if (!target) return;
-    // Real order of the card (hidden ones included) — board.subtasks holds every
-    // card's subtasks, whose positions overlap (each card starts at 1).
-    const sorted = all
-      .filter(s => s.cardId === target.cardId)
-      .sort((a, b) => a.position - b.position);
-    const t = sorted.indexOf(target);
-    // Land just past the target: between it and its real-order neighbour beyond.
-    const newPos = dir < 0
-      ? positionBetween(sorted[t - 1]?.position ?? null, target.position)
-      : positionBetween(target.position, sorted[t + 1]?.position ?? null);
+    deleteBoard: async (boardId) => {
+      const snapshot = get().boards;
+      set(s => ({ boards: s.boards.filter(b => b.id !== boardId), error: null }));
+      try {
+        await client.deleteBoard(boardId);
+      } catch (err) {
+        set({ boards: snapshot, error: err.message });
+        throw err;
+      }
+    },
 
-    return optimistic(get, set, {
-      apply: b => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, st => ({ ...st, position: newPos })) }),
-      commit: () => client.patchSubtask(subtaskId, { position: newPos }),
+    // ── columns ─────────────────────────────────────────────────────────────────
+
+    createColumn: async (boardId, { name }) => {
+      const id = uuidv4();
+      const position = nextPosition(get().board?.columns ?? []);
+      return run({
+        keys: [id], creates: [id],
+        apply: b => ({ ...b, columns: addIfAbsent(b.columns, { id, boardId, name, position }) }),
+        commit: () => client.createColumn(boardId, { id, name, position }),
+        settle: (b, col) => ({ ...b, columns: replaceWith(b.columns, id, col) }),
+      });
+    },
+
+    renameColumn: async (columnId, { name, color }) => {
+      const patch = { name };
+      if (color !== undefined) patch.color = color;
+      return run({
+        keys: [columnId],
+        apply: b => ({ ...b, columns: mapById(b.columns, columnId, c => ({ ...c, name, color: color !== undefined ? color : c.color })) }),
+        commit: () => client.patchColumn(columnId, patch),
+        settle: (b, col) => ({ ...b, columns: mapById(b.columns, columnId, c => ({ ...c, ...col })) }),
+      });
+    },
+
+    // The Column's Cards go with it, and so do their labels, assignees and
+    // Subtasks (#63) — so the op is keyed on them too.
+    deleteColumn: async (columnId) => run({
+      keys: [columnId, ...columnCardIds(get().board, columnId)],
+      apply: b => ({ ...withoutCards(b, columnCardIds(b, columnId)), columns: b.columns.filter(c => c.id !== columnId) }),
+      commit: () => client.deleteColumn(columnId),
+    }),
+
+    moveColumn: async (columnId, { position }) => run({
+      keys: [columnId],
+      apply: b => ({ ...b, columns: mapById(b.columns, columnId, c => ({ ...c, position })) }),
+      commit: () => client.patchColumn(columnId, { position }),
+      settle: (b, col) => ({ ...b, columns: mapById(b.columns, columnId, () => col) }),
+    }),
+
+    // ── cards ────────────────────────────────────────────────────────────────────
+
+    createCard: async (columnId, { title }) => {
+      const id = uuidv4();
+      const position = nextPosition(get().board?.cards.filter(c => c.columnId === columnId) ?? []);
+      const placeholder = { id, columnId, title, description: '', categoryLabelId: null, dueDate: null, completedAt: null, position };
+      return run({
+        keys: [id, columnId], creates: [id],
+        apply: b => ({ ...b, cards: addIfAbsent(b.cards, placeholder) }),
+        commit: () => client.createCard(columnId, { id, title, position }),
+        settle: (b, card) => ({ ...b, cards: replaceWith(b.cards, id, card) }),
+      });
+    },
+
+    patchCard: async (cardId, patch) => run({
+      keys: [cardId],
+      apply: b => ({ ...b, cards: mapById(b.cards, cardId, c => ({ ...c, ...patch })) }),
+      commit: () => client.patchCard(cardId, patch),
+      settle: (b, card) => ({ ...b, cards: mapById(b.cards, cardId, () => card) }),
+      gone: cardGone(cardId),
+    }),
+
+    deleteCard: async (cardId) => run({
+      keys: [cardId],
+      apply: b => withoutCards(b, [cardId]),
+      commit: () => client.deleteCard(cardId),
+      gone: cardGone(cardId),
+    }),
+
+    moveCard: async (cardId, { columnId, position }) => {
+      const from = get().board.cards.find(c => c.id === cardId)?.columnId;
+      return run({
+        keys: [cardId, columnId, ...(from && from !== columnId ? [from] : [])],
+        apply: b => ({ ...b, cards: mapById(b.cards, cardId, c => ({ ...c, columnId, position })) }),
+        commit: () => client.moveCard(cardId, { columnId, position }),
+        settle: (b, card) => ({ ...b, cards: mapById(b.cards, cardId, () => card) }),
+        gone: cardGone(cardId),
+      });
+    },
+
+    // ── labels ───────────────────────────────────────────────────────────────────
+
+    createLabel: async (boardId, { name, color }) => {
+      const id = uuidv4();
+      return run({
+        keys: [id], creates: [id],
+        apply: b => ({ ...b, labels: addIfAbsent(b.labels, { id, boardId, name, color }) }),
+        commit: () => client.createLabel(boardId, { id, name, color }),
+        settle: (b, label) => ({ ...b, labels: replaceWith(b.labels, id, label) }),
+      });
+    },
+
+    patchLabel: async (labelId, patch) => run({
+      keys: [labelId],
+      apply: b => ({ ...b, labels: mapById(b.labels, labelId, l => ({ ...l, ...patch })) }),
+      commit: () => client.patchLabel(labelId, patch),
+      settle: (b, label) => ({ ...b, labels: mapById(b.labels, labelId, l => ({ ...l, ...label })) }),
+    }),
+
+    // Cards whose Category it was lose it, as the server's ON DELETE SET NULL does.
+    deleteLabel: async (labelId) => run({
+      keys: [labelId],
+      apply: b => ({
+        ...b,
+        labels: b.labels.filter(l => l.id !== labelId),
+        cardLabels: b.cardLabels.filter(cl => cl.labelId !== labelId),
+        cards: b.cards.map(c => (c.categoryLabelId === labelId ? { ...c, categoryLabelId: null } : c)),
+      }),
+      commit: () => client.deleteLabel(labelId),
+    }),
+
+    // Attach/detach carry the card's Category with them (ADR-0002): one op
+    // applies both, the server applies the same rule atomically, and settle
+    // takes the server's Category — so a failure never splits the two (#55).
+    // A ★ (patchCard, keyed on the card) queues behind them and replays on top.
+    attachLabel: async (cardId, labelId) => run({
+      keys: [cardId, labelId],
+      apply: b => (!hasId(b.cards, cardId) || isAttached(b, cardId, labelId) ? b : withCategory(
+        { ...b, cardLabels: [...b.cardLabels, { cardId, labelId }] }, cardId,
+        c => resolveAttach(c.categoryLabelId ?? null, labelId))),
+      commit: () => client.attachLabel(cardId, labelId),
+      settle: (b, r) => withCategory(b, cardId, () => r.categoryLabelId),
+    }),
+
+    detachLabel: async (cardId, labelId) => run({
+      keys: [cardId, labelId],
+      apply: b => (!isAttached(b, cardId, labelId) ? b : withCategory(
+        { ...b, cardLabels: b.cardLabels.filter(cl => !(cl.cardId === cardId && cl.labelId === labelId)) }, cardId,
+        c => resolveDetach(attachedInLabelOrder(b, cardId), labelId, c.categoryLabelId ?? null))),
+      commit: () => client.detachLabel(cardId, labelId),
+      settle: (b, r) => withCategory(b, cardId, () => r.categoryLabelId),
+    }),
+
+    // ── assignees ────────────────────────────────────────────────────────────────
+
+    attachAssignee: async (cardId, userId) => run({
+      keys: [cardId, userId],
+      apply: b => (isAssigned(b, cardId, userId) ? b : { ...b, cardAssignees: [...b.cardAssignees, { cardId, userId }] }),
+      commit: () => client.attachAssignee(cardId, userId),
+    }),
+
+    detachAssignee: async (cardId, userId) => run({
+      keys: [cardId, userId],
+      apply: b => ({ ...b, cardAssignees: b.cardAssignees.filter(ca => !(ca.cardId === cardId && ca.userId === userId)) }),
+      commit: () => client.detachAssignee(cardId, userId),
+    }),
+
+    // ── members ──────────────────────────────────────────────────────────────────
+
+    // Not optimistic — the invitee's id isn't known until the server resolves
+    // the email — so on success it polls the board like the timer does. A failed
+    // poll doesn't fail the invite (it went through; the next poll catches up).
+    addMember: async (boardId, { email }) => {
+      try {
+        await client.addMember(boardId, { email });
+      } catch (err) {
+        set({ error: err.message });
+        throw err;
+      }
+      set({ error: null });
+      await get().pollBoard(boardId).catch(() => {});
+    },
+
+    removeMember: async (boardId, { memberId }) => run({
+      keys: [memberId],
+      apply: b => ({ ...b, members: b.members.filter(m => m.userId !== memberId) }),
+      commit: () => client.removeMember(boardId, { memberId }),
+    }),
+
+    // ── subtasks ─────────────────────────────────────────────────────────────────
+
+    // dir: -1 moves up, +1 moves down. Recomputes a float position from neighbours.
+    // `hideDone`: the panel is hiding checked Subtasks, so swap with the next
+    // *visible* one (PRD §12); hidden Subtasks keep their positions.
+    moveSubtask: async (subtaskId, dir, { hideDone = false } = {}) => {
+      const all = get().board?.subtasks ?? [];
+      const target = visibleNeighbour(all, subtaskId, dir, { hideDone });
+      if (!target) return;
+      // Real order of the card (hidden ones included) — board.subtasks holds every
+      // card's subtasks, whose positions overlap (each card starts at 1).
+      const sorted = all
+        .filter(s => s.cardId === target.cardId)
+        .sort((a, b) => a.position - b.position);
+      const t = sorted.indexOf(target);
+      // Land just past the target: between it and its real-order neighbour beyond.
+      const newPos = dir < 0
+        ? positionBetween(sorted[t - 1]?.position ?? null, target.position)
+        : positionBetween(target.position, sorted[t + 1]?.position ?? null);
+
+      return run({
+        keys: [subtaskId],
+        apply: b => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, st => ({ ...st, position: newPos })) }),
+        commit: () => client.patchSubtask(subtaskId, { position: newPos }),
+        settle: (b, updated) => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, () => updated) }),
+      });
+    },
+
+    moveSubtaskUp: (subtaskId, opts) => get().moveSubtask(subtaskId, -1, opts),
+    moveSubtaskDown: (subtaskId, opts) => get().moveSubtask(subtaskId, 1, opts),
+
+    toggleSubtask: async (subtaskId) => {
+      const current = get().board?.subtasks?.find(s => s.id === subtaskId);
+      if (!current) return;
+      const newChecked = !current.checked;
+      return run({
+        keys: [subtaskId],
+        apply: b => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, st => ({ ...st, checked: newChecked })) }),
+        commit: () => client.patchSubtask(subtaskId, { checked: newChecked }),
+        settle: (b, updated) => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, () => updated) }),
+      });
+    },
+
+    renameSubtask: async (subtaskId, title) => run({
+      keys: [subtaskId],
+      apply: b => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, st => ({ ...st, title })) }),
+      commit: () => client.patchSubtask(subtaskId, { title }),
       settle: (b, updated) => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, () => updated) }),
-    });
-  },
+    }),
 
-  moveSubtaskUp: (subtaskId, opts) => get().moveSubtask(subtaskId, -1, opts),
-  moveSubtaskDown: (subtaskId, opts) => get().moveSubtask(subtaskId, 1, opts),
+    deleteSubtask: async (subtaskId) => run({
+      keys: [subtaskId],
+      apply: b => ({ ...b, subtasks: b.subtasks.filter(st => st.id !== subtaskId) }),
+      commit: () => client.deleteSubtask(subtaskId),
+    }),
 
-  toggleSubtask: async (subtaskId) => {
-    const current = get().board?.subtasks?.find(s => s.id === subtaskId);
-    if (!current) return;
-    const newChecked = !current.checked;
-    return optimistic(get, set, {
-      apply: b => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, st => ({ ...st, checked: newChecked })) }),
-      commit: () => client.patchSubtask(subtaskId, { checked: newChecked }),
-      settle: (b, updated) => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, () => updated) }),
-    });
-  },
-
-  renameSubtask: async (subtaskId, title) => optimistic(get, set, {
-    apply: b => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, st => ({ ...st, title })) }),
-    commit: () => client.patchSubtask(subtaskId, { title }),
-    settle: (b, updated) => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, () => updated) }),
-  }),
-
-  deleteSubtask: async (subtaskId) => optimistic(get, set, {
-    apply: b => ({ ...b, subtasks: b.subtasks.filter(st => st.id !== subtaskId) }),
-    commit: () => client.deleteSubtask(subtaskId),
-  }),
-
-  // The one way to add Subtasks (PRD §12): a pasted batch, or a single typed
-  // title as a batch of one (#67). The whole batch appears at once and lands or
-  // rolls back as one — the server adds all titles or none.
-  createSubtasks: async (cardId, titles) => {
-    const cardSubtasks = (get().board?.subtasks ?? []).filter(s => s.cardId === cardId);
-    const placeholders = [];
-    for (const title of titles) {
-      const position = nextPosition([...cardSubtasks, ...placeholders]);
-      placeholders.push({ id: uuidv4(), cardId, title, checked: false, position });
-    }
-    const tempIds = new Set(placeholders.map(p => p.id));
-    return optimistic(get, set, {
-      apply: b => ({ ...b, subtasks: [...(b.subtasks ?? []), ...placeholders] }),
-      commit: () => client.createSubtasks(cardId, titles),
-      settle: (b, created) => ({ ...b, subtasks: [...b.subtasks.filter(s => !tempIds.has(s.id)), ...created] }),
-    });
-  },
-}));
+    // The one way to add Subtasks (PRD §12): a pasted batch, or a single typed
+    // title as a batch of one (#67). The whole batch appears at once and lands or
+    // rolls back as one — the server adds all titles or none.
+    createSubtasks: async (cardId, titles) => {
+      const cardSubtasks = (get().board?.subtasks ?? []).filter(s => s.cardId === cardId);
+      const placeholders = [];
+      for (const title of titles) {
+        const position = nextPosition([...cardSubtasks, ...placeholders]);
+        placeholders.push({ id: uuidv4(), cardId, title, checked: false, position });
+      }
+      const ids = placeholders.map(p => p.id);
+      return run({
+        keys: [cardId, ...ids], creates: ids,
+        apply: b => ({ ...b, subtasks: placeholders.reduce(addIfAbsent, b.subtasks ?? []) }),
+        commit: () => client.createSubtasks(cardId, titles, ids),
+        settle: (b, created) => {
+          const replaced = new Set([...ids, ...created.map(s => s.id)]);
+          return { ...b, subtasks: [...b.subtasks.filter(s => !replaced.has(s.id)), ...created] };
+        },
+      });
+    },
+  };
+});
 
 export default useBoardStore;

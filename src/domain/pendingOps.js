@@ -23,8 +23,11 @@
 // Pure: no React, Zustand or API client. The store commits the ops `ready()`
 // hands it and reports back with succeed / fail / receivePoll.
 
-export function init(server) {
-  return { server, pending: [], clock: 0, serverAt: 0 };
+// `prev`: the state this one replaces (another board opened). Its clock carries
+// on, so a poll still in flight from it is older than the new server board.
+export function init(server, prev) {
+  const clock = prev ? prev.clock + 1 : 0;
+  return { server, pending: [], clock, serverAt: clock };
 }
 
 export function enqueue(state, op) {

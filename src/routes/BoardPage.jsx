@@ -25,7 +25,7 @@ export default function BoardPage() {
   const { boardId } = useParams();
   const navigate    = useNavigate();
   const { currentUserId } = useSession();
-  const { board, loading, error, fetchBoard, reconcileBoard } = useBoardStore();
+  const { board, loading, error, fetchBoard, pollBoard } = useBoardStore();
 
   const [activeCard, setActiveCard]   = useState(null);
   const [inviteOpen, setInviteOpen]   = useState(false);
@@ -47,6 +47,7 @@ export default function BoardPage() {
 
   usePolling({
     boardId,
+    poll: pollBoard,
     onReconcile: handleReconcile,
     onForbidden: () => navigate('/boards', { state: { ejected: true } }),
     onNotFound:  () => navigate('/boards', { replace: true }),
@@ -67,10 +68,13 @@ export default function BoardPage() {
     if (error && (loading === false && !board)) navigate('/boards', { replace: true });
   }, [error, loading, board, navigate]);
 
-  // Polling: if the open card is missing from the fresh snapshot, another member deleted it.
-  function handleReconcile(data) {
-    if (activeCard && !data.cards.some(c => c.id === activeCard.id)) actions.cardDeleted();
-    reconcileBoard(data);
+  // Polling (pollBoard has already written the snapshot into the store): if
+  // the open card is now missing from the board, another member deleted it.
+  // Read the board, not the raw snapshot — a poll may predate a Card still
+  // being created, and a stale poll is ignored.
+  function handleReconcile() {
+    const cards = useBoardStore.getState().board?.cards ?? [];
+    if (activeCard && !cards.some(c => c.id === activeCard.id)) actions.cardDeleted();
   }
 
   function handleDragStart({ active }) {

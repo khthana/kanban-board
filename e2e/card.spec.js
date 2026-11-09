@@ -29,6 +29,43 @@ test('create column + card → persist on refresh', async ({ page }) => {
   await expect(page.getByText('My Task')).toBeVisible();
 });
 
+// #73: the Card is queued behind its Column's create (client-chosen ids, no
+// temp-id race) — the column POST is held so the Card is added before it lands.
+test('create a column and add a card to it at once, no wait → the card persists', async ({ page }) => {
+  const title = `Quick-${uid()}`;
+  await register(page, `user-${uid()}@test.com`, PW, 'Test User');
+
+  await page.fill('input[placeholder="New board name…"]', 'Quick Board');
+  await page.click('button:has-text("Create Board")');
+  await page.getByRole('link', { name: 'Quick Board' }).click();
+  await expect(page).toHaveURL(/\/boards\//);
+
+  let releaseColumn;
+  const columnHeld = new Promise(r => { releaseColumn = r; });
+  await page.route(/\/boards\/[^/]+\/columns$/, async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    await columnHeld;
+    return route.continue();
+  });
+
+  await page.click('text=+ Add column');
+  await page.fill('input[placeholder="Column name…"]', 'Todo');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+
+  await page.click('text=+ New card');
+  await page.fill('textarea[placeholder="Card title…"]', title);
+  await page.getByRole('button', { name: 'Add card', exact: true }).click();
+  await expect(page.getByText(title)).toBeVisible();
+
+  const cardCreated = page.waitForResponse(r => /\/columns\/[^/]+\/cards$/.test(r.url()) && r.request().method() === 'POST');
+  releaseColumn();
+  expect((await cardCreated).status()).toBe(201);
+
+  await page.reload();
+  await expect(page.getByText('Todo')).toBeVisible();
+  await expect(page.getByText(title)).toBeVisible();
+});
+
 test('edit card title inline in the panel → persist on refresh', async ({ page }) => {
   const title = `Task-${uid()}`;
   await register(page, `user-${uid()}@test.com`, PW, 'Test User');

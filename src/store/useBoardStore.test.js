@@ -20,14 +20,30 @@ function makeBoard() {
   };
 }
 
-beforeEach(() => {
+// Opens a board the way the app does: fetchBoard on a mocked snapshot.
+async function openBoard({ board }) {
+  client.getBoard.mockResolvedValueOnce(board);
+  await useBoardStore.getState().fetchBoard(board.board.id);
+}
+
+// A client call that stays pending until the test settles it.
+function held() {
+  let resolve, reject;
+  const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
+const flush = () => new Promise(r => setTimeout(r, 0));
+const board = () => useBoardStore.getState().board;
+
+beforeEach(async () => {
   jest.clearAllMocks();
-  useBoardStore.setState({ boards: [], board: makeBoard(), loading: false, error: null });
+  useBoardStore.setState({ boards: [], ops: null, board: null, loading: false, error: null });
+  await openBoard({ board: makeBoard() });
 });
 
 describe('patchLabel', () => {
-  function withLabel() {
-    useBoardStore.setState({
+  async function withLabel() {
+    await openBoard({
       board: {
         ...useBoardStore.getState().board,
         labels: [{ id: 'l1', boardId: 'b1', name: 'Old', color: '#fca5a5' }],
@@ -36,7 +52,7 @@ describe('patchLabel', () => {
   }
 
   test('updates the label optimistically and settles with the server record', async () => {
-    withLabel();
+    await withLabel();
     client.patchLabel.mockResolvedValue({ id: 'l1', name: 'New', color: '#93c5fd' });
 
     await useBoardStore.getState().patchLabel('l1', { name: 'New', color: '#93c5fd' });
@@ -46,7 +62,7 @@ describe('patchLabel', () => {
   });
 
   test('rolls back on API failure', async () => {
-    withLabel();
+    await withLabel();
     client.patchLabel.mockRejectedValue(new Error('boom'));
 
     await expect(useBoardStore.getState().patchLabel('l1', { name: 'New' })).rejects.toThrow('boom');
@@ -56,9 +72,9 @@ describe('patchLabel', () => {
 });
 
 describe('label attach/detach carries the Category (ADR-0002, #55)', () => {
-  function withLabels({ cardLabels = [], categoryLabelId = null } = {}) {
+  async function withLabels({ cardLabels = [], categoryLabelId = null } = {}) {
     const b = useBoardStore.getState().board;
-    useBoardStore.setState({
+    await openBoard({
       board: {
         ...b,
         cards: b.cards.map(c => ({ ...c, categoryLabelId })),
@@ -70,7 +86,7 @@ describe('label attach/detach carries the Category (ADR-0002, #55)', () => {
   const card = () => useBoardStore.getState().board.cards[0];
 
   test('attaching the first label sets it as the Category optimistically, then settles with the server', async () => {
-    withLabels();
+    await withLabels();
     let resolve;
     client.attachLabel.mockReturnValue(new Promise(r => { resolve = r; }));
 
@@ -84,22 +100,27 @@ describe('label attach/detach carries the Category (ADR-0002, #55)', () => {
     expect(client.patchCard).not.toHaveBeenCalled();
   });
 
-  test('settling an attach keeps a Category the user changed while it was in flight (★)', async () => {
-    withLabels({ cardLabels: [{ cardId: 'card1', labelId: 'l2' }], categoryLabelId: 'l2' });
-    let resolve;
-    client.attachLabel.mockReturnValue(new Promise(r => { resolve = r; }));
+  test('a ★ pressed while an attach is in flight waits for it, then wins', async () => {
+    await withLabels({ cardLabels: [{ cardId: 'card1', labelId: 'l2' }], categoryLabelId: 'l2' });
+    const attach = held();
+    client.attachLabel.mockReturnValue(attach.promise);
+    client.patchCard.mockImplementation((id, patch) => Promise.resolve({ ...card(), ...patch }));
 
-    const pending = useBoardStore.getState().attachLabel('card1', 'l1');
-    const b = useBoardStore.getState().board;
-    useBoardStore.setState({ board: { ...b, cards: b.cards.map(c => ({ ...c, categoryLabelId: 'l1' })) } });
+    const attaching = useBoardStore.getState().attachLabel('card1', 'l1');
+    const starring = useBoardStore.getState().patchCard('card1', { categoryLabelId: 'l1' });
+    expect(card().categoryLabelId).toBe('l1');
+    expect(client.patchCard).not.toHaveBeenCalled();     // queued behind the attach
 
-    resolve({ cardId: 'card1', labelId: 'l1', categoryLabelId: 'l2' });
-    await pending;
+    attach.resolve({ cardId: 'card1', labelId: 'l1', categoryLabelId: 'l2' });
+    await attaching;
+    await starring;
+
+    expect(client.patchCard).toHaveBeenCalledWith('card1', { categoryLabelId: 'l1' });
     expect(card().categoryLabelId).toBe('l1');
   });
 
   test('a failed attach rolls back both the label and the Category', async () => {
-    withLabels();
+    await withLabels();
     client.attachLabel.mockRejectedValue(new Error('boom'));
 
     await expect(useBoardStore.getState().attachLabel('card1', 'l1')).rejects.toThrow('boom');
@@ -109,7 +130,7 @@ describe('label attach/detach carries the Category (ADR-0002, #55)', () => {
   });
 
   test('detaching the Category promotes the next attached label in board label order', async () => {
-    withLabels({
+    await withLabels({
       cardLabels: [{ cardId: 'card1', labelId: 'l2' }, { cardId: 'card1', labelId: 'l1' }],
       categoryLabelId: 'l1',
     });
@@ -125,7 +146,7 @@ describe('label attach/detach carries the Category (ADR-0002, #55)', () => {
   });
 
   test('a failed detach rolls back both the label and the Category', async () => {
-    withLabels({ cardLabels: [{ cardId: 'card1', labelId: 'l1' }], categoryLabelId: 'l1' });
+    await withLabels({ cardLabels: [{ cardId: 'card1', labelId: 'l1' }], categoryLabelId: 'l1' });
     client.detachLabel.mockRejectedValue(new Error('boom'));
 
     await expect(useBoardStore.getState().detachLabel('card1', 'l1')).rejects.toThrow('boom');
@@ -135,7 +156,7 @@ describe('label attach/detach carries the Category (ADR-0002, #55)', () => {
   });
 
   test('the server’s Category wins over the optimistic guess', async () => {
-    withLabels({ cardLabels: [{ cardId: 'card1', labelId: 'l1' }], categoryLabelId: 'l1' });
+    await withLabels({ cardLabels: [{ cardId: 'card1', labelId: 'l1' }], categoryLabelId: 'l1' });
     client.detachLabel.mockResolvedValue({ cardId: 'card1', labelId: 'l1', categoryLabelId: 'l2' });
 
     await useBoardStore.getState().detachLabel('card1', 'l1');
@@ -165,7 +186,7 @@ describe('attachAssignee', () => {
 
 describe('detachAssignee', () => {
   test('removes the assignee optimistically', async () => {
-    useBoardStore.setState({
+    await openBoard({
       board: { ...useBoardStore.getState().board, cardAssignees: [{ cardId: 'card1', userId: 'u2' }] },
     });
     client.detachAssignee.mockResolvedValue(null);
@@ -231,8 +252,8 @@ describe('deleteColumn', () => {
 
   describe("drops the deleted Column's Card records too (#63)", () => {
     // c1 holds card1, c2 holds card2; each Card has a label, an assignee and a Subtask.
-    beforeEach(() => {
-      useBoardStore.setState({
+    beforeEach(async () => {
+      await openBoard({
         board: {
           ...makeBoard(),
           columns: [{ id: 'c1', name: 'Todo', position: 1 }, { id: 'c2', name: 'Done', position: 2 }],
@@ -316,7 +337,7 @@ describe('moveSubtask', () => {
   test('reorders within the subtask’s own card, ignoring other cards’ subtasks', async () => {
     // A second card whose subtask positions overlap card1's (1, 2). The global
     // list interleaves them; neighbours for s1 must come from card1 only.
-    useBoardStore.setState({
+    await openBoard({
       board: {
         ...useBoardStore.getState().board,
         subtasks: [
@@ -341,8 +362,8 @@ describe('moveSubtask', () => {
 
 describe('moveSubtask with done Subtasks hidden (PRD §12)', () => {
   // card1 real order: a(1) b(2, done) c(3, done) d(4)
-  beforeEach(() => {
-    useBoardStore.setState({
+  beforeEach(async () => {
+    await openBoard({
       board: {
         ...useBoardStore.getState().board,
         subtasks: [
@@ -402,7 +423,7 @@ describe('createSubtasks (the one way to add Subtasks: PRD §12, #67)', () => {
     const pending = useBoardStore.getState().createSubtasks('card1', ['D', 'E']);
 
     expect(card1Subtasks().map(s => s.title)).toEqual(['A', 'B', 'C', 'D', 'E']);
-    expect(client.createSubtasks).toHaveBeenCalledWith('card1', ['D', 'E']);
+    expect(client.createSubtasks).toHaveBeenCalledWith('card1', ['D', 'E'], expect.any(Array));
 
     resolve([
       { id: 'real-d', cardId: 'card1', title: 'D', checked: false, position: 4 },
@@ -428,7 +449,7 @@ describe('createSubtasks (the one way to add Subtasks: PRD §12, #67)', () => {
 
     await useBoardStore.getState().createSubtasks('card1', ['D']);
 
-    expect(client.createSubtasks).toHaveBeenCalledWith('card1', ['D']);
+    expect(client.createSubtasks).toHaveBeenCalledWith('card1', ['D'], expect.any(Array));
     expect(card1Subtasks().map(s => s.id)).toEqual(['s1', 's2', 's3', 'real-d']);
   });
 });
@@ -468,8 +489,8 @@ describe('removeMember', () => {
 describe('card deleted by another member (404)', () => {
   const notFound = () => Object.assign(new Error('card not found'), { status: 404 });
 
-  beforeEach(() => {
-    useBoardStore.setState({
+  beforeEach(async () => {
+    await openBoard({
       board: {
         ...makeBoard(),
         labels: [{ id: 'l1', name: 'Bug', color: '#f00' }],
@@ -531,5 +552,195 @@ describe('card deleted by another member (404)', () => {
       .rejects.toThrow('card not found');
 
     expect(useBoardStore.getState().board.cards).toEqual([]);
+  });
+});
+
+describe('pending-ops board (#73)', () => {
+  test('when A fails while B is in flight, only A rolls back', async () => {
+    const a = held(), b = held();
+    client.patchCard.mockReturnValueOnce(a.promise);
+    client.patchColumn.mockReturnValueOnce(b.promise);
+
+    const pa = useBoardStore.getState().patchCard('card1', { title: 'A!' });
+    const pb = useBoardStore.getState().renameColumn('c1', { name: 'B!' });
+    a.reject(new Error('boom'));
+    await expect(pa).rejects.toThrow('boom');
+
+    expect(board().cards[0].title).toBe('Old');
+    expect(board().columns[0].name).toBe('B!');
+
+    b.resolve({ id: 'c1', name: 'B!', position: 1 });
+    await pb;
+    expect(board().columns[0].name).toBe('B!');
+  });
+
+  test('a poll arriving while a create is in flight does not drop the new item', async () => {
+    const create = held();
+    client.createCard.mockReturnValueOnce(create.promise);
+
+    const pending = useBoardStore.getState().createCard('c1', { title: 'New' });
+    client.getBoard.mockResolvedValueOnce(makeBoard());          // the poll predates the card
+    await useBoardStore.getState().pollBoard('b1');
+
+    expect(board().cards.map(c => c.title)).toEqual(['Old', 'New']);
+
+    const [, data] = client.createCard.mock.calls[0];
+    create.resolve({ ...data, columnId: 'c1' });
+    await pending;
+    expect(board().cards.map(c => c.title)).toEqual(['Old', 'New']);
+  });
+
+  test('a poll that already holds the new item (same id) shows it once', async () => {
+    const create = held();
+    client.createCard.mockReturnValueOnce(create.promise);
+
+    useBoardStore.getState().createCard('c1', { title: 'New' });
+    const [, { id }] = client.createCard.mock.calls[0];
+    client.getBoard.mockResolvedValueOnce({ ...makeBoard(), cards: [...makeBoard().cards, { id, columnId: 'c1', title: 'New', position: 2 }] });
+    await useBoardStore.getState().pollBoard('b1');
+
+    expect(board().cards.map(c => c.id)).toEqual(['card1', id]);
+  });
+
+  test('a rollback after a poll does not restore pre-poll data', async () => {
+    const patch = held();
+    client.patchCard.mockReturnValueOnce(patch.promise);
+
+    const pending = useBoardStore.getState().patchCard('card1', { title: 'Mine' });
+    client.getBoard.mockResolvedValueOnce({ ...makeBoard(), columns: [{ id: 'c1', name: 'Renamed elsewhere', position: 1 }] });
+    await useBoardStore.getState().pollBoard('b1');
+    patch.reject(new Error('boom'));
+    await expect(pending).rejects.toThrow('boom');
+
+    expect(board().columns[0].name).toBe('Renamed elsewhere');
+    expect(board().cards[0].title).toBe('Old');
+  });
+
+  test('a poll sent before a commit landed is ignored', async () => {
+    const poll = held();
+    client.getBoard.mockReturnValueOnce(poll.promise);
+    client.patchCard.mockImplementation((id, p) => Promise.resolve({ id, columnId: 'c1', position: 1, ...p }));
+
+    const polling = useBoardStore.getState().pollBoard('b1');
+    await useBoardStore.getState().patchCard('card1', { title: 'Saved' });
+    poll.resolve(makeBoard());                                    // still says 'Old'
+    await polling;
+
+    expect(board().cards[0].title).toBe('Saved');
+  });
+
+  test('a Card added to a Column whose create is pending waits for it, then posts with the Column id', async () => {
+    const col = held();
+    client.createColumn.mockReturnValueOnce(col.promise);
+    client.createCard.mockImplementation((columnId, data) => Promise.resolve({ ...data, columnId }));
+
+    const creatingColumn = useBoardStore.getState().createColumn('b1', { name: 'New col' });
+    const [, { id: columnId }] = client.createColumn.mock.calls[0];
+    const creatingCard = useBoardStore.getState().createCard(columnId, { title: 'In it' });
+
+    await flush();
+    expect(client.createCard).not.toHaveBeenCalled();
+    expect(board().cards.map(c => c.title)).toEqual(['Old', 'In it']);
+
+    col.resolve({ id: columnId, boardId: 'b1', name: 'New col', position: 2 });
+    await creatingColumn;
+    await creatingCard;
+
+    expect(client.createCard).toHaveBeenCalledWith(columnId, expect.objectContaining({ title: 'In it' }));
+    expect(board().cards.find(c => c.title === 'In it').columnId).toBe(columnId);
+  });
+
+  test('a failed Column create fails the Card waiting on it, which is never posted', async () => {
+    client.createColumn.mockRejectedValueOnce(new Error('nope'));
+
+    const creatingColumn = useBoardStore.getState().createColumn('b1', { name: 'New col' });
+    const [, { id: columnId }] = client.createColumn.mock.calls[0];
+    const creatingCard = useBoardStore.getState().createCard(columnId, { title: 'In it' });
+
+    await expect(creatingColumn).rejects.toThrow('nope');
+    await expect(creatingCard).rejects.toThrow('nope');
+    expect(client.createCard).not.toHaveBeenCalled();
+    expect(board().columns.map(c => c.id)).toEqual(['c1']);
+    expect(board().cards.map(c => c.id)).toEqual(['card1']);
+  });
+
+  test('new records carry a client-chosen id that is sent to the API', async () => {
+    client.createLabel.mockImplementation((boardId, data) => Promise.resolve({ ...data, boardId }));
+
+    await useBoardStore.getState().createLabel('b1', { name: 'Bug', color: '#f00' });
+
+    const [, sent] = client.createLabel.mock.calls[0];
+    expect(sent.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(board().labels.map(l => l.id)).toEqual([sent.id]);
+  });
+
+  test('addMember polls the board after the invite succeeds', async () => {
+    client.addMember.mockResolvedValue(undefined);
+    client.getBoard.mockResolvedValueOnce({ ...makeBoard(), members: [...makeBoard().members, { userId: 'u3', role: 'member', user: {} }] });
+
+    await useBoardStore.getState().addMember('b1', { email: 'c@x.com' });
+
+    expect(board().members.map(m => m.userId)).toEqual(['u1', 'u2', 'u3']);
+  });
+});
+
+describe('pending-ops board — edges (#73 review)', () => {
+  test('an op waiting on a failed create is rejected without the create’s status', async () => {
+    client.createCard.mockRejectedValueOnce(Object.assign(new Error('column not found'), { status: 404 }));
+
+    const creating = useBoardStore.getState().createCard('c1', { title: 'New' });
+    const [, { id }] = client.createCard.mock.calls[0];
+    const patching = useBoardStore.getState().patchCard(id, { title: 'Renamed' });
+
+    await expect(creating).rejects.toMatchObject({ status: 404 });
+    const err = await patching.catch(e => e);
+    expect(err.message).toBe('column not found');
+    expect(err.status).toBeUndefined();
+  });
+
+  test('reopening the same board keeps its pending ops', async () => {
+    const patch = held();
+    client.patchCard.mockReturnValueOnce(patch.promise);
+
+    useBoardStore.getState().patchCard('card1', { title: 'Mine' });
+    await openBoard({ board: makeBoard() });
+
+    expect(board().cards[0].title).toBe('Mine');
+  });
+
+  test('opening another board rejects the old board’s queued ops and keeps the new board clean', async () => {
+    const first = held();
+    client.patchCard.mockReturnValueOnce(first.promise);
+
+    const inFlight = useBoardStore.getState().patchCard('card1', { title: 'One' });
+    const queued = useBoardStore.getState().patchCard('card1', { title: 'Two' });
+    await openBoard({ board: { ...makeBoard(), board: { id: 'b2', name: 'Other' } } });
+
+    await expect(queued).rejects.toThrow('The board was closed.');
+    first.reject(new Error('late failure'));
+    await expect(inFlight).rejects.toThrow('late failure');
+    expect(useBoardStore.getState().error).toBeNull();
+    expect(board().board.id).toBe('b2');
+  });
+
+  test('addMember resolves when the invite succeeds even if the follow-up poll fails', async () => {
+    client.addMember.mockResolvedValue(undefined);
+    client.getBoard.mockRejectedValueOnce(new Error('offline'));
+
+    await expect(useBoardStore.getState().addMember('b1', { email: 'c@x.com' })).resolves.toBeUndefined();
+  });
+
+  test('deleting a label clears it as the Category of the cards that had it', async () => {
+    await openBoard({ board: {
+      ...makeBoard(),
+      cards: [{ id: 'card1', columnId: 'c1', title: 'Old', position: 1, categoryLabelId: 'l1' }],
+      labels: [{ id: 'l1', name: 'Bug', color: '#f00' }],
+      cardLabels: [{ cardId: 'card1', labelId: 'l1' }],
+    } });
+    client.deleteLabel.mockResolvedValue(undefined);
+
+    await useBoardStore.getState().deleteLabel('l1');
+
+    expect(board().cards[0].categoryLabelId).toBeNull();
   });
 });
