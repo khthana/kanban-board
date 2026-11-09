@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { validateCardDescription, validateSubtaskTitle, validateSubtaskCount } from '../domain/validation';
+import { validateCardDescription } from '../domain/validation';
 import { resolveTitleCommit } from '../domain/titleEdit';
 import { isDone, completionPatch, incompleteSubtasks } from '../domain/completion';
 import { formatDueDate } from '../domain/dates';
 import LabelPicker from './LabelPicker';
 import AssigneePicker from './AssigneePicker';
 import DueDateField from './DueDateField';
+import SubtaskSection from './SubtaskSection';
 import styles from './CardPanel.module.css';
 
 export default function CardPanel({
@@ -31,12 +32,6 @@ export default function CardPanel({
   // A keyboard commit (Enter/Escape) closes the editor, which unmounts the
   // focused input and can fire onBlur — skip that follow-up blur commit.
   const skipTitleBlur = useRef(false);
-  const [addingSubtask, setAddingSubtask]   = useState(false);
-  const [subtaskInput, setSubtaskInput]     = useState('');
-  const [subtaskError, setSubtaskError]     = useState(null);
-  const [editingId, setEditingId]           = useState(null);
-  const [editInput, setEditInput]           = useState('');
-  const [editError, setEditError]           = useState(null);
   // Attaches still in flight, counted per `${cardId}:${labelId}` (a label can be
   // re-attached before its first PUT settles; the panel can switch cards). The
   // server rejects such a label as the Category until its attach commits, so
@@ -110,38 +105,6 @@ export default function CardPanel({
     if (err) { setError(err); return; }
     onSave({ description: desc });
     setDirty(false);
-  }
-
-  async function handleSubtaskKeyDown(e) {
-    if (e.key === 'Escape') { setAddingSubtask(false); setSubtaskInput(''); setSubtaskError(null); return; }
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    const titleErr = validateSubtaskTitle(subtaskInput);
-    if (titleErr) { setSubtaskError(titleErr); return; }
-    const countErr = validateSubtaskCount(subtasks.length);
-    if (countErr) { setSubtaskError(countErr); return; }
-    try {
-      await onCreateSubtask(subtaskInput.trim());
-      setSubtaskInput('');
-      setSubtaskError(null);
-    } catch (err) {
-      setSubtaskError(err.message);
-    }
-  }
-
-  async function handleEditKeyDown(e, subtaskId) {
-    if (e.key === 'Escape') { setEditingId(null); setEditError(null); return; }
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    const err = validateSubtaskTitle(editInput);
-    if (err) { setEditError(err); return; }
-    try {
-      await onRenameSubtask?.(subtaskId, editInput.trim());
-      setEditingId(null);
-      setEditError(null);
-    } catch (err) {
-      setEditError(err.message);
-    }
   }
 
   function handleDelete() {
@@ -235,76 +198,15 @@ export default function CardPanel({
           onChange={dueDate => onSave({ dueDate })}
         />
 
-        <div className={styles.subtaskSection}>
-          <p className={styles.label}>Subtasks {subtasks.length > 0 && <span className={styles.subtaskCount}>({subtasks.length})</span>}</p>
-
-          {[...subtasks].sort((a, b) => a.position - b.position).map((s, idx, arr) => (
-            <div key={s.id} className={styles.subtaskRow}>
-              <input
-                type="checkbox"
-                className={styles.subtaskCheck}
-                checked={s.checked}
-                onChange={() => onToggleSubtask?.(s.id)}
-              />
-              {editingId === s.id ? (
-                <div className={styles.subtaskEditRow}>
-                  <input
-                    className={styles.subtaskInput}
-                    autoFocus
-                    value={editInput}
-                    onChange={e => { setEditInput(e.target.value); setEditError(null); }}
-                    onKeyDown={e => handleEditKeyDown(e, s.id)}
-                  />
-                  {editError && <p className={styles.fieldError}>{editError}</p>}
-                </div>
-              ) : (
-                <span
-                  className={styles.subtaskTitle}
-                  style={s.checked ? { textDecoration: 'line-through', color: '#94a3b8' } : undefined}
-                  onClick={() => { setEditingId(s.id); setEditInput(s.title); setEditError(null); }}
-                  title="Click to edit"
-                >{s.title}</span>
-              )}
-              <div className={styles.subtaskActions}>
-                <button
-                  className={styles.subtaskMoveBtn}
-                  disabled={idx === 0}
-                  onClick={() => onMoveSubtaskUp?.(s.id)}
-                  title="Move up"
-                >↑</button>
-                <button
-                  className={styles.subtaskMoveBtn}
-                  disabled={idx === arr.length - 1}
-                  onClick={() => onMoveSubtaskDown?.(s.id)}
-                  title="Move down"
-                >↓</button>
-                <button
-                  className={styles.subtaskDeleteBtn}
-                  onClick={() => onDeleteSubtask?.(s.id)}
-                  title="Delete subtask"
-                >✕</button>
-              </div>
-            </div>
-          ))}
-
-          {addingSubtask ? (
-            <div className={styles.subtaskInputRow}>
-              <input
-                className={styles.subtaskInput}
-                autoFocus
-                value={subtaskInput}
-                placeholder="Subtask title…"
-                onChange={e => { setSubtaskInput(e.target.value); setSubtaskError(null); }}
-                onKeyDown={handleSubtaskKeyDown}
-              />
-              {subtaskError && <p className={styles.fieldError}>{subtaskError}</p>}
-            </div>
-          ) : (
-            validateSubtaskCount(subtasks.length)
-              ? <p className={styles.subtaskLimit}>Maximum 20 subtasks per card</p>
-              : <button className={styles.addSubtaskBtn} onClick={() => setAddingSubtask(true)}>+ Add subtask</button>
-          )}
-        </div>
+        <SubtaskSection
+          subtasks={subtasks}
+          onCreate={onCreateSubtask}
+          onToggle={onToggleSubtask}
+          onRename={onRenameSubtask}
+          onDelete={onDeleteSubtask}
+          onMoveUp={onMoveSubtaskUp}
+          onMoveDown={onMoveSubtaskDown}
+        />
 
         <div className={styles.descSection}>
           <label className={styles.label} htmlFor="card-desc">Description</label>
