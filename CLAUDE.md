@@ -101,7 +101,7 @@ Validation runs client-side (UX) and is enforced by the backend (authoritative).
 
 ## Tests
 
-### Unit tests (222)
+### Unit tests (224)
 `src/domain/` (incl. `progress.test.js`, `accent.test.js`, `dates.test.js`, `completion.test.js`, `titleEdit.test.js`, `dragDrop.test.js`, `category.test.js`, `assignees.test.js`, `subtaskBatch.test.js`, `subtaskVisibility.test.js`, `cardView.test.js`), `src/api/client.test.js` (response normalization, no token storage), `src/hooks/`, `src/store/useSession.test.js`, `src/store/useBoardStore.test.js`, `src/store/boardActions.test.js` (the error policy). Run: `npm test -- --watchAll=false`
 
 Not unit-tested: components — covered by E2E.
@@ -143,7 +143,7 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs both `test-frontend` (222 unit tests) and `test-api` (194 integration tests, postgres:16-alpine service) on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs both `test-frontend` (224 unit tests) and `test-api` (214 integration tests, postgres:16-alpine service) on every push/PR to `main`.
 
 ## API
 
@@ -196,7 +196,7 @@ Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env
 
 ### Tests
 
-194 integration tests across 8 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
+214 integration tests across 9 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
 
 **Critical**: use `--maxWorkers=1`, NOT `--runInBand`. Jest 30 runs test files in parallel by default.
 
@@ -206,6 +206,7 @@ Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env
 - **Card completion**: `cards.completed_at DATE NULL` — null = not done. `PATCH /cards/:id` accepts it. No server-side subtask check (client-side UX guard only).
 - **Card Category**: `cards.category_label_id` (nullable FK → labels, `ON DELETE SET NULL`). Snapshot returns it per card. Label attach/detach auto-set/promote it transactionally using the shared `src/domain/category.js`; PATCH only accepts an attached label (or null), checked in the same transaction. Every Category path locks the card row **first** among card-level locks (`lockCard` — `SELECT … FOR UPDATE`; only a move's Column locks, #66, come before it): locking after the `card_labels` INSERT deadlocks concurrent attaches (its FK check holds KEY SHARE on the card). A card deleted mid-request returns 404.
 - **Multiple assignees**: `card_assignees (card_id, user_id)` join. `PUT`/`DELETE /cards/:id/assignees/:userId`.
+- **Client-chosen ids** (#71, decision 3 of #69): `POST /boards/:id/columns`, `POST /columns/:id/cards` and `POST /boards/:id/labels` accept an optional `id`; `POST /cards/:cardId/subtasks/batch` an optional `ids[]` parallel to `titles[]` (same length). Given → the row is inserted with it (`COALESCE($n::uuid, gen_random_uuid())`); not a UUID (or `ids` of the wrong length / non-strings) → 400, already taken → 409 (`db/clientId.js` — a 23505 on the table's `_pkey`), nothing inserted (the batch stays all-or-nothing). Omitted → the server picks it, as before (`id: null` is a 400, like `ids: null`). Membership is still checked first (403/404 win over 400). `client.js` forwards them (`createColumn`/`createCard`/`createLabel` pass `data` through; `createSubtasks(cardId, titles, ids?)`); the store still uses its own temp ids until #73. `POST /boards` takes no id. Tests: `routes/clientIds.test.js`.
 - **Authorization**: board membership resolved via FK chain; never trust client-supplied role claims. Board-id routes use `requireMembership`/`requireOwner`; every route reached by a Card, Subtask, Column or Label id uses `requireAccess(kind)` (#65), so all answer alike **before body validation**: unknown or malformed id → 404, non-member → 403 (matrix in `requireAccess.test.js`). An entity deleted after the check → 404 too: every PATCH that updates no row returns 404 (DELETE of a Card/Column/Label stays an idempotent 204; DELETE of a Subtask returns 404), and the two INSERTs whose only FK parent is the resolved entity (POST a Card into a Column, PUT an assignee) map an FK violation to 404 via `db/isParentGone.js` — not globally, since a Card PATCH whose target Column/Label vanished must not read as "card deleted". Length limits come from `src/domain/validation.js` (`MAX_NAME_LENGTH`, `MAX_CARD_TITLE_LENGTH`, `MAX_CARD_DESCRIPTION_LENGTH`, `MAX_SUBTASK_TITLE_LENGTH`) — no hard-coded numbers in routes.
 - **Rate limiter**: bypassed when `NODE_ENV === 'development'` or `'test'` to avoid accumulation across test runs.
 - **ESM**: `api/` uses `"type": "module"` (full ESM). `api/src/db/reposition.js` imports `needsRebalance`/`rebalance` directly from the shared `src/domain/ordering.js` — there is no separate backend copy. `cross-env` in test scripts ensures `NODE_OPTIONS=--experimental-vm-modules` works on Windows and Linux.

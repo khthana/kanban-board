@@ -1,4 +1,5 @@
 import pool from '../db/pool.js';
+import { isUuid } from '../lib/validation.js';
 
 // Access to anything that lives on a board, reached by its own id (#65).
 // One query resolves the entity to its board and checks the user's membership,
@@ -31,12 +32,10 @@ const KINDS = {
   },
 };
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 // Returns { status: 404 | 403, error } or { access: row }.
 async function resolveAccess(kind, id, userId) {
   const { sql, notFound } = KINDS[kind];
-  if (!UUID_RE.test(id ?? '')) return { status: 404, error: notFound };
+  if (!isUuid(id)) return { status: 404, error: notFound };
   const { rows } = await pool.query(sql, [id, userId]);
   if (rows.length === 0) return { status: 404, error: notFound };
   const { is_member, ...access } = rows[0];

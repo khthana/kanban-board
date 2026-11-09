@@ -2,6 +2,8 @@ import express from 'express';
 import pool from '../db/pool.js';
 import inTransaction from '../db/inTransaction.js';
 import lockCard from '../db/lockCard.js';
+import { isIdTaken, ID_TAKEN_ERROR } from '../db/clientId.js';
+import { isUuid } from '../lib/validation.js';
 import requireAuth from '../middleware/requireAuth.js';
 import requireAccess from '../middleware/requireAccess.js';
 import { MAX_SUBTASKS_PER_CARD, MAX_SUBTASK_TITLE_LENGTH } from '../../../src/domain/validation.js';
@@ -23,10 +25,13 @@ const BATCH_ERRORS = {
 // one at a time — otherwise two requests can both see room and overshoot 50.
 router.post('/cards/:cardId/subtasks/batch', requireAccess('card', 'cardId'), async (req, res) => {
   const { cardId } = req.params;
-  const { titles } = req.body;
+  const { titles, ids } = req.body;
 
   if (!Array.isArray(titles) || titles.some(t => typeof t !== 'string')) {
     return res.status(400).json({ error: 'titles must be an array of strings' });
+  }
+  if (ids !== undefined && (!Array.isArray(ids) || ids.length !== titles.length || !ids.every(isUuid))) {
+    return res.status(400).json({ error: 'ids must be an array of UUIDs, one per title' });
   }
   const items = titles.map((title, i) => ({ line: i + 1, title: title.trim() }));
   const invalid = checkSubtaskBatch(items, 0);
@@ -43,13 +48,16 @@ router.post('/cards/:cardId/subtasks/batch', requireAccess('card', 'cardId'), as
     if (overLimit) return { status: 400, body: { error: BATCH_ERRORS[overLimit.reason](overLimit) } };
 
     const { rows } = await client.query(
-      `INSERT INTO subtasks (card_id, title, position)
-       SELECT $1, t.title, $3::float8 + t.ord
-       FROM unnest($2::text[]) WITH ORDINALITY AS t(title, ord)
+      `INSERT INTO subtasks (id, card_id, title, position)
+       SELECT COALESCE(t.id, gen_random_uuid()), $1, t.title, $3::float8 + t.ord
+       FROM unnest($2::text[], $4::uuid[]) WITH ORDINALITY AS t(title, id, ord)
        RETURNING id, card_id, title, checked, position, created_at`,
-      [cardId, items.map(i => i.title), parseFloat(max_pos)]
+      [cardId, items.map(i => i.title), parseFloat(max_pos), ids ?? items.map(() => null)]
     );
     return { status: 201, body: rows.sort((a, b) => a.position - b.position) };
+  }).catch(err => {
+    if (isIdTaken(err)) return { status: 409, body: { error: ID_TAKEN_ERROR } };
+    throw err;
   });
 
   return res.status(result.status).json(result.body);

@@ -75,6 +75,34 @@ describe('entity responses are normalized to camelCase', () => {
   });
 });
 
+describe('client-chosen ids are forwarded (#71)', () => {
+  test('createColumn, createCard and createLabel send the id in the body', async () => {
+    auth.apiFetch.mockResolvedValue({ id: 'x', board_id: 'b1' });
+
+    await client.createColumn('b1', { id: 'c1', name: 'Todo' });
+    await client.createCard('c1', { id: 'k1', title: 'T' });
+    await client.createLabel('b1', { id: 'l1', name: 'Bug', color: '#fca5a5' });
+
+    expect(auth.apiFetch.mock.calls).toEqual([
+      ['POST', '/boards/b1/columns', { id: 'c1', name: 'Todo' }],
+      ['POST', '/columns/c1/cards', { id: 'k1', title: 'T' }],
+      ['POST', '/boards/b1/labels', { id: 'l1', name: 'Bug', color: '#fca5a5' }],
+    ]);
+  });
+
+  test('createSubtasks sends ids parallel to titles when given, and omits them otherwise', async () => {
+    auth.apiFetch.mockResolvedValue([]);
+
+    await client.createSubtasks('k1', ['A', 'B'], ['s1', 's2']);
+    await client.createSubtasks('k1', ['A']);
+
+    expect(auth.apiFetch.mock.calls).toEqual([
+      ['POST', '/cards/k1/subtasks/batch', { titles: ['A', 'B'], ids: ['s1', 's2'] }],
+      ['POST', '/cards/k1/subtasks/batch', { titles: ['A'] }],
+    ]);
+  });
+});
+
 describe('auth calls', () => {
   test('login and register return the API body without storing tokens', async () => {
     auth.apiFetch.mockResolvedValue({ token: 't', refreshToken: 'r' });

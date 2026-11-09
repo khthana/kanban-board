@@ -5,6 +5,7 @@ import { MAX_NAME_LENGTH } from '../../../src/domain/validation.js';
 import requireAuth from '../middleware/requireAuth.js';
 import { requireMembership, requireOwner } from '../middleware/requireMembership.js';
 import { isValidHex } from '../lib/validation.js';
+import { isClientId, isIdTaken, CLIENT_ID_ERROR, ID_TAKEN_ERROR } from '../db/clientId.js';
 
 const router = express.Router();
 router.use(requireAuth);
@@ -159,19 +160,27 @@ router.delete('/:id', requireOwner('id'), async (req, res) => {
 
 router.post('/:id/columns', requireMembership('id'), async (req, res) => {
   const id = req.boardId;
-  const { name } = req.body;
+  const { name, id: clientId } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
   if (name.trim().length > MAX_NAME_LENGTH) return res.status(400).json({ error: 'name too long' });
+  if (!isClientId(clientId)) return res.status(400).json({ error: CLIENT_ID_ERROR });
 
   const { rows: maxRows } = await pool.query(
     `SELECT COALESCE(MAX(position), 0) AS max_pos FROM columns WHERE board_id = $1`, [id]
   );
   const position = maxRows[0].max_pos + 1.0;
 
-  const { rows } = await pool.query(
-    `INSERT INTO columns (board_id, name, position) VALUES ($1, $2, $3) RETURNING id, board_id, name, position, color`,
-    [id, name.trim(), position]
-  );
+  let rows;
+  try {
+    ({ rows } = await pool.query(
+      `INSERT INTO columns (id, board_id, name, position) VALUES (COALESCE($4::uuid, gen_random_uuid()), $1, $2, $3)
+       RETURNING id, board_id, name, position, color`,
+      [id, name.trim(), position, clientId ?? null]
+    ));
+  } catch (err) {
+    if (isIdTaken(err)) return res.status(409).json({ error: ID_TAKEN_ERROR });
+    throw err;
+  }
   return res.status(201).json(rows[0]);
 });
 
@@ -202,15 +211,23 @@ router.post('/:id/members', requireOwner('id'), async (req, res) => {
 
 router.post('/:id/labels', requireMembership('id'), async (req, res) => {
   const id = req.boardId;
-  const { name, color } = req.body;
+  const { name, color, id: clientId } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
   if (name.trim().length > MAX_NAME_LENGTH) return res.status(400).json({ error: 'name too long' });
   if (!color || !isValidHex(color)) return res.status(400).json({ error: 'color must be a valid hex color' });
+  if (!isClientId(clientId)) return res.status(400).json({ error: CLIENT_ID_ERROR });
 
-  const { rows } = await pool.query(
-    `INSERT INTO labels (board_id, name, color) VALUES ($1, $2, $3) RETURNING id, board_id, name, color`,
-    [id, name.trim(), color]
-  );
+  let rows;
+  try {
+    ({ rows } = await pool.query(
+      `INSERT INTO labels (id, board_id, name, color) VALUES (COALESCE($4::uuid, gen_random_uuid()), $1, $2, $3)
+       RETURNING id, board_id, name, color`,
+      [id, name.trim(), color, clientId ?? null]
+    ));
+  } catch (err) {
+    if (isIdTaken(err)) return res.status(409).json({ error: ID_TAKEN_ERROR });
+    throw err;
+  }
   return res.status(201).json(rows[0]);
 });
 
