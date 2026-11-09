@@ -69,88 +69,99 @@ const cardGone = cardId => server => withoutCards(server, [cardId]);
 const dependantError = err => new Error(err.message);
 
 const useBoardStore = create((set, get) => {
-  const setOps = (ops, extra) => set({ ops, board: view(ops), ...extra });
+  // A pending-ops queue over one slice of the store: `opsKey` holds the
+  // pendingOps state, `viewKey` its view. Two adapters (#78): the open board
+  // (ops → board) and the /boards list (listOps → boards).
+  const opQueue = (opsKey, viewKey) => {
+    const state = () => get()[opsKey];
+    const setOps = (ops, extra) => set({ [opsKey]: ops, [viewKey]: view(ops), ...extra });
 
-  // Each pending op's caller, by op id: { resolve, reject }.
-  const callers = new Map();
-  const answer = (opId, how, value) => {
-    callers.get(opId)?.[how](value);
-    callers.delete(opId);
+    // Each pending op's caller, by op id: { resolve, reject, done }.
+    const callers = new Map();
+    const answer = (opId, how, value) => {
+      callers.get(opId)?.[how](value);
+      callers.delete(opId);
+    };
+    const isPending = opId => state()?.pending.some(o => o.id === opId);
+
+    // Commit every op the queue allows; on each outcome, report and go again.
+    // An op whose state was replaced meanwhile only answers its caller.
+    const pump = () => {
+      for (const op of ready(state())) {
+        setOps(start(state(), op.id));
+        new Promise(resolve => resolve(op.commit())).then(
+          result => {
+            if (isPending(op.id)) setOps(succeed(state(), op.id, result));
+            answer(op.id, 'resolve', result);
+            pump();
+          },
+          err => {
+            if (!isPending(op.id)) return answer(op.id, 'reject', err);
+            const { state: next, failed } = fail(state(), op.id, err);
+            // `quiet`: the failure no longer matters to the user (a rename of a
+            // Board they have since asked to delete) — drop it without a banner.
+            setOps(next, op.quiet?.(next) ? undefined : { error: err.message });
+            failed.filter(id => id !== op.id).forEach(id => answer(id, 'reject', dependantError(err)));
+            answer(op.id, 'reject', err);
+            pump();
+          },
+        );
+      }
+    };
+
+    const run = op => {
+      const ops = state();
+      if (!ops) return Promise.reject(new Error('no board is open'));
+      const id = uuidv4();
+      let resolve, reject;
+      const done = new Promise((res, rej) => { resolve = res; reject = rej; });
+      callers.set(id, { resolve, reject, done });
+      setOps(enqueue(ops, { ...op, id }), { error: null });
+      pump();
+      return done;
+    };
+
+    // Resolves once the pending op creating `id` (if any) has finished: with
+    // its error if it failed, else null.
+    const created = id => {
+      const op = state()?.pending.find(o => o.creates.includes(id));
+      const done = op && callers.get(op.id)?.done;
+      return done ? done.then(() => null, err => err) : Promise.resolve(null);
+    };
+
+    // The state is being replaced: ops that never started won't run.
+    const dropUnstarted = message => {
+      for (const op of state()?.pending ?? []) {
+        if (!op.started) answer(op.id, 'reject', new Error(message));
+      }
+    };
+
+    // A fetch of the server data as a poll: replaces the server data unless a
+    // commit landed after it went out — then fetch again, so nothing is lost
+    // (unless a newer poll is already on its way: it will bring fresh data).
+    let newestPoll = null;
+    const poll = async fetch => {
+      const sent = startPoll(state());
+      newestPoll = sent.mark;
+      setOps(sent.state);
+      const data = await fetch();
+      const next = receivePoll(state(), data, sent.mark);
+      if (next !== state()) setOps(next);
+      else if (newestPoll === sent.mark) return poll(fetch);
+      return data;
+    };
+
+    return { setOps, run, created, dropUnstarted, poll };
   };
-  const isPending = opId => get().ops?.pending.some(o => o.id === opId);
 
-  // Commit every op the queue allows; on each outcome, report and go again.
-  // An op whose board was closed meanwhile only answers its caller.
-  const pump = () => {
-    for (const op of ready(get().ops)) {
-      setOps(start(get().ops, op.id));
-      new Promise(resolve => resolve(op.commit())).then(
-        result => {
-          if (isPending(op.id)) setOps(succeed(get().ops, op.id, result));
-          answer(op.id, 'resolve', result);
-          pump();
-        },
-        err => {
-          if (!isPending(op.id)) return answer(op.id, 'reject', err);
-          const { state, failed } = fail(get().ops, op.id, err);
-          setOps(state, { error: err.message });
-          failed.filter(id => id !== op.id).forEach(id => answer(id, 'reject', dependantError(err)));
-          answer(op.id, 'reject', err);
-          pump();
-        },
-      );
-    }
-  };
-
-  // Another board opened: ops of the old one that never started won't run.
-  const closeBoard = () => {
-    for (const op of get().ops?.pending ?? []) {
-      if (!op.started) answer(op.id, 'reject', new Error('The board was closed.'));
-    }
-  };
-
-  const run = op => {
-    const ops = get().ops;
-    if (!ops) return Promise.reject(new Error('no board is open'));
-    const id = uuidv4();
-    const done = new Promise((resolve, reject) => callers.set(id, { resolve, reject }));
-    setOps(enqueue(ops, { ...op, id }), { error: null });
-    pump();
-    return done;
-  };
-
-  // New Boards whose POST is still in flight, by their client-chosen id (#75):
-  // the placeholder is the real Board, so anything sent about it (open, poll,
-  // rename, delete) first waits for the create. Resolves with the create's
-  // error if it failed (the Board never existed), else null.
-  const boardCreates = new Map();
-  const awaitBoardCreate = id => (boardCreates.get(id) ?? Promise.resolve()).then(() => null, err => err);
-
-  // Renames of a Board still in flight, by Board id (#76). The latest rename
-  // owns the name: an earlier one's answer never overwrites it, and if the
-  // latest fails the list falls back to the last name the server confirmed.
-  // { latest: token, latestName, latestDone: null | 'ok' | 'failed', confirmed, pending }
-  const boardRenames = new Map();
-  // Boards whose DELETE is in flight → { board }: what a failed delete puts back.
-  const boardDeletes = new Map();
-  const setBoardName = (id, name) => {
-    const deleting = boardDeletes.get(id);
-    if (deleting) deleting.board = { ...deleting.board, name };   // a failed delete restores this name
-    set(s => ({ boards: mapById(s.boards, id, b => ({ ...b, name })) }));
-  };
-  // A fetched /boards list with the list's in-flight creates, renames and
-  // deletes kept on top.
-  const withPendingBoards = (fetched, current) => [
-    ...fetched
-      .filter(b => !boardDeletes.has(b.id))
-      .map(b => {
-        const rename = boardRenames.get(b.id);
-        return rename?.latestDone === null ? { ...b, name: rename.latestName } : b;
-      }),
-    ...current.filter(b => boardCreates.has(b.id) && !fetched.some(f => f.id === b.id)),
-  ];
+  // The open board (#73) and the /boards list (#78).
+  const open = opQueue('ops', 'board');
+  const list = opQueue('listOps', 'boards');
+  const { setOps, run } = open;
+  const closeBoard = () => open.dropUnstarted('The board was closed.');
 
   return {
+    listOps: init([]),
     boards: [],
     ops: null,
     board: null,
@@ -159,12 +170,17 @@ const useBoardStore = create((set, get) => {
     failedCreate: null,   // the error of a just-opened Board whose create failed (#76)
 
     // ── boards ──────────────────────────────────────────────────────────────────
+    // The /boards list is a pending-ops list (#78, re-deciding #69 decision 6):
+    // Board create / rename / delete are ops keyed on the Board id, so renames
+    // of one Board go out one at a time and the latest wins; a failure drops
+    // just its op (a failed create takes the ops waiting on it along); and the
+    // list fetch is a poll that pending ops replay on.
 
     fetchBoards: async () => {
       set({ loading: true, error: null });
       try {
-        const boards = await client.getBoards();
-        set(s => ({ boards: withPendingBoards(boards, s.boards), loading: false }));
+        await list.poll(() => client.getBoards());
+        set({ loading: false });
       } catch (err) {
         set({ error: err.message, loading: false });
       }
@@ -173,9 +189,10 @@ const useBoardStore = create((set, get) => {
     // Opens a board. The board already open (e.g. back from /boards) takes the
     // snapshot like a poll, keeping its pending ops; another board starts a
     // fresh pending-ops board whose clock carries on, so an old poll is stale.
+    // A Board whose create is still pending is opened once the create lands.
     fetchBoard: async (boardId) => {
       set({ loading: true, error: null, failedCreate: null });
-      const createFailed = await awaitBoardCreate(boardId);
+      const createFailed = await list.created(boardId);
       if (createFailed) {                    // nothing to open: keep the create's error
         closeBoard();
         const error = createFailed.message;
@@ -202,7 +219,7 @@ const useBoardStore = create((set, get) => {
     // after it went out; pending ops replay on top. Resolves with the snapshot,
     // rejects with the fetch error (usePolling routes 403/404).
     pollBoard: async (boardId) => {
-      const createFailed = await awaitBoardCreate(boardId);
+      const createFailed = await list.created(boardId);
       if (createFailed) throw Object.assign(new Error(createFailed.message), { status: 404 });
       const sent = get().ops && startPoll(get().ops);
       if (sent) setOps(sent.state);
@@ -212,83 +229,32 @@ const useBoardStore = create((set, get) => {
       return data;
     },
 
-    // The /boards list stays optimistic with rollback (#69 decision 6), but a
-    // new Board's id is client-chosen (#75), so its placeholder is the record.
+    // A new Board's id is client-chosen (#75), so its placeholder is the record.
     // ownerId: the current user, so the placeholder shows owner-only controls.
     createBoard: async (ownerId, { name }) => {
       const id = uuidv4();
-      set(s => ({ boards: [...s.boards, { id, name, ownerId }], error: null }));
-      const post = client.createBoard({ name, id });
-      boardCreates.set(id, post);
-      try {
-        const board = await post;
-        // A rename sent meanwhile owns the name; the create only confirms its own.
-        const renaming = boardRenames.get(id);
-        if (renaming) renaming.confirmed = board.name;
-        set(s => ({ boards: mapById(s.boards, id, b => (renaming ? { ...board, name: b.name } : board)) }));
-        return board;
-      } catch (err) {
-        set(s => ({ boards: s.boards.filter(b => b.id !== id), error: err.message }));
-        throw err;
-      } finally {
-        boardCreates.delete(id);
-      }
+      return list.run({
+        keys: [id], creates: [id],
+        apply: bs => addIfAbsent(bs, { id, name, ownerId }),
+        commit: () => client.createBoard({ name, id }),
+        settle: (bs, board) => mapById(bs, id, () => board),
+      });
     },
 
-    renameBoard: async (boardId, { name }) => {
-      const rename = boardRenames.get(boardId)
-        ?? { confirmed: get().boards.find(b => b.id === boardId)?.name, pending: 0 };
-      const mine = {};
-      Object.assign(rename, { latest: mine, latestName: name, latestDone: null, pending: rename.pending + 1 });
-      boardRenames.set(boardId, rename);
-      set({ error: null });
-      setBoardName(boardId, name);
-      try {
-        if (await awaitBoardCreate(boardId)) return undefined;   // never created: nothing to rename
-        const board = await client.patchBoard(boardId, { name });
-        if (rename.latest === mine) {
-          rename.latestDone = 'ok';
-          rename.confirmed = board.name;
-          setBoardName(boardId, board.name);
-        } else if (rename.latestDone !== 'ok') {
-          rename.confirmed = board.name;                         // a later rename still owns the name…
-          if (rename.latestDone === 'failed') setBoardName(boardId, board.name);   // …unless it failed
-        }
-        return board;
-      } catch (err) {
-        if (rename.latest === mine) {
-          rename.latestDone = 'failed';
-          setBoardName(boardId, rename.confirmed);
-          if (!boardDeletes.has(boardId)) set({ error: err.message });   // a delete was asked for since
-        }
-        throw err;
-      } finally {
-        if (--rename.pending === 0) boardRenames.delete(boardId);
-      }
-    },
+    renameBoard: async (boardId, { name }) => list.run({
+      keys: [boardId],
+      apply: bs => mapById(bs, boardId, b => ({ ...b, name })),
+      commit: () => client.patchBoard(boardId, { name }),
+      settle: (bs, board) => mapById(bs, boardId, () => board),
+      quiet: s => s.pending.some(o => o.deletesBoard === boardId),   // the user asked to delete it since
+    }),
 
-    deleteBoard: async (boardId) => {
-      const index = get().boards.findIndex(b => b.id === boardId);
-      const deleting = { board: get().boards[index] };
-      boardDeletes.set(boardId, deleting);
-      set(s => ({ boards: s.boards.filter(b => b.id !== boardId), error: null }));
-      try {
-        if (await awaitBoardCreate(boardId)) return undefined;   // never created: already gone
-        await client.deleteBoard(boardId);
-      } catch (err) {
-        // Put just this Board back — with any name a rename settled meanwhile —
-        // so a create that landed meanwhile stays.
-        const { board } = deleting;
-        set(s => ({
-          boards: !board || s.boards.some(b => b.id === boardId) ? s.boards
-            : [...s.boards.slice(0, index), board, ...s.boards.slice(index)],
-          error: err.message,
-        }));
-        throw err;
-      } finally {
-        boardDeletes.delete(boardId);
-      }
-    },
+    deleteBoard: async (boardId) => list.run({
+      keys: [boardId],
+      deletesBoard: boardId,
+      apply: bs => bs.filter(b => b.id !== boardId),
+      commit: () => client.deleteBoard(boardId),
+    }),
 
     // ── columns ─────────────────────────────────────────────────────────────────
 
