@@ -228,6 +228,79 @@ describe('deleteColumn', () => {
     expect(useBoardStore.getState().board.columns).toHaveLength(1);
     expect(useBoardStore.getState().board.cards).toHaveLength(1);
   });
+
+  // #63: the server drops the deleted Column's card-owned records in the same
+  // request, so the optimistic board must not keep them until the next poll.
+  function boardWithRecords() {
+    useBoardStore.setState({
+      board: {
+        ...makeBoard(),
+        columns: [
+          { id: 'c1', name: 'Todo', position: 1 },
+          { id: 'c2', name: 'Done', position: 2 },
+        ],
+        cards: [
+          { id: 'card1', columnId: 'c1', title: 'Gone', position: 1 },
+          { id: 'card2', columnId: 'c2', title: 'Kept', position: 2 },
+        ],
+        labels: [{ id: 'l1', boardId: 'b1', name: 'Bug', color: '#f00' }],
+        cardLabels: [
+          { cardId: 'card1', labelId: 'l1' },
+          { cardId: 'card2', labelId: 'l1' },
+        ],
+        cardAssignees: [
+          { cardId: 'card1', userId: 'u2' },
+          { cardId: 'card2', userId: 'u2' },
+        ],
+        subtasks: [
+          { id: 's1', cardId: 'card1', title: 'A', checked: false, position: 1 },
+          { id: 's2', cardId: 'card2', title: 'B', checked: false, position: 2 },
+        ],
+      },
+    });
+  }
+
+  test('drops the deleted column cards cardLabels, cardAssignees and subtasks', async () => {
+    boardWithRecords();
+    client.deleteColumn.mockResolvedValue(undefined);
+
+    await useBoardStore.getState().deleteColumn('c1', 'u1');
+
+    const board = useBoardStore.getState().board;
+    expect(board.cards.map(c => c.id)).toEqual(['card2']);
+    expect(board.cardLabels).toEqual([{ cardId: 'card2', labelId: 'l1' }]);
+    expect(board.cardAssignees).toEqual([{ cardId: 'card2', userId: 'u2' }]);
+    expect(board.subtasks.map(s => s.id)).toEqual(['s2']);
+  });
+
+  test('leaves the other columns cards and their records untouched', async () => {
+    boardWithRecords();
+    client.deleteColumn.mockResolvedValue(undefined);
+
+    await useBoardStore.getState().deleteColumn('c1', 'u1');
+
+    const board = useBoardStore.getState().board;
+    expect(board.columns.map(c => c.id)).toEqual(['c2']);
+    expect(board.cards).toHaveLength(1);
+    expect(board.cardLabels).toHaveLength(1);
+    expect(board.cardAssignees).toHaveLength(1);
+    expect(board.subtasks).toHaveLength(1);
+    expect(board.labels).toHaveLength(1);
+  });
+
+  test('a failed delete restores the column, its cards and their records', async () => {
+    boardWithRecords();
+    client.deleteColumn.mockRejectedValue(new Error('nope'));
+
+    await expect(useBoardStore.getState().deleteColumn('c1', 'u1')).rejects.toThrow('nope');
+
+    const board = useBoardStore.getState().board;
+    expect(board.columns.map(c => c.id)).toEqual(['c1', 'c2']);
+    expect(board.cards.map(c => c.id)).toEqual(['card1', 'card2']);
+    expect(board.cardLabels).toHaveLength(2);
+    expect(board.cardAssignees).toHaveLength(2);
+    expect(board.subtasks).toHaveLength(2);
+  });
 });
 
 describe('createCard', () => {

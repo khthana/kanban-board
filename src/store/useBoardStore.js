@@ -164,11 +164,14 @@ const useBoardStore = create((set, get) => ({
   },
 
   deleteColumn: async (columnId, userId) => optimistic(get, set, {
-    apply: b => ({
-      ...b,
-      columns: b.columns.filter(c => c.id !== columnId),
-      cards: b.cards.filter(c => c.columnId !== columnId),
-    }),
+    apply: b => {
+      const droppedCards = b.cards.filter(c => c.columnId === columnId).map(c => c.id);
+      const withoutColumn = { ...b, columns: b.columns.filter(c => c.id !== columnId) };
+      // The server drops every Card-owned record with the Column's Cards, so
+      // the optimistic board must do the same; otherwise label attachments,
+      // assignees and Subtasks linger until the next poll.
+      return droppedCards.reduce((next, cardId) => withoutCard(next, cardId), withoutColumn);
+    },
     commit: () => client.deleteColumn(columnId, userId),
   }),
 
