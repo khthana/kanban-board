@@ -111,6 +111,94 @@ describe('POST /cards/:id/subtasks', () => {
   });
 });
 
+describe('POST /cards/:id/subtasks/batch', () => {
+  const addBatch = (token, cardId, titles) => request(app)
+    .post(`/cards/${cardId}/subtasks/batch`)
+    .set('Authorization', `Bearer ${token}`)
+    .send({ titles });
+
+  const subtasksOf = async (token, boardId) => {
+    const snap = await request(app).get(`/boards/${boardId}`).set('Authorization', `Bearer ${token}`);
+    return snap.body.columns[0].cards[0].subtasks;
+  };
+
+  it('happy path → 201 with every subtask, appended in array order after existing ones', async () => {
+    const { user, card } = await setup();
+    await request(app)
+      .post(`/cards/${card.id}/subtasks`)
+      .set('Authorization', `Bearer ${user.token}`)
+      .send({ title: 'Existing' });
+
+    const res = await addBatch(user.token, card.id, ['ครั้งที่ 1', '  ครั้งที่ 2  ', 'ครั้งที่ 3']);
+
+    expect(res.status).toBe(201);
+    expect(res.body.map(s => s.title)).toEqual(['ครั้งที่ 1', 'ครั้งที่ 2', 'ครั้งที่ 3']);
+    expect(res.body.every(s => s.card_id === card.id && s.checked === false)).toBe(true);
+    const positions = res.body.map(s => s.position);
+    expect(positions[0]).toBeGreaterThan(1);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+  });
+
+  it('all or nothing: one title over 100 chars → 400 and nothing is added', async () => {
+    const { user, board, card } = await setup();
+
+    const res = await addBatch(user.token, card.id, ['ok 1', 'a'.repeat(101), 'ok 3']);
+
+    expect(res.status).toBe(400);
+    expect(await subtasksOf(user.token, board.id)).toHaveLength(0);
+  });
+
+  it('a blank title → 400 and nothing is added', async () => {
+    const { user, board, card } = await setup();
+    const res = await addBatch(user.token, card.id, ['ok', '   ']);
+    expect(res.status).toBe(400);
+    expect(await subtasksOf(user.token, board.id)).toHaveLength(0);
+  });
+
+  it('counts existing subtasks against the 50 limit: 40 + 10 ok, 40 + 11 rejected', async () => {
+    const { user, board, card } = await setup();
+    const titles = n => Array.from({ length: n }, (_, i) => `Step ${i + 1}`);
+    expect((await addBatch(user.token, card.id, titles(40))).status).toBe(201);
+
+    const over = await addBatch(user.token, card.id, titles(11));
+    expect(over.status).toBe(400);
+    expect(await subtasksOf(user.token, board.id)).toHaveLength(40);
+
+    expect((await addBatch(user.token, card.id, titles(10))).status).toBe(201);
+    expect(await subtasksOf(user.token, board.id)).toHaveLength(50);
+  });
+
+  it('concurrent batches never push a card past 50', async () => {
+    const { user, board, card } = await setup();
+    const titles = n => Array.from({ length: n }, (_, i) => `Step ${i + 1}`);
+
+    const results = await Promise.all([1, 2, 3].map(() => addBatch(user.token, card.id, titles(20))));
+
+    expect(results.filter(r => r.status === 201)).toHaveLength(2);
+    expect(await subtasksOf(user.token, board.id)).toHaveLength(40);
+  });
+
+  it('empty array, missing titles, or non-string titles → 400', async () => {
+    const { user, card } = await setup();
+    expect((await addBatch(user.token, card.id, [])).status).toBe(400);
+    expect((await addBatch(user.token, card.id, undefined)).status).toBe(400);
+    expect((await addBatch(user.token, card.id, 'one')).status).toBe(400);
+    expect((await addBatch(user.token, card.id, ['ok', 7])).status).toBe(400);
+  });
+
+  it('non-member → 403', async () => {
+    const { card } = await setup();
+    const stranger = await createUser({ email: 'stranger@example.com' });
+    expect((await addBatch(stranger.token, card.id, ['x'])).status).toBe(403);
+  });
+
+  it('non-existent card → 404', async () => {
+    const { user } = await setup();
+    const res = await addBatch(user.token, '00000000-0000-0000-0000-000000000000', ['x']);
+    expect(res.status).toBe(404);
+  });
+});
+
 describe('PATCH /subtasks/:id', () => {
   async function createSubtask(token, cardId, title = 'Step') {
     const res = await request(app)

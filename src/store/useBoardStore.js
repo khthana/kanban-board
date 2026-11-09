@@ -357,6 +357,23 @@ const useBoardStore = create((set, get) => ({
       settle: (b, subtask) => ({ ...b, subtasks: mapById(b.subtasks, tempId, () => subtask) }),
     });
   },
+
+  // Batch add (PRD §12): the whole batch appears at once and lands or rolls back
+  // as one — the server adds all titles or none.
+  createSubtasks: async (cardId, titles) => {
+    const cardSubtasks = (get().board?.subtasks ?? []).filter(s => s.cardId === cardId);
+    const placeholders = [];
+    for (const title of titles) {
+      const position = nextPosition([...cardSubtasks, ...placeholders]);
+      placeholders.push({ id: uuidv4(), cardId, title, checked: false, position });
+    }
+    const tempIds = new Set(placeholders.map(p => p.id));
+    return optimistic(get, set, {
+      apply: b => ({ ...b, subtasks: [...(b.subtasks ?? []), ...placeholders] }),
+      commit: () => client.createSubtasks(cardId, titles),
+      settle: (b, created) => ({ ...b, subtasks: [...b.subtasks.filter(s => !tempIds.has(s.id)), ...created] }),
+    });
+  },
 }));
 
 export default useBoardStore;

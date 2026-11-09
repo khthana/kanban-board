@@ -3,7 +3,8 @@ import pool from '../db/pool.js';
 import inTransaction from '../db/inTransaction.js';
 import lockCard from '../db/lockCard.js';
 import requireAuth from '../middleware/requireAuth.js';
-import { MAX_SUBTASKS_PER_CARD } from '../../../src/domain/validation.js';
+import { MAX_SUBTASKS_PER_CARD, MAX_SUBTASK_TITLE_LENGTH } from '../../../src/domain/validation.js';
+import { checkSubtaskBatch } from '../../../src/domain/subtaskBatch.js';
 
 const router = express.Router();
 router.use(requireAuth);
@@ -30,7 +31,7 @@ router.post('/cards/:cardId/subtasks', async (req, res) => {
   const { title } = req.body;
 
   if (!title || !title.trim()) return res.status(400).json({ error: 'title is required' });
-  if (title.trim().length > 100) return res.status(400).json({ error: 'title must be 100 characters or fewer' });
+  if (title.trim().length > MAX_SUBTASK_TITLE_LENGTH) return res.status(400).json({ error: `title must be ${MAX_SUBTASK_TITLE_LENGTH} characters or fewer` });
 
   const { found, isMember } = await getMembershipViaCard(cardId, req.user.id);
   if (!found) return res.status(404).json({ error: 'card not found' });
@@ -61,6 +62,53 @@ router.post('/cards/:cardId/subtasks', async (req, res) => {
   return res.status(result.status).json(result.body);
 });
 
+const BATCH_ERRORS = {
+  empty:     () => 'titles must be a non-empty array',
+  blank:     e => `title ${e.line} is required`,
+  tooLong:   e => `title ${e.line} must be ${MAX_SUBTASK_TITLE_LENGTH} characters or fewer`,
+  overLimit: e => `maximum ${MAX_SUBTASKS_PER_CARD} subtasks per card (room for ${e.room})`,
+};
+
+// Batch add (PRD §12): all titles are added, in array order after the card's
+// existing Subtasks, or none are.
+router.post('/cards/:cardId/subtasks/batch', async (req, res) => {
+  const { cardId } = req.params;
+  const { titles } = req.body;
+
+  if (!Array.isArray(titles) || titles.some(t => typeof t !== 'string')) {
+    return res.status(400).json({ error: 'titles must be an array of strings' });
+  }
+  const items = titles.map((title, i) => ({ line: i + 1, title: title.trim() }));
+  const invalid = checkSubtaskBatch(items, 0);
+  if (invalid) return res.status(400).json({ error: BATCH_ERRORS[invalid.reason](invalid) });
+
+  const { found, isMember } = await getMembershipViaCard(cardId, req.user.id);
+  if (!found) return res.status(404).json({ error: 'card not found' });
+  if (!isMember) return res.status(403).json({ error: 'forbidden' });
+
+  const result = await inTransaction(async client => {
+    if (!await lockCard(client, cardId)) return { status: 404, body: { error: 'card not found' } };
+
+    const { rows: [{ cnt, max_pos }] } = await client.query(
+      'SELECT COUNT(*) AS cnt, COALESCE(MAX(position), 0) AS max_pos FROM subtasks WHERE card_id = $1',
+      [cardId]
+    );
+    const overLimit = checkSubtaskBatch(items, parseInt(cnt, 10));
+    if (overLimit) return { status: 400, body: { error: BATCH_ERRORS[overLimit.reason](overLimit) } };
+
+    const { rows } = await client.query(
+      `INSERT INTO subtasks (card_id, title, position)
+       SELECT $1, t.title, $3::float8 + t.ord
+       FROM unnest($2::text[]) WITH ORDINALITY AS t(title, ord)
+       RETURNING id, card_id, title, checked, position, created_at`,
+      [cardId, items.map(i => i.title), parseFloat(max_pos)]
+    );
+    return { status: 201, body: rows.sort((a, b) => a.position - b.position) };
+  });
+
+  return res.status(result.status).json(result.body);
+});
+
 router.patch('/subtasks/:id', async (req, res) => {
   const { id } = req.params;
   const { title, position, checked } = req.body;
@@ -71,7 +119,7 @@ router.patch('/subtasks/:id', async (req, res) => {
 
   if (title !== undefined) {
     if (!title || !title.trim()) return res.status(400).json({ error: 'title is required' });
-    if (title.trim().length > 100) return res.status(400).json({ error: 'title must be 100 characters or fewer' });
+    if (title.trim().length > MAX_SUBTASK_TITLE_LENGTH) return res.status(400).json({ error: `title must be ${MAX_SUBTASK_TITLE_LENGTH} characters or fewer` });
   }
 
   const { rows: subtaskRows } = await pool.query(

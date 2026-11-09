@@ -38,13 +38,13 @@ A Kanban board SPA for small teams (2–15 people). **Fully implemented** — Re
 
 ### Layout
 
-`src/` is layered: `api/` (fetch client), `domain/` (pure logic — `ordering`, `validation`, `dates`, `colors`, `progress`, `accent`, `dragDrop`, `category`, `completion`, `titleEdit`, `assignees` — unit-tested where there's real logic), `store/` (Zustand), `hooks/`, `components/`, `routes/` (route components + `RequireAuth` guard). Generic, reusable presentational primitives live in `components/common/` (`Avatar`, `AvatarStack`, `Toast`, `ColorPicker`); the rest of `components/` is board-feature-specific. App-wide tunables (polling interval, toast duration, dnd activation distance) live in `src/constants.js`. CSS modules and `.test.js` are co-located with their source.
+`src/` is layered: `api/` (fetch client), `domain/` (pure logic — `ordering`, `validation`, `dates`, `colors`, `progress`, `accent`, `dragDrop`, `category`, `completion`, `titleEdit`, `assignees`, `subtaskBatch` — unit-tested where there's real logic), `store/` (Zustand), `hooks/`, `components/`, `routes/` (route components + `RequireAuth` guard). Generic, reusable presentational primitives live in `components/common/` (`Avatar`, `AvatarStack`, `Toast`, `ColorPicker`); the rest of `components/` is board-feature-specific. App-wide tunables (polling interval, toast duration, dnd activation distance) live in `src/constants.js`. CSS modules and `.test.js` are co-located with their source.
 
 ### API Client
 
 `src/api/auth.js` — token storage (6 functions), silent-refresh logic (single in-flight promise), and `apiFetch(method, path, body)`. This is the auth seam: `apiFetch` is the only export callers need for requests. 401 clears both tokens and redirects to `/login`. `useSession.js` imports token helpers directly from here.
 
-`src/api/client.js` — 29 exported API functions, each calling `apiFetch` + normalizing responses. No token knowledge (`login`/`register` return the API body; `useSession` stores the tokens via `auth.js`). Every function that returns an entity returns camelCase keys only — see the normalizers below. Unit-tested in `src/api/client.test.js` (`apiFetch` mocked).
+`src/api/client.js` — 30 exported API functions, each calling `apiFetch` + normalizing responses. No token knowledge (`login`/`register` return the API body; `useSession` stores the tokens via `auth.js`). Every function that returns an entity returns camelCase keys only — see the normalizers below. Unit-tested in `src/api/client.test.js` (`apiFetch` mocked).
 
 In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/columns`, `/cards`, `/labels`, `/subtasks`) to `API_PROXY_TARGET` (default `http://localhost:4000`). **Proxy skips requests with `Accept: text/html`** so browser navigation to `/boards/:id` etc. is handled by React's historyApiFallback (serves `index.html`), not forwarded to the API.
 
@@ -68,7 +68,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 - **snake_case ↔ camelCase**: `normalizeBoard()` / `normalizeColumn()` / `normalizeLabel()` / `normalizeCard()` / `normalizeSubtask()` (responses), `normalizeSnapshot()` (the nested `GET /boards/:id` body), and `cardPatchToApi()` (requests) in `client.js` handle conversion. `attachLabel`/`attachAssignee` return the store's `{cardId, labelId}` / `{cardId, userId}` join shape. The API returns `board_id` on column/label create and patch so the normalizers never have to guess it (#52).
 - **Profile endpoints**: `GET /auth/me`, `PATCH /auth/me`, `PATCH /auth/me/password` — implemented in `api/src/routes/auth.js`
 - **Refresh tokens**: 60-minute access token + 7-day refresh token. On 401, `src/api/auth.js` `apiFetch` attempts silent refresh with single in-flight promise; failure clears both tokens and redirects to `/login`
-- **Subtasks**: Nested per card, limit 50 per card (`MAX_SUBTASKS_PER_CARD` in `domain/validation.js`, imported by the API too; the API counts under a lock on the card row so concurrent adds can't overshoot — #59), stored with float position (not array index). Support toggle (checked), rename, reorder (↑/↓), delete. Progress shown on the card via `domain/progress.js` `progressView(done,total)` — adaptive **segments** (≤ 8 subtasks) vs continuous **mini-bar** (> 8) + `done/total` count (turns green when complete).
+- **Subtasks**: Nested per card, limit 50 per card (`MAX_SUBTASKS_PER_CARD` in `domain/validation.js`, imported by the API too; the API counts under a lock on the card row so concurrent adds can't overshoot — #59), stored with float position (not array index). Support toggle (checked), rename, reorder (↑/↓), delete. **Batch add** (PRD §12, #60): pasting ≥ 2 non-blank lines into the "+ Add subtask" input turns it into a multi-line box (`SubtaskSection`, hint `Enter เพื่อเพิ่ม N รายการ · Esc ยกเลิก`; Shift+Enter = newline); each non-blank trimmed line becomes one Subtask, **all-or-nothing** — `domain/subtaskBatch.js` (`splitSubtaskLines`, `checkSubtaskBatch`, `describeSubtaskBatchError`) validates client-side and is reused by `POST /cards/:cardId/subtasks/batch` (`{ titles }` → 201 rows, one transaction under `lockCard`); store `createSubtasks(cardId, titles)` is optimistic, and a failure keeps the text in the box with the error inline; a second Enter while the POST is in flight is ignored. Progress shown on the card via `domain/progress.js` `progressView(done,total)` — adaptive **segments** (≤ 8 subtasks) vs continuous **mini-bar** (> 8) + `done/total` count (turns green when complete).
 - **Column Accent** (see [ADR-0001](docs/adr/0001-column-accent-model.md)): `color VARCHAR(7) NULL` on `columns` table is the column's **Accent** — it themes the whole column, not just the header strip (which superseded the original [Column Header Colors PRD](requirement/Kanban-Board-PRD.md#2-column-header-colors-superseded-by-adr-0001)). `PATCH /columns/:id` accepts `color` (hex or null); `renameColumn(id, userId, { name, color })` optimistic update uses `color !== undefined ? color : c.color` to handle null (clear). In `Column.jsx`, when `color` is set the column root gets `className .accented` + inline `--accent` CSS var; CSS derives: title chip background = `var(--accent)`, column wash = `color-mix(--accent 12%, white)`, count = `color-mix(--accent, black 38%)`, "New card" button text = `color-mix(--accent, black 30%)` (passed to `CardComposer` via `accent` prop). Chip text stays `#1e293b`. When `color` is null, all fall back to neutral gray. Edit form shows 8 pastel presets + "+" custom + "✕" clear using `data-swatch` attributes.
 - **Editorial card** (see [ADR-0002](docs/adr/0002-card-editorial-model.md), [spec](requirement/card_ui_spec.md)): type-forward card — category dot + uppercase label, hero title, hairline rule, foot (due / adaptive progress). IBM Plex Sans Thai; tokens in `index.css`. Superseded the old "card color band = first label". `normalizeCard()` in client.js uses `.slice(0,10)` to normalize node-pg ISO timestamp DATE columns to YYYY-MM-DD.
 - **Card Category** (ADR-0002): a card's **Category** is the label flagged by `category_label_id` (nullable FK on `cards`). It's the only label shown on the card face (uppercase name + dot); its color is the **card accent** (`domain/accent.js` — `categoryLabel()` resolves it, `cardAccent()` derives `solid`/`text` shades via `color-mix`, neutral gray when unset). Other labels are managed only in `CardPanel`. Set via the ★ toggle in `LabelPicker`; **auto-set** to the first attached label, and promoted to the next remaining label on detach. Auto-promotion rules live in `domain/category.js` (`resolveAttach`, `resolveDetach`) and are **enforced server-side** (issue #55): `PUT`/`DELETE /cards/:id/labels/:labelId` apply them in the same transaction as the attach/detach (promotion order = label creation order, `created_at, id`, matched by the snapshot and the store) and return `{ card_id, label_id, category_label_id }` (detach is 200, not 204); `PATCH /cards/:id` rejects a `category_label_id` not attached to the card (400). The store's `attachLabel`/`detachLabel` carry the Category in the same optimistic step (predict with `resolveAttach`/`resolveDetach`, settle to the server's value), so a failed attach/detach rolls both back together — `CardPanel` no longer fires a second category patch. Settle adopts the server's Category only if the card's Category is still what apply predicted (a ★ pressed mid-flight wins). `CardPanel` counts attaches still in flight per card+label (`pendingAttaches`) and `LabelPicker` disables their ☆/★ until it settles, since the server would reject them as the Category until the attach commits (#56). Known residual: ☆ on a label another tab detached (before the next poll) still gets a 400 → rollback + op-error banner. The ★ toggle still uses `patchCard({ categoryLabelId })`.
@@ -81,7 +81,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 - **Label edit** ([PRD §7](requirement/Kanban-Board-PRD.md#7-label-color-picker--pastel-presets), kept as a feature in #53): existing labels are editable (name + color) via the ✎ button per row in `LabelPicker` → inline edit form (mirrors Column `RenameForm`). Optimistic `patchLabel(labelId, userId, patch)` updates `board.labels` in place, so any card using that label as its Category re-renders with the new name/color instantly. Backend `PATCH /labels/:id` + client `patchLabel` already existed.
 - **Shared `ColorPicker`**: `src/components/common/ColorPicker.jsx` is the single swatch picker used by both the column-color (`allowClear` → renders "✕" clear, value can be `null`) and label-color editors. Palette lives in `src/domain/colors.js` (`PRESET_COLORS`). Keeps `data-swatch` attrs (`<hex>` / `custom` / `clear`) that the column-color E2E selectors depend on.
 - **Date helpers**: `src/domain/dates.js` — `fromYMD`/`toYMD` (timezone-safe local-day conversion for the `YYYY-MM-DD` due-date strings), `formatDueDate` (th-TH), `isOverdue`. Used by `Card.jsx` and `DueDateField.jsx`.
-- **Store optimistic helper**: `useBoardStore.js` wraps every `board`-scoped mutation except `addMember` in an `optimistic(get, set, { apply, commit, settle })` helper (snapshot → apply → await commit → settle → rollback on error → rethrow). Every mutation rethrows, so callers must handle the rejection: `BoardPage` routes failures to its dismissable op-error banner via `reportOpError(promise)` — every mutation prop it passes down (column/card composers, `CardPanel`'s label/assignee/delete/save callbacks) is wrapped there rather than in the child components (#54), except subtask create/rename and invite, which `SubtaskSection` (the Card panel's Subtask list)/`InviteDialog` catch and show inline; `BoardListPage` swallows them because the store's `error` is already rendered there (issue #49). `moveSubtaskUp/Down` delegate to one `moveSubtask(id, dir)`. `addMember` is deliberately not optimistic — the invitee's id isn't known until the server resolves the email — so it refetches the board after success.
+- **Store optimistic helper**: `useBoardStore.js` wraps every `board`-scoped mutation except `addMember` in an `optimistic(get, set, { apply, commit, settle })` helper (snapshot → apply → await commit → settle → rollback on error → rethrow). Every mutation rethrows, so callers must handle the rejection: `BoardPage` routes failures to its dismissable op-error banner via `reportOpError(promise)` — every mutation prop it passes down (column/card composers, `CardPanel`'s label/assignee/delete/save callbacks) is wrapped there rather than in the child components (#54), except subtask create (single and batch)/rename and invite, which `SubtaskSection` (the Card panel's Subtask list)/`InviteDialog` catch and show inline; `BoardListPage` swallows them because the store's `error` is already rendered there (issue #49). `moveSubtaskUp/Down` delegate to one `moveSubtask(id, dir)`. `addMember` is deliberately not optimistic — the invitee's id isn't known until the server resolves the email — so it refetches the board after success.
 - **Card deleted by another member** (issue #50, PRD §1.5): `moveCard`/`patchCard`/`deleteCard` are wrapped in `dropCardIfGone` — on a 404 the card (plus its `cardLabels`/`cardAssignees`/`subtasks`, via `withoutCard`) is removed instead of restored from the rollback snapshot, then the error is rethrown. `BoardPage` announces "This card was deleted by another member." and closes the Card panel only where a deletion is actually detected: `handleReconcile` (the open card is missing from a polled snapshot) and `handleSaveCard` (a panel `patchCard` 404). `handleDeleteCard` swallows a 404 (the card is already gone, which is what the user asked for). Any other disappearance of the open card (e.g. its column deleted locally) closes the panel silently.
 
 ### Validation Constraints
@@ -99,8 +99,8 @@ Validation runs client-side (UX) and is enforced by the backend (authoritative).
 
 ## Tests
 
-### Unit tests (156)
-`src/domain/` (incl. `progress.test.js`, `accent.test.js`, `dates.test.js`, `completion.test.js`, `titleEdit.test.js`, `dragDrop.test.js`, `category.test.js`, `assignees.test.js`), `src/api/client.test.js` (response normalization, no token storage), `src/hooks/`, `src/store/useSession.test.js`, `src/store/useBoardStore.test.js`. Run: `npm test -- --watchAll=false`
+### Unit tests (172)
+`src/domain/` (incl. `progress.test.js`, `accent.test.js`, `dates.test.js`, `completion.test.js`, `titleEdit.test.js`, `dragDrop.test.js`, `category.test.js`, `assignees.test.js`, `subtaskBatch.test.js`), `src/api/client.test.js` (response normalization, no token storage), `src/hooks/`, `src/store/useSession.test.js`, `src/store/useBoardStore.test.js`. Run: `npm test -- --watchAll=false`
 
 Not unit-tested: components — covered by E2E.
 
@@ -108,7 +108,7 @@ Not unit-tested: components — covered by E2E.
 
 ### E2E tests (Playwright)
 
-`e2e/` — 66 tests across 14 files. Require the full stack (`docker compose up`).
+`e2e/` — 73 tests across 14 files. Require the full stack (`docker compose up`).
 
 | File | Flows covered | Status |
 |---|---|---|
@@ -116,7 +116,7 @@ Not unit-tested: components — covered by E2E.
 | `card.spec.js` | create column + card → persist on refresh; edit card title inline → persist; failed card creation rolls back + shows error banner | ✅ |
 | `dnd.spec.js` | drag card cross-column → persist on refresh | ✅ |
 | `profile.spec.js` | update name, email conflict, change password, wrong password | ✅ |
-| `subtask.spec.js` | create, toggle, rename, reorder, delete subtasks; max 50 limit | ✅ |
+| `subtask.spec.js` | create, toggle, rename, reorder, delete subtasks; max 50 limit; paste multi-line → batch box → Enter adds all in order (persists), single-line paste acts like typing, over-limit message keeps the text, Esc cancels, Shift+Enter adds a line, server failure rolls back, double Enter posts once | ✅ |
 | `board.spec.js` | create/rename/delete board; owner-only buttons show on a new board without reload; member cannot delete | ✅ |
 | `member.spec.js` | invite member → member sees board | ✅ |
 | `column-color.spec.js` | set column color, persist after reload, clear color | ✅ |
@@ -141,7 +141,7 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs both `test-frontend` (156 unit tests) and `test-api` (141 integration tests, postgres:16-alpine service) on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs both `test-frontend` (172 unit tests) and `test-api` (149 integration tests, postgres:16-alpine service) on every push/PR to `main`.
 
 ## API
 
@@ -173,7 +173,7 @@ Docker is the recommended way to run the API in development — `docker compose 
 | `api/src/routes/boards.js` | Board CRUD, membership, labels, full snapshot GET /boards/:id |
 | `api/src/routes/columns.js` | Column CRUD + POST /columns/:id/cards |
 | `api/src/routes/cards.js` | Card PATCH/DELETE, assignees, category |
-| `api/src/routes/subtasks.js` | POST/PATCH/DELETE subtasks |
+| `api/src/routes/subtasks.js` | POST/PATCH/DELETE subtasks + POST batch |
 | `api/src/routes/labels.js` | Label PATCH/DELETE |
 | `api/src/test/helpers.js` | createUser(), clearDb() for integration tests |
 | `api/src/test/globalSetup.js` | Runs migrations on TEST_DATABASE_URL before test run |
@@ -191,7 +191,7 @@ Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env
 
 ### Tests
 
-141 integration tests across 7 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
+149 integration tests across 7 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
 
 **Critical**: use `--maxWorkers=1`, NOT `--runInBand`. Jest 30 runs test files in parallel by default.
 

@@ -293,6 +293,40 @@ describe('moveSubtask', () => {
   });
 });
 
+describe('createSubtasks (batch add, PRD §12)', () => {
+  const card1Subtasks = () => useBoardStore.getState().board.subtasks
+    .filter(s => s.cardId === 'card1')
+    .sort((a, b) => a.position - b.position);
+
+  test('shows the whole batch at once, after the existing subtasks, then settles to server rows', async () => {
+    let resolve;
+    client.createSubtasks.mockReturnValue(new Promise(r => { resolve = r; }));
+
+    const pending = useBoardStore.getState().createSubtasks('card1', ['D', 'E']);
+
+    expect(card1Subtasks().map(s => s.title)).toEqual(['A', 'B', 'C', 'D', 'E']);
+    expect(client.createSubtasks).toHaveBeenCalledWith('card1', ['D', 'E']);
+
+    resolve([
+      { id: 'real-d', cardId: 'card1', title: 'D', checked: false, position: 4 },
+      { id: 'real-e', cardId: 'card1', title: 'E', checked: false, position: 5 },
+    ]);
+    await pending;
+
+    expect(card1Subtasks().map(s => s.id)).toEqual(['s1', 's2', 's3', 'real-d', 'real-e']);
+  });
+
+  test('a failed batch rolls back every placeholder and rethrows', async () => {
+    client.createSubtasks.mockRejectedValue(new Error('maximum 50 subtasks per card'));
+
+    await expect(useBoardStore.getState().createSubtasks('card1', ['D', 'E', 'F']))
+      .rejects.toThrow('maximum 50 subtasks per card');
+
+    expect(card1Subtasks().map(s => s.id)).toEqual(['s1', 's2', 's3']);
+    expect(useBoardStore.getState().error).toBe('maximum 50 subtasks per card');
+  });
+});
+
 describe('toggleSubtask', () => {
   test('rolls back and rethrows on failure', async () => {
     client.patchSubtask.mockRejectedValue(new Error('x'));

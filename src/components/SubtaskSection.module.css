@@ -78,3 +78,17 @@
   color: #94a3b8;
   margin-top: 0.25rem;
 }
+
+/* Batch add (PRD §12): the input grows into a multi-line box after a multi-line paste. */
+.batchInput {
+  display: block;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.batchHint {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin: 0.25rem 0 0;
+}

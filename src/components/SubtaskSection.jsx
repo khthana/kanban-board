@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { validateSubtaskTitle, validateSubtaskCount } from '../domain/validation';
+import { splitSubtaskLines, checkSubtaskBatch, describeSubtaskBatchError } from '../domain/subtaskBatch';
 import styles from './SubtaskSection.module.css';
 
 // The Subtask checklist inside the Card panel: rows (toggle / inline rename /
-// ↑ ↓ ✕) plus the "+ Add subtask" input. Owns only its own editing state;
+// ↑ ↓ ✕) plus the "+ Add subtask" input — pasting several lines there turns it
+// into a batch box (PRD §12). Owns only its own editing state;
 // every mutation goes through the callbacks, which may reject (shown inline).
 export default function SubtaskSection({
   subtasks = [],
   onCreate,
+  onCreateMany,
   onToggle,
   onRename,
   onDelete,
@@ -17,9 +20,13 @@ export default function SubtaskSection({
   const [adding, setAdding]         = useState(false);
   const [input, setInput]           = useState('');
   const [inputError, setInputError] = useState(null);
+  // Text of a pasted multi-line batch; null while in single-line mode.
+  const [batchText, setBatchText]   = useState(null);
   const [editingId, setEditingId]   = useState(null);
   const [editInput, setEditInput]   = useState('');
   const [editError, setEditError]   = useState(null);
+  // Guards against a second Enter while the batch POST is in flight (would add it twice).
+  const batchSubmitting = useRef(false);
 
   async function handleAddKeyDown(e) {
     if (e.key === 'Escape') { setAdding(false); setInput(''); setInputError(null); return; }
@@ -39,6 +46,41 @@ export default function SubtaskSection({
   }
 
   const limitMessage = validateSubtaskCount(subtasks.length);
+
+  function handleAddPaste(e) {
+    const pasted = e.clipboardData.getData('text/plain');
+    if (splitSubtaskLines(pasted).length < 2) return; // single line: the browser pastes it as usual
+    e.preventDefault();
+    // Insert at the caret / over the selection, as a normal paste would.
+    const { selectionStart: start = input.length, selectionEnd: end = input.length } = e.target;
+    setBatchText(input.slice(0, start) + pasted + input.slice(end));
+    setInputError(null);
+  }
+
+  function leaveBatch() {
+    setBatchText(null);
+    setInput('');
+    setInputError(null);
+  }
+
+  async function handleBatchKeyDown(e) {
+    if (e.key === 'Escape') { leaveBatch(); return; }
+    if (e.key !== 'Enter' || e.shiftKey) return; // Shift+Enter adds a line
+    e.preventDefault();
+    if (batchSubmitting.current) return;
+    const items = splitSubtaskLines(batchText);
+    const invalid = checkSubtaskBatch(items, subtasks.length);
+    if (invalid) { setInputError(describeSubtaskBatchError(invalid)); return; }
+    batchSubmitting.current = true;
+    try {
+      await onCreateMany(items.map(item => item.title));
+      leaveBatch();
+    } catch (err) {
+      setInputError(err.message); // keep the text so it can be fixed and retried
+    } finally {
+      batchSubmitting.current = false;
+    }
+  }
 
   async function handleEditKeyDown(e, subtaskId) {
     if (e.key === 'Escape') { setEditingId(null); setEditError(null); return; }
@@ -81,6 +123,7 @@ export default function SubtaskSection({
           ) : (
             <span
               className={styles.title}
+              data-testid="subtask-title"
               style={s.checked ? { textDecoration: 'line-through', color: '#94a3b8' } : undefined}
               onClick={() => { setEditingId(s.id); setEditInput(s.title); setEditError(null); }}
               title="Click to edit"
@@ -108,7 +151,23 @@ export default function SubtaskSection({
         </div>
       ))}
 
-      {adding ? (
+      {adding && batchText !== null ? (
+        <div className={styles.inputRow}>
+          <textarea
+            className={`${styles.input} ${styles.batchInput}`}
+            data-testid="subtask-batch-input"
+            autoFocus
+            rows={Math.min(Math.max(batchText.split('\n').length, 2), 8)}
+            value={batchText}
+            onChange={e => { setBatchText(e.target.value); setInputError(null); }}
+            onKeyDown={handleBatchKeyDown}
+          />
+          <p className={styles.batchHint} data-testid="subtask-batch-hint">
+            Enter เพื่อเพิ่ม {splitSubtaskLines(batchText).length} รายการ · Esc ยกเลิก
+          </p>
+          {inputError && <p className={styles.fieldError}>{inputError}</p>}
+        </div>
+      ) : adding ? (
         <div className={styles.inputRow}>
           <input
             className={styles.input}
@@ -117,6 +176,7 @@ export default function SubtaskSection({
             placeholder="Subtask title…"
             onChange={e => { setInput(e.target.value); setInputError(null); }}
             onKeyDown={handleAddKeyDown}
+            onPaste={handleAddPaste}
           />
           {inputError && <p className={styles.fieldError}>{inputError}</p>}
         </div>

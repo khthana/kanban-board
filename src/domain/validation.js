@@ -38,7 +38,8 @@ export function validatePassword(password) {
   return null;
 }
 
-export const validateSubtaskTitle = (title) => validateName(title, 'Subtask title', 100);
+export const MAX_SUBTASK_TITLE_LENGTH = 100;
+export const validateSubtaskTitle = (title) => validateName(title, 'Subtask title', MAX_SUBTASK_TITLE_LENGTH);
 
 // Shared with the API (imported by its subtask routes), so the client check and
 // the authoritative server check can't disagree.

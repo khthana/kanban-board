@@ -31,7 +31,7 @@ export default function BoardPage() {
     createLabel, patchLabel, deleteLabel, attachLabel, detachLabel,
     attachAssignee, detachAssignee,
     addMember, removeMember,
-    createSubtask, toggleSubtask, renameSubtask, deleteSubtask, moveSubtaskUp, moveSubtaskDown,
+    createSubtask, createSubtasks, toggleSubtask, renameSubtask, deleteSubtask, moveSubtaskUp, moveSubtaskDown,
   } = useBoardStore();
 
   const [activeCard, setActiveCard]   = useState(null);
@@ -257,6 +257,7 @@ export default function BoardPage() {
           onDetachAssignee={(cardId, uId) => reportOpError(detachAssignee(cardId, uId))}
           subtasks={(board?.subtasks ?? []).filter(s => s.cardId === activeCard?.id)}
           onCreateSubtask={title => createSubtask(activeCard.id, { title })}
+          onCreateSubtasks={titles => createSubtasks(activeCard.id, titles)}
           onToggleSubtask={id => reportOpError(toggleSubtask(id))}
           onRenameSubtask={renameSubtask}
           onDeleteSubtask={id => reportOpError(deleteSubtask(id))}

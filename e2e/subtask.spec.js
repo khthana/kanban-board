@@ -160,23 +160,159 @@ test('delete subtask → removed from list, progress indicator disappears', asyn
   await expect(page.locator('[data-testid="card-progress"]')).not.toBeVisible();
 });
 
+// Paste text into the "+ Add subtask" input through the real clipboard + Ctrl/Cmd+V,
+// so the browser fires a trusted paste event (fill() never fires onPaste, and a
+// synthetic paste event wouldn't insert single-line text the way a real one does).
+async function pasteIntoSubtaskInput(page, text) {
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  const btn = page.locator('button:has-text("+ Add subtask")');
+  if (await btn.isVisible()) await btn.click();
+  const input = page.locator('input[placeholder="Subtask title…"]');
+  await input.focus();
+  await page.evaluate(value => navigator.clipboard.writeText(value), text);
+  await input.press('ControlOrMeta+V');
+}
+
+const batchBox = page => page.locator('[data-testid="subtask-batch-input"]');
+const subtaskTitles = page => page.locator('aside [data-testid="subtask-title"]');
+
+// Paste lines and press Enter, waiting for the batch POST to confirm and the
+// panel to settle back to the single-line input
+async function pasteBatch(page, lines) {
+  await pasteIntoSubtaskInput(page, lines.join('\n'));
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/subtasks/batch') && r.status() === 201),
+    batchBox(page).press('Enter'),
+  ]);
+  await expect(batchBox(page)).not.toBeVisible();
+}
+
 test('max 50 subtasks — add button hidden, hint shown', async ({ page }) => {
   const { cardTitle } = await setupBoard(page);
   await openCard(page, cardTitle);
 
-  // Add 50 subtasks — wait for each POST to confirm so count is exact in the store
-  await page.locator('button:has-text("+ Add subtask")').click();
-  for (let i = 1; i <= 50; i++) {
-    const input = page.locator('input[placeholder="Subtask title…"]');
-    await input.fill(`Step ${i}`);
-    await Promise.all([
-      page.waitForResponse(r => r.url().includes('/subtasks') && r.status() === 201),
-      input.press('Enter'),
-    ]);
-  }
-
+  await pasteBatch(page, Array.from({ length: 50 }, (_, i) => `Step ${i + 1}`));
   await page.keyboard.press('Escape');
 
   await expect(page.locator('button:has-text("+ Add subtask")')).not.toBeVisible();
   await expect(page.getByText('Maximum 50 subtasks per card')).toBeVisible();
+});
+
+test('paste several lines → box + hint → Enter adds one subtask per line, in order → persists', async ({ page }) => {
+  const { cardTitle } = await setupBoard(page);
+  await openCard(page, cardTitle);
+  await addSubtask(page, 'Existing');
+
+  await pasteIntoSubtaskInput(page, 'ครั้งที่ 1 – slide\n\n  ครั้งที่ 1 – note  \nครั้งที่ 2 – slide');
+
+  await expect(batchBox(page)).toBeVisible();
+  await expect(page.getByTestId('subtask-batch-hint')).toHaveText('Enter เพื่อเพิ่ม 3 รายการ · Esc ยกเลิก');
+
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/subtasks/batch') && r.status() === 201),
+    batchBox(page).press('Enter'),
+  ]);
+
+  const expected = ['Existing', 'ครั้งที่ 1 – slide', 'ครั้งที่ 1 – note', 'ครั้งที่ 2 – slide'];
+  await expect(subtaskTitles(page)).toHaveText(expected);
+  await expect(batchBox(page)).not.toBeVisible();
+  await expect(page.locator('input[placeholder="Subtask title…"]')).toHaveValue('');
+
+  await page.reload();
+  await openCard(page, cardTitle);
+  await expect(subtaskTitles(page)).toHaveText(expected);
+});
+
+test('pasting a single line behaves like typing it', async ({ page }) => {
+  const { cardTitle } = await setupBoard(page);
+  await openCard(page, cardTitle);
+
+  await pasteIntoSubtaskInput(page, 'Just one');
+
+  await expect(batchBox(page)).not.toBeVisible();
+  await expect(page.locator('input[placeholder="Subtask title…"]')).toHaveValue('Just one');
+});
+
+test('a paste over the 50 limit adds nothing and keeps the text with the reason', async ({ page }) => {
+  const { cardTitle } = await setupBoard(page);
+  await openCard(page, cardTitle);
+  await pasteBatch(page, Array.from({ length: 48 }, (_, i) => `Step ${i + 1}`));
+
+  const text = 'Extra 1\nExtra 2\nExtra 3';
+  await pasteIntoSubtaskInput(page, text);
+  await batchBox(page).press('Enter');
+
+  await expect(page.getByText('วาง 3 รายการจะเกินลิมิต 50 (เพิ่มได้อีก 2)')).toBeVisible();
+  await expect(batchBox(page)).toHaveValue(text);
+  await expect(subtaskTitles(page)).toHaveCount(48);
+});
+
+test('Escape cancels a pasted batch without adding anything', async ({ page }) => {
+  const { cardTitle } = await setupBoard(page);
+  await openCard(page, cardTitle);
+
+  let batchPosts = 0;
+  page.on('request', r => { if (r.url().includes('/subtasks/batch')) batchPosts += 1; });
+
+  await pasteIntoSubtaskInput(page, 'A\nB');
+  await batchBox(page).press('Escape');
+
+  await expect(batchBox(page)).not.toBeVisible();
+  await expect(subtaskTitles(page)).toHaveCount(0);
+  expect(batchPosts).toBe(0);
+});
+
+test('Shift+Enter adds a line to the batch before committing', async ({ page }) => {
+  const { cardTitle } = await setupBoard(page);
+  await openCard(page, cardTitle);
+
+  await pasteIntoSubtaskInput(page, 'A\nB');
+  await batchBox(page).press('ControlOrMeta+End'); // end of the whole text, not just line 1
+  await batchBox(page).press('Shift+Enter');
+  await batchBox(page).pressSequentially('C');
+  await expect(page.getByTestId('subtask-batch-hint')).toHaveText('Enter เพื่อเพิ่ม 3 รายการ · Esc ยกเลิก');
+
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/subtasks/batch') && r.status() === 201),
+    batchBox(page).press('Enter'),
+  ]);
+  await expect(subtaskTitles(page)).toHaveText(['A', 'B', 'C']);
+});
+
+test('a batch the server rejects rolls back every row and keeps the pasted text', async ({ page }) => {
+  const { cardTitle } = await setupBoard(page);
+  await openCard(page, cardTitle);
+  await page.route('**/subtasks/batch', route =>
+    route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'server exploded' }) }));
+
+  await pasteIntoSubtaskInput(page, 'A\nB');
+  await batchBox(page).press('Enter');
+
+  await expect(page.locator('aside').getByText('server exploded')).toBeVisible();
+  await expect(subtaskTitles(page)).toHaveCount(0);
+  await expect(batchBox(page)).toHaveValue('A\nB');
+});
+
+test('a second Enter while the batch is saving does not add it twice', async ({ page }) => {
+  const { cardTitle } = await setupBoard(page);
+  await openCard(page, cardTitle);
+  let posts = 0;
+  let release;
+  const held = new Promise(r => { release = r; });
+  await page.route('**/subtasks/batch', async route => {
+    posts += 1;
+    await held;
+    await route.continue();
+  });
+
+  await pasteIntoSubtaskInput(page, 'A\nB');
+  await batchBox(page).press('Enter');
+  await batchBox(page).press('Enter');
+  release();
+
+  await expect(subtaskTitles(page)).toHaveText(['A', 'B']);
+  await page.reload();
+  await openCard(page, cardTitle);
+  await expect(subtaskTitles(page)).toHaveText(['A', 'B']);
+  expect(posts).toBe(1);
 });

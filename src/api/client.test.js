@@ -58,6 +58,21 @@ describe('entity responses are normalized to camelCase', () => {
 
     expect(await client.attachAssignee('k1', 'u2')).toEqual({ cardId: 'k1', userId: 'u2' });
   });
+
+  test('createSubtasks posts the titles as one batch and normalizes every subtask', async () => {
+    auth.apiFetch.mockResolvedValueOnce([
+      { id: 's1', card_id: 'k1', title: 'A', checked: false, position: 2, created_at: '2026-11-09T00:00:00Z' },
+      { id: 's2', card_id: 'k1', title: 'B', checked: false, position: 3, created_at: '2026-11-09T00:00:00Z' },
+    ]);
+
+    const subtasks = await client.createSubtasks('k1', ['A', 'B']);
+
+    expect(auth.apiFetch).toHaveBeenCalledWith('POST', '/cards/k1/subtasks/batch', { titles: ['A', 'B'] });
+    expect(subtasks).toEqual([
+      { id: 's1', cardId: 'k1', title: 'A', checked: false, position: 2 },
+      { id: 's2', cardId: 'k1', title: 'B', checked: false, position: 3 },
+    ]);
+  });
 });
 
 describe('auth calls', () => {

@@ -17,6 +17,7 @@ export default function CardPanel({
   userId,
   subtasks = [],
   onCreateSubtask,
+  onCreateSubtasks,
   onToggleSubtask,
   onRenameSubtask,
   onDeleteSubtask,
@@ -201,6 +202,7 @@ export default function CardPanel({
         <SubtaskSection
           subtasks={subtasks}
           onCreate={onCreateSubtask}
+          onCreateMany={onCreateSubtasks}
           onToggle={onToggleSubtask}
           onRename={onRenameSubtask}
           onDelete={onDeleteSubtask}
