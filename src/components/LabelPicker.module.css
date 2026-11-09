@@ -114,6 +114,5 @@
   padding: 0.1rem 0.2rem;
   color: #cbd5e1;
 }
-.star:hover:not(:disabled) { color: #f59e0b; }
-.star:disabled { cursor: wait; opacity: 0.5; }
+.star:hover { color: #f59e0b; }
 .starActive { color: #f59e0b; }

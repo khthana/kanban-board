@@ -95,7 +95,9 @@ test('rename a label → card category reflects the new name, persists', async (
   await expect(page.locator('[data-testid="card-category"]')).toContainText('API');
 });
 
-test('☆ stays disabled until the label attach commits, then sets the Category without an error (#56)', async ({ page }) => {
+// #56 → #74: ☆ is never disabled; the ★ PATCH queues behind the in-flight attach
+// (per-record queues, #73), so the server never sees it before the label is attached.
+test('☆ pressed while the label attach is in flight sets the Category once it commits, without an error', async ({ page }) => {
   await register(page, `pend-${uid()}@test.com`, PW, 'Pend User');
 
   await page.fill('input[placeholder="New board name…"]', 'Pend Board');
@@ -137,21 +139,28 @@ test('☆ stays disabled until the label attach commits, then sets the Category 
     await held;
     return route.continue();
   });
+  // The order the server sees: the attach PUT must answer before the ★ PATCH goes out.
+  const events = [];
+  page.on('response', r => {
+    if (/\/cards\/[^/]+\/labels\//.test(r.url()) && r.request().method() === 'PUT') events.push('PUT answered');
+  });
+  page.on('request', r => {
+    if (/\/cards\/[^/]+$/.test(r.url()) && r.method() === 'PATCH') events.push('PATCH sent');
+  });
   await page.locator('aside button', { hasText: 'Frontend' }).first().click();
 
   const setFrontend = page.getByRole('button', { name: 'Set Frontend as category' });
-  await expect(setFrontend).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Clear Backend as category' })).toBeEnabled();
+  await expect(setFrontend).toBeEnabled();
+  await setFrontend.click();
+  await expect(page.getByRole('button', { name: 'Clear Frontend as category' })).toBeVisible();
+  await page.waitForTimeout(500);                        // give a premature PATCH time to show up
+  expect(events).toEqual([]);                            // the ★ PATCH waits for the attach
 
   await Promise.all([
-    page.waitForResponse(r => /\/cards\/[^/]+\/labels\//.test(r.url()) && r.request().method() === 'PUT' && r.status() === 200),
+    page.waitForResponse(r => /\/cards\/[^/]+$/.test(r.url()) && r.request().method() === 'PATCH' && r.status() === 200),
     release(),
   ]);
-  await expect(setFrontend).toBeEnabled();
-  await Promise.all([
-    page.waitForResponse(r => /\/cards\/[^/]+$/.test(r.url()) && r.request().method() === 'PATCH' && r.status() === 200),
-    setFrontend.click(),
-  ]);
+  expect(events).toEqual(['PUT answered', 'PATCH sent']);
 
   await page.locator('button[title="Close panel"]').click();
   await expect(page.locator('[data-testid="card-category"]')).toContainText('Frontend');

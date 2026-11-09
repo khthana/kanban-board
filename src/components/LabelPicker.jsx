@@ -41,33 +41,14 @@ function EditForm({ label, onSave, onCancel }) {
 
 // The Card panel's label list: attach/detach, ★ Category, and create/edit/delete
 // labels — each through the board actions (#68). The Category follows
-// attach/detach inside the store action (#55).
+// attach/detach inside the store action (#55); a ★ pressed while an attach is
+// in flight queues behind it in the store (#73), so ☆ is never disabled (#74).
 export default function LabelPicker({ cardId, allLabels, attachedLabelIds, categoryLabelId, actions }) {
   const [creating, setCreating]     = useState(false);
   const [editingId, setEditingId]   = useState(null);
   const [name, setName]             = useState('');
   const [color, setColor]           = useState(PRESET_COLORS[0]);
   const [nameErr, setNameErr]       = useState(null);
-  // Attaches still in flight, counted per `${cardId}:${labelId}` (a label can be
-  // re-attached before its first PUT settles; the panel can switch cards). The
-  // server rejects such a label as the Category until its attach commits, so
-  // its ☆/★ stays disabled meanwhile (#56).
-  const [pendingAttaches, setPendingAttaches] = useState(() => new Map());
-
-  function countPending(key, delta) {
-    setPendingAttaches(m => {
-      const next = new Map(m);
-      const n = (next.get(key) ?? 0) + delta;
-      if (n > 0) next.set(key, n); else next.delete(key);
-      return next;
-    });
-  }
-
-  function attach(labelId) {
-    const key = `${cardId}:${labelId}`;
-    countPending(key, 1);
-    actions.attachLabel(cardId, labelId).finally(() => countPending(key, -1));
-  }
 
   function handleCreate(e) {
     e.preventDefault();
@@ -98,13 +79,12 @@ export default function LabelPicker({ cardId, allLabels, attachedLabelIds, categ
           }
           const attached = attachedLabelIds.has(label.id);
           const isCategory = attached && categoryLabelId === label.id;
-          const pending = pendingAttaches.has(`${cardId}:${label.id}`);
           return (
             <div key={label.id} className={styles.row}>
               <button
                 className={`${styles.labelBtn} ${attached ? styles.attached : ''}`}
                 style={{ borderColor: label.color }}
-                onClick={() => attached ? actions.detachLabel(cardId, label.id) : attach(label.id)}
+                onClick={() => attached ? actions.detachLabel(cardId, label.id) : actions.attachLabel(cardId, label.id)}
               >
                 <span className={styles.dot} style={{ background: label.color }} />
                 {label.name}
@@ -120,10 +100,9 @@ export default function LabelPicker({ cardId, allLabels, attachedLabelIds, categ
               {attached && (
                 <button
                   className={`${styles.star} ${isCategory ? styles.starActive : ''}`}
-                  title={pending ? 'Saving label…' : isCategory ? 'Category (click to clear)' : 'Set as category'}
+                  title={isCategory ? 'Category (click to clear)' : 'Set as category'}
                   aria-label={isCategory ? `Clear ${label.name} as category` : `Set ${label.name} as category`}
                   data-testid="set-category"
-                  disabled={pending}
                   onClick={() => actions.patchCard(cardId, { categoryLabelId: isCategory ? null : label.id })}
                 >{isCategory ? '★' : '☆'}</button>
               )}
