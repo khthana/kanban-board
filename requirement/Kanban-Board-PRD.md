@@ -489,7 +489,7 @@ Backend ต้องสร้างก่อน frontend — ไม่ใช้ 
 
 ## 4. Subtasks (Checklist)
 
-**สถานะ:** Implemented
+**สถานะ:** Implemented — *ลิมิต 20 ต่อ Card ในหัวข้อนี้ถูกขยายเป็น 50 ใน [หัวข้อ 12](#12-subtask-batch-add--ซ่อน-subtask-ที่เสร็จแล้ว) (#59) เนื้อหาด้านล่างเก็บไว้ตามต้นฉบับ*
 **ขอบเขต:** New Feature — ต่อจาก Kanban Board MVP
 **วันที่:** 5 มิถุนายน 2026
 

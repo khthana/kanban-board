@@ -180,12 +180,12 @@ describe('validateSubtaskCount', () => {
     expect(validateSubtaskCount(0)).toBeNull();
   });
 
-  test('accepts count of 19', () => {
-    expect(validateSubtaskCount(19)).toBeNull();
+  test('accepts count of 49 (room for the 50th)', () => {
+    expect(validateSubtaskCount(49)).toBeNull();
   });
 
-  test('rejects count of 20 (at limit)', () => {
-    expect(validateSubtaskCount(20)).not.toBeNull();
+  test('rejects count of 50 (at limit) and names the limit', () => {
+    expect(validateSubtaskCount(50)).toBe('Maximum 50 subtasks per card');
   });
 });
 

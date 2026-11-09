@@ -1,5 +1,7 @@
 import express from 'express';
 import pool from '../db/pool.js';
+import inTransaction from '../db/inTransaction.js';
+import lockCard from '../db/lockCard.js';
 import requireAuth from '../middleware/requireAuth.js';
 import { needsRebalance, rebalance } from '../../../src/domain/ordering.js';
 import { resolveAttach, resolveDetach } from '../../../src/domain/category.js';
@@ -122,32 +124,6 @@ router.patch('/:id', async (req, res) => {
 
   return res.json(updated);
 });
-
-async function inTransaction(fn) {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const result = await fn(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
-}
-
-// Locks the card row for the rest of the caller's transaction and returns it,
-// or null when the card is gone. Every Category path takes this lock *first* —
-// taking it after an INSERT into card_labels (whose FK check holds KEY SHARE on
-// the card) deadlocks two concurrent attaches (#55).
-async function lockCard(client, cardId) {
-  const { rows } = await client.query(
-    `SELECT category_label_id FROM cards WHERE id = $1 FOR UPDATE`, [cardId]
-  );
-  return rows[0] ?? null;
-}
 
 // Applies an ADR-0002 Category rule inside the caller's transaction, so the
 // attach/detach and its Category change land (or fail) together (#55).

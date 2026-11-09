@@ -40,8 +40,12 @@ export function validatePassword(password) {
 
 export const validateSubtaskTitle = (title) => validateName(title, 'Subtask title', 100);
 
+// Shared with the API (imported by its subtask routes), so the client check and
+// the authoritative server check can't disagree.
+export const MAX_SUBTASKS_PER_CARD = 50;
+
 export function validateSubtaskCount(count) {
-  if (count >= 20) return 'Maximum 20 subtasks per card';
+  if (count >= MAX_SUBTASKS_PER_CARD) return `Maximum ${MAX_SUBTASKS_PER_CARD} subtasks per card`;
   return null;
 }
 

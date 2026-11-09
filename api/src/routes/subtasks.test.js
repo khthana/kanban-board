@@ -76,19 +76,38 @@ describe('POST /cards/:id/subtasks', () => {
     expect(res.status).toBe(404);
   });
 
-  it('21st subtask → 400', async () => {
+  const addSubtask = (token, cardId, title) => request(app)
+    .post(`/cards/${cardId}/subtasks`)
+    .set('Authorization', `Bearer ${token}`)
+    .send({ title });
+
+  it('accepts the 50th subtask and rejects the 51st → 400', async () => {
     const { user, card } = await setup();
-    for (let i = 0; i < 20; i++) {
-      await request(app)
-        .post(`/cards/${card.id}/subtasks`)
-        .set('Authorization', `Bearer ${user.token}`)
-        .send({ title: `Step ${i + 1}` });
+    for (let i = 1; i <= 49; i++) {
+      expect((await addSubtask(user.token, card.id, `Step ${i}`)).status).toBe(201);
     }
-    const res = await request(app)
-      .post(`/cards/${card.id}/subtasks`)
-      .set('Authorization', `Bearer ${user.token}`)
-      .send({ title: 'One too many' });
+
+    expect((await addSubtask(user.token, card.id, 'Step 50')).status).toBe(201);
+
+    const res = await addSubtask(user.token, card.id, 'One too many');
     expect(res.status).toBe(400);
+    expect(res.body.error).toBe('maximum 50 subtasks per card');
+  });
+
+  it('concurrent adds near the limit never push a card past 50', async () => {
+    const { user, board, card } = await setup();
+    for (let i = 1; i <= 48; i++) await addSubtask(user.token, card.id, `Step ${i}`);
+
+    const results = await Promise.all(
+      Array.from({ length: 6 }, (_, i) => addSubtask(user.token, card.id, `Race ${i}`))
+    );
+
+    expect(results.filter(r => r.status === 201)).toHaveLength(2);
+    expect(results.filter(r => r.status === 400)).toHaveLength(4);
+    const snap = await request(app)
+      .get(`/boards/${board.id}`)
+      .set('Authorization', `Bearer ${user.token}`);
+    expect(snap.body.columns[0].cards[0].subtasks).toHaveLength(50);
   });
 });
 

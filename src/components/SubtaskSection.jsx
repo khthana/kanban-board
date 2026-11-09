@@ -38,6 +38,8 @@ export default function SubtaskSection({
     }
   }
 
+  const limitMessage = validateSubtaskCount(subtasks.length);
+
   async function handleEditKeyDown(e, subtaskId) {
     if (e.key === 'Escape') { setEditingId(null); setEditError(null); return; }
     if (e.key !== 'Enter') return;
@@ -119,8 +121,8 @@ export default function SubtaskSection({
           {inputError && <p className={styles.fieldError}>{inputError}</p>}
         </div>
       ) : (
-        validateSubtaskCount(subtasks.length)
-          ? <p className={styles.limit}>Maximum 20 subtasks per card</p>
+        limitMessage
+          ? <p className={styles.limit}>{limitMessage}</p>
           : <button className={styles.addBtn} onClick={() => setAdding(true)}>+ Add subtask</button>
       )}
     </div>

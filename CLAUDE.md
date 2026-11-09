@@ -68,7 +68,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 - **snake_case ↔ camelCase**: `normalizeBoard()` / `normalizeColumn()` / `normalizeLabel()` / `normalizeCard()` / `normalizeSubtask()` (responses), `normalizeSnapshot()` (the nested `GET /boards/:id` body), and `cardPatchToApi()` (requests) in `client.js` handle conversion. `attachLabel`/`attachAssignee` return the store's `{cardId, labelId}` / `{cardId, userId}` join shape. The API returns `board_id` on column/label create and patch so the normalizers never have to guess it (#52).
 - **Profile endpoints**: `GET /auth/me`, `PATCH /auth/me`, `PATCH /auth/me/password` — implemented in `api/src/routes/auth.js`
 - **Refresh tokens**: 60-minute access token + 7-day refresh token. On 401, `src/api/auth.js` `apiFetch` attempts silent refresh with single in-flight promise; failure clears both tokens and redirects to `/login`
-- **Subtasks**: Nested per card, limit 20 per card, stored with float position (not array index). Support toggle (checked), rename, reorder (↑/↓), delete. Progress shown on the card via `domain/progress.js` `progressView(done,total)` — adaptive **segments** (≤ 8 subtasks) vs continuous **mini-bar** (> 8) + `done/total` count (turns green when complete).
+- **Subtasks**: Nested per card, limit 50 per card (`MAX_SUBTASKS_PER_CARD` in `domain/validation.js`, imported by the API too; the API counts under a lock on the card row so concurrent adds can't overshoot — #59), stored with float position (not array index). Support toggle (checked), rename, reorder (↑/↓), delete. Progress shown on the card via `domain/progress.js` `progressView(done,total)` — adaptive **segments** (≤ 8 subtasks) vs continuous **mini-bar** (> 8) + `done/total` count (turns green when complete).
 - **Column Accent** (see [ADR-0001](docs/adr/0001-column-accent-model.md)): `color VARCHAR(7) NULL` on `columns` table is the column's **Accent** — it themes the whole column, not just the header strip (which superseded the original [Column Header Colors PRD](requirement/Kanban-Board-PRD.md#2-column-header-colors-superseded-by-adr-0001)). `PATCH /columns/:id` accepts `color` (hex or null); `renameColumn(id, userId, { name, color })` optimistic update uses `color !== undefined ? color : c.color` to handle null (clear). In `Column.jsx`, when `color` is set the column root gets `className .accented` + inline `--accent` CSS var; CSS derives: title chip background = `var(--accent)`, column wash = `color-mix(--accent 12%, white)`, count = `color-mix(--accent, black 38%)`, "New card" button text = `color-mix(--accent, black 30%)` (passed to `CardComposer` via `accent` prop). Chip text stays `#1e293b`. When `color` is null, all fall back to neutral gray. Edit form shows 8 pastel presets + "+" custom + "✕" clear using `data-swatch` attributes.
 - **Editorial card** (see [ADR-0002](docs/adr/0002-card-editorial-model.md), [spec](requirement/card_ui_spec.md)): type-forward card — category dot + uppercase label, hero title, hairline rule, foot (due / adaptive progress). IBM Plex Sans Thai; tokens in `index.css`. Superseded the old "card color band = first label". `normalizeCard()` in client.js uses `.slice(0,10)` to normalize node-pg ISO timestamp DATE columns to YYYY-MM-DD.
 - **Card Category** (ADR-0002): a card's **Category** is the label flagged by `category_label_id` (nullable FK on `cards`). It's the only label shown on the card face (uppercase name + dot); its color is the **card accent** (`domain/accent.js` — `categoryLabel()` resolves it, `cardAccent()` derives `solid`/`text` shades via `color-mix`, neutral gray when unset). Other labels are managed only in `CardPanel`. Set via the ★ toggle in `LabelPicker`; **auto-set** to the first attached label, and promoted to the next remaining label on detach. Auto-promotion rules live in `domain/category.js` (`resolveAttach`, `resolveDetach`) and are **enforced server-side** (issue #55): `PUT`/`DELETE /cards/:id/labels/:labelId` apply them in the same transaction as the attach/detach (promotion order = label creation order, `created_at, id`, matched by the snapshot and the store) and return `{ card_id, label_id, category_label_id }` (detach is 200, not 204); `PATCH /cards/:id` rejects a `category_label_id` not attached to the card (400). The store's `attachLabel`/`detachLabel` carry the Category in the same optimistic step (predict with `resolveAttach`/`resolveDetach`, settle to the server's value), so a failed attach/detach rolls both back together — `CardPanel` no longer fires a second category patch. Settle adopts the server's Category only if the card's Category is still what apply predicted (a ★ pressed mid-flight wins). `CardPanel` counts attaches still in flight per card+label (`pendingAttaches`) and `LabelPicker` disables their ☆/★ until it settles, since the server would reject them as the Category until the attach commits (#56). Known residual: ☆ on a label another tab detached (before the next poll) still gets a 400 → rollback + op-error banner. The ★ toggle still uses `patchCard({ categoryLabelId })`.
@@ -89,7 +89,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 - `board.name`, `column.name`: non-empty, ≤ 100 chars
 - `card.title`: non-empty, ≤ 255 chars
 - `card.description`: ≤ 5,000 chars
-- `subtask.title`: non-empty, ≤ 100 chars; max 20 subtasks per card
+- `subtask.title`: non-empty, ≤ 100 chars; max 50 subtasks per card
 - `label.color`, `column.color`: valid hex (`#rgb` or `#rrggbb`), or `null` to clear column color
 - Invite target must already be a registered user
 - `displayName`: non-empty, ≤ 100 chars
@@ -116,7 +116,7 @@ Not unit-tested: components — covered by E2E.
 | `card.spec.js` | create column + card → persist on refresh; edit card title inline → persist; failed card creation rolls back + shows error banner | ✅ |
 | `dnd.spec.js` | drag card cross-column → persist on refresh | ✅ |
 | `profile.spec.js` | update name, email conflict, change password, wrong password | ✅ |
-| `subtask.spec.js` | create, toggle, rename, reorder, delete subtasks; max 20 limit | ✅ |
+| `subtask.spec.js` | create, toggle, rename, reorder, delete subtasks; max 50 limit | ✅ |
 | `board.spec.js` | create/rename/delete board; owner-only buttons show on a new board without reload; member cannot delete | ✅ |
 | `member.spec.js` | invite member → member sees board | ✅ |
 | `column-color.spec.js` | set column color, persist after reload, clear color | ✅ |
@@ -141,7 +141,7 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs both `test-frontend` (156 unit tests) and `test-api` (140 integration tests, postgres:16-alpine service) on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs both `test-frontend` (156 unit tests) and `test-api` (141 integration tests, postgres:16-alpine service) on every push/PR to `main`.
 
 ## API
 
@@ -191,7 +191,7 @@ Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env
 
 ### Tests
 
-140 integration tests across 7 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
+141 integration tests across 7 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
 
 **Critical**: use `--maxWorkers=1`, NOT `--runInBand`. Jest 30 runs test files in parallel by default.
 

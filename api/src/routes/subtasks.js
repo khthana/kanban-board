@@ -1,6 +1,9 @@
 import express from 'express';
 import pool from '../db/pool.js';
+import inTransaction from '../db/inTransaction.js';
+import lockCard from '../db/lockCard.js';
 import requireAuth from '../middleware/requireAuth.js';
+import { MAX_SUBTASKS_PER_CARD } from '../../../src/domain/validation.js';
 
 const router = express.Router();
 router.use(requireAuth);
@@ -33,28 +36,29 @@ router.post('/cards/:cardId/subtasks', async (req, res) => {
   if (!found) return res.status(404).json({ error: 'card not found' });
   if (!isMember) return res.status(403).json({ error: 'forbidden' });
 
-  const { rows: countRows } = await pool.query(
-    'SELECT COUNT(*) AS cnt FROM subtasks WHERE card_id = $1',
-    [cardId]
-  );
-  if (parseInt(countRows[0].cnt, 10) >= 20) {
-    return res.status(400).json({ error: 'maximum 20 subtasks per card' });
-  }
+  // Lock the card row first so concurrent adds count and insert one at a time —
+  // otherwise two requests can both see room and push the card past the limit.
+  const result = await inTransaction(async client => {
+    if (!await lockCard(client, cardId)) return { status: 404, body: { error: 'card not found' } };
 
-  const { rows: maxRows } = await pool.query(
-    'SELECT COALESCE(MAX(position), 0) AS max_pos FROM subtasks WHERE card_id = $1',
-    [cardId]
-  );
-  const position = parseFloat(maxRows[0].max_pos) + 1;
+    const { rows: [{ cnt, max_pos }] } = await client.query(
+      'SELECT COUNT(*) AS cnt, COALESCE(MAX(position), 0) AS max_pos FROM subtasks WHERE card_id = $1',
+      [cardId]
+    );
+    if (parseInt(cnt, 10) >= MAX_SUBTASKS_PER_CARD) {
+      return { status: 400, body: { error: `maximum ${MAX_SUBTASKS_PER_CARD} subtasks per card` } };
+    }
 
-  const { rows } = await pool.query(
-    `INSERT INTO subtasks (card_id, title, position)
-     VALUES ($1, $2, $3)
-     RETURNING id, card_id, title, checked, position, created_at`,
-    [cardId, title.trim(), position]
-  );
+    const { rows } = await client.query(
+      `INSERT INTO subtasks (card_id, title, position)
+       VALUES ($1, $2, $3)
+       RETURNING id, card_id, title, checked, position, created_at`,
+      [cardId, title.trim(), parseFloat(max_pos) + 1]
+    );
+    return { status: 201, body: rows[0] };
+  });
 
-  return res.status(201).json(rows[0]);
+  return res.status(result.status).json(result.body);
 });
 
 router.patch('/subtasks/:id', async (req, res) => {
