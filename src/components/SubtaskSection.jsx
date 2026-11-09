@@ -1,19 +1,18 @@
 import { useRef, useState } from 'react';
-import { validateSubtaskTitle, validateSubtaskCount } from '../domain/validation';
-import { splitSubtaskLines, checkSubtaskBatch, describeSubtaskBatchError } from '../domain/subtaskBatch';
+import { validateSubtaskTitle } from '../domain/validation';
+import { splitSubtaskLines, checkSubtaskBatch, describeSubtaskBatchError, cardFullMessage } from '../domain/subtaskBatch';
 import { visibleSubtasks } from '../domain/subtaskVisibility';
 import { subtaskProgress } from '../domain/progress';
 import styles from './SubtaskSection.module.css';
 
 // The Subtask checklist inside the Card panel: rows (toggle / inline rename /
 // ↑ ↓ ✕) plus the "+ Add subtask" input — pasting several lines there turns it
-// into a batch box (PRD §12). Done Subtasks are hidden until revealed, and
-// start hidden on every mount (the Card panel keys this by Card). Owns only its
-// own UI state;
-// every mutation goes through the callbacks, which may reject (shown inline).
+// into a batch box (PRD §12); a typed title is added as a batch of one (#67).
+// Done Subtasks are hidden until revealed, and start hidden on every mount (the
+// Card panel keys this by Card). Owns only its own UI state; every mutation goes
+// through the callbacks, which may reject (shown inline).
 export default function SubtaskSection({
   subtasks = [],
-  onCreate,
   onCreateMany,
   onToggle,
   onRename,
@@ -29,8 +28,8 @@ export default function SubtaskSection({
   const [editingId, setEditingId]   = useState(null);
   const [editInput, setEditInput]   = useState('');
   const [editError, setEditError]   = useState(null);
-  // Guards against a second Enter while the batch POST is in flight (would add it twice).
-  const batchSubmitting = useRef(false);
+  // Guards against a second Enter while an add's POST is in flight (would add it twice).
+  const submitting = useRef(false);
   const [hideDone, setHideDone]     = useState(true);
   const doneCount = subtaskProgress(subtasks).done;
   const visible = visibleSubtasks(subtasks, { hideDone });
@@ -42,20 +41,22 @@ export default function SubtaskSection({
     if (e.key === 'Escape') { setAdding(false); setInput(''); setInputError(null); return; }
     if (e.key !== 'Enter') return;
     e.preventDefault();
-    const titleErr = validateSubtaskTitle(input);
-    if (titleErr) { setInputError(titleErr); return; }
-    const countErr = validateSubtaskCount(subtasks.length);
-    if (countErr) { setInputError(countErr); return; }
+    if (submitting.current) return;
+    const invalid = checkSubtaskBatch([{ title: input }], subtasks.length);
+    if (invalid) { setInputError(describeSubtaskBatchError(invalid)); return; }
+    submitting.current = true;
     try {
-      await onCreate(input.trim());
+      await onCreateMany([input.trim()]);
       setInput('');
       setInputError(null);
     } catch (err) {
       setInputError(err.message);
+    } finally {
+      submitting.current = false;
     }
   }
 
-  const limitMessage = validateSubtaskCount(subtasks.length);
+  const limitMessage = cardFullMessage(subtasks.length);
 
   function handleAddPaste(e) {
     const pasted = e.clipboardData.getData('text/plain');
@@ -77,18 +78,18 @@ export default function SubtaskSection({
     if (e.key === 'Escape') { leaveBatch(); return; }
     if (e.key !== 'Enter' || e.shiftKey) return; // Shift+Enter adds a line
     e.preventDefault();
-    if (batchSubmitting.current) return;
+    if (submitting.current) return;
     const items = splitSubtaskLines(batchText);
     const invalid = checkSubtaskBatch(items, subtasks.length);
     if (invalid) { setInputError(describeSubtaskBatchError(invalid)); return; }
-    batchSubmitting.current = true;
+    submitting.current = true;
     try {
       await onCreateMany(items.map(item => item.title));
       leaveBatch();
     } catch (err) {
       setInputError(err.message); // keep the text so it can be fixed and retried
     } finally {
-      batchSubmitting.current = false;
+      submitting.current = false;
     }
   }
 

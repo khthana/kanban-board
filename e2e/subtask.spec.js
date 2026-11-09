@@ -56,6 +56,24 @@ async function addSubtask(page, title) {
   await page.keyboard.press('Escape'); // close add-input so panel is clean
 }
 
+test('single add validates inline before sending, in the batch wording (#67)', async ({ page }) => {
+  const { cardTitle } = await setupBoard(page);
+  await openCard(page, cardTitle);
+  let posts = 0;
+  page.on('request', r => { if (r.url().includes('/subtasks') && r.method() === 'POST') posts++; });
+
+  await page.locator('button:has-text("+ Add subtask")').click();
+  const input = page.locator('input[placeholder="Subtask title…"]');
+  await input.press('Enter');
+  await expect(page.getByText('ชื่อ Subtask ว่าง')).toBeVisible();
+
+  await input.fill('a'.repeat(101));
+  await input.press('Enter');
+  await expect(page.getByText('ชื่อ Subtask ยาวเกิน 100 ตัวอักษร')).toBeVisible();
+  await expect(input).toHaveValue('a'.repeat(101));
+  expect(posts).toBe(0);
+});
+
 test('create subtask → persists after reload', async ({ page }) => {
   const { cardTitle } = await setupBoard(page);
   await openCard(page, cardTitle);
@@ -196,7 +214,7 @@ test('max 50 subtasks — add button hidden, hint shown', async ({ page }) => {
   await page.keyboard.press('Escape');
 
   await expect(page.locator('button:has-text("+ Add subtask")')).not.toBeVisible();
-  await expect(page.getByText('Maximum 50 subtasks per card')).toBeVisible();
+  await expect(page.getByText('Subtask ครบลิมิต 50 แล้ว')).toBeVisible();
 });
 
 test('paste several lines → box + hint → Enter adds one subtask per line, in order → persists', async ({ page }) => {

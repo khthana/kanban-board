@@ -20,7 +20,7 @@ async function setup() {
   const column = (await request(app).post(`/boards/${board.id}/columns`).set(auth(owner)).send({ name: 'C' })).body;
   const card = (await request(app).post(`/columns/${column.id}/cards`).set(auth(owner)).send({ title: 'T' })).body;
   const label = (await request(app).post(`/boards/${board.id}/labels`).set(auth(owner)).send({ name: 'L', color: '#f00' })).body;
-  const subtask = (await request(app).post(`/cards/${card.id}/subtasks`).set(auth(owner)).send({ title: 'S' })).body;
+  const [subtask] = (await request(app).post(`/cards/${card.id}/subtasks/batch`).set(auth(owner)).send({ titles: ['S'] })).body;
   return { owner, stranger, auth, ids: { card: card.id, column: column.id, label: label.id, subtask: subtask.id } };
 }
 
@@ -32,7 +32,6 @@ const ROUTES = [
   ['DELETE card label',  'card', 'delete', i => `/cards/${i.card}/labels/${i.label}`, undefined],
   ['PUT assignee',       'card', 'put',    i => `/cards/${i.card}/assignees/${MISSING}`, undefined],
   ['DELETE assignee',    'card', 'delete', i => `/cards/${i.card}/assignees/${MISSING}`, undefined],
-  ['POST subtask',       'card', 'post',   i => `/cards/${i.card}/subtasks`,          { title: '' }],
   ['POST subtask batch', 'card', 'post',   i => `/cards/${i.card}/subtasks/batch`,    { titles: 'nope' }],
   ['PATCH subtask',      'subtask', 'patch',  i => `/subtasks/${i.subtask}`,             {}],
   ['DELETE subtask',     'subtask', 'delete', i => `/subtasks/${i.subtask}`,             undefined],

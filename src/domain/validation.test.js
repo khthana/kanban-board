@@ -1,4 +1,4 @@
-import { validateBoardName, validateColumnName, validateLabelName, validateCardTitle, validateCardDescription, validateLabelColor, validateInviteEmail, validateEmail, validatePassword, validateDisplayName, validatePasswordChange, validateSubtaskTitle, validateSubtaskCount } from './validation';
+import { validateBoardName, validateColumnName, validateLabelName, validateCardTitle, validateCardDescription, validateLabelColor, validateInviteEmail, validateEmail, validatePassword, validateDisplayName, validatePasswordChange, validateSubtaskTitle } from './validation';
 
 describe('validateBoardName', () => {
   test('rejects empty string', () => {
@@ -172,20 +172,6 @@ describe('validateSubtaskTitle', () => {
 
   test('accepts valid title', () => {
     expect(validateSubtaskTitle('Fix login bug')).toBeNull();
-  });
-});
-
-describe('validateSubtaskCount', () => {
-  test('accepts count of 0', () => {
-    expect(validateSubtaskCount(0)).toBeNull();
-  });
-
-  test('accepts count of 49 (room for the 50th)', () => {
-    expect(validateSubtaskCount(49)).toBeNull();
-  });
-
-  test('rejects count of 50 (at limit) and names the limit', () => {
-    expect(validateSubtaskCount(50)).toBe('Maximum 50 subtasks per card');
   });
 });
 

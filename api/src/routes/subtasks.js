@@ -10,38 +10,6 @@ import { checkSubtaskBatch } from '../../../src/domain/subtaskBatch.js';
 const router = express.Router();
 router.use(requireAuth);
 
-router.post('/cards/:cardId/subtasks', requireAccess('card', 'cardId'), async (req, res) => {
-  const { cardId } = req.params;
-  const { title } = req.body;
-
-  if (!title || !title.trim()) return res.status(400).json({ error: 'title is required' });
-  if (title.trim().length > MAX_SUBTASK_TITLE_LENGTH) return res.status(400).json({ error: `title must be ${MAX_SUBTASK_TITLE_LENGTH} characters or fewer` });
-
-  // Lock the card row first so concurrent adds count and insert one at a time —
-  // otherwise two requests can both see room and push the card past the limit.
-  const result = await inTransaction(async client => {
-    if (!await lockCard(client, cardId)) return { status: 404, body: { error: 'card not found' } };
-
-    const { rows: [{ cnt, max_pos }] } = await client.query(
-      'SELECT COUNT(*) AS cnt, COALESCE(MAX(position), 0) AS max_pos FROM subtasks WHERE card_id = $1',
-      [cardId]
-    );
-    if (parseInt(cnt, 10) >= MAX_SUBTASKS_PER_CARD) {
-      return { status: 400, body: { error: `maximum ${MAX_SUBTASKS_PER_CARD} subtasks per card` } };
-    }
-
-    const { rows } = await client.query(
-      `INSERT INTO subtasks (card_id, title, position)
-       VALUES ($1, $2, $3)
-       RETURNING id, card_id, title, checked, position, created_at`,
-      [cardId, title.trim(), parseFloat(max_pos) + 1]
-    );
-    return { status: 201, body: rows[0] };
-  });
-
-  return res.status(result.status).json(result.body);
-});
-
 const BATCH_ERRORS = {
   empty:     () => 'titles must be a non-empty array',
   blank:     e => `title ${e.line} is required`,
@@ -49,8 +17,10 @@ const BATCH_ERRORS = {
   overLimit: e => `maximum ${MAX_SUBTASKS_PER_CARD} subtasks per card (room for ${e.room})`,
 };
 
-// Batch add (PRD §12): all titles are added, in array order after the card's
-// existing Subtasks, or none are.
+// The one way to add Subtasks (PRD §12; a single add is a batch of one, #67):
+// all titles are added, in array order after the card's existing Subtasks, or
+// none are. The card row is locked first so concurrent adds count and insert
+// one at a time — otherwise two requests can both see room and overshoot 50.
 router.post('/cards/:cardId/subtasks/batch', requireAccess('card', 'cardId'), async (req, res) => {
   const { cardId } = req.params;
   const { titles } = req.body;

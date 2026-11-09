@@ -1,4 +1,4 @@
-import { splitSubtaskLines, checkSubtaskBatch, describeSubtaskBatchError } from './subtaskBatch';
+import { splitSubtaskLines, checkSubtaskBatch, describeSubtaskBatchError, cardFullMessage } from './subtaskBatch';
 
 const items = (n, title = 'x') => Array.from({ length: n }, (_, i) => ({ line: i + 1, title }));
 
@@ -38,6 +38,14 @@ describe('checkSubtaskBatch', () => {
   });
 });
 
+describe('cardFullMessage', () => {
+  test('null while there is room, the same full-card wording as an add error at 50', () => {
+    expect(cardFullMessage(0)).toBeNull();
+    expect(cardFullMessage(49)).toBeNull();
+    expect(cardFullMessage(50)).toBe('Subtask ครบลิมิต 50 แล้ว');
+  });
+});
+
 describe('describeSubtaskBatchError', () => {
   test('explains each reason in Thai', () => {
     expect(describeSubtaskBatchError({ reason: 'tooLong', line: 4 })).toBe('บรรทัดที่ 4 ยาวเกิน 100 ตัวอักษร');
@@ -45,6 +53,17 @@ describe('describeSubtaskBatchError', () => {
     expect(describeSubtaskBatchError({ reason: 'overLimit', count: 37, room: 36 }))
       .toBe('วาง 37 รายการจะเกินลิมิต 50 (เพิ่มได้อีก 36)');
     expect(describeSubtaskBatchError({ reason: 'empty' })).toBe('ไม่มีรายการให้เพิ่ม');
+  });
+
+  test('a single add (no line number) is named without one (#67)', () => {
+    expect(describeSubtaskBatchError(checkSubtaskBatch([{ title: '  ' }], 0))).toBe('ชื่อ Subtask ว่าง');
+    expect(describeSubtaskBatchError(checkSubtaskBatch([{ title: 'a'.repeat(101) }], 0)))
+      .toBe('ชื่อ Subtask ยาวเกิน 100 ตัวอักษร');
+  });
+
+  test('a full card says so instead of "room for 0"', () => {
+    expect(describeSubtaskBatchError(checkSubtaskBatch([{ title: 'x' }], 50))).toBe('Subtask ครบลิมิต 50 แล้ว');
+    expect(describeSubtaskBatchError(checkSubtaskBatch(items(3), 50))).toBe('Subtask ครบลิมิต 50 แล้ว');
   });
 });
 

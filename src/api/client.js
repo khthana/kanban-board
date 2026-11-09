@@ -150,7 +150,6 @@ export const detachAssignee = (cardId, userId) => apiFetch('DELETE', `/cards/${c
 
 // ── subtasks ─────────────────────────────────────────────────────────────────
 
-export const createSubtask = (cardId, data)    => apiFetch('POST',   `/cards/${cardId}/subtasks`, data).then(normalizeSubtask);
 export const createSubtasks = (cardId, titles) => apiFetch('POST',   `/cards/${cardId}/subtasks/batch`, { titles }).then(rows => rows.map(normalizeSubtask));
 export const patchSubtask  = (id, patch)       => apiFetch('PATCH',  `/subtasks/${id}`, patch).then(normalizeSubtask);
 export const deleteSubtask = (id)              => apiFetch('DELETE', `/subtasks/${id}`);

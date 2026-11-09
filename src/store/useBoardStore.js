@@ -345,20 +345,9 @@ const useBoardStore = create((set, get) => ({
     commit: () => client.deleteSubtask(subtaskId),
   }),
 
-  createSubtask: async (cardId, { title }) => {
-    const tempId = uuidv4();
-    const cardSubtasks = (get().board?.subtasks ?? []).filter(s => s.cardId === cardId);
-    const position = nextPosition(cardSubtasks);
-    const placeholder = { id: tempId, cardId, title, checked: false, position };
-    return optimistic(get, set, {
-      apply: b => ({ ...b, subtasks: [...(b.subtasks ?? []), placeholder] }),
-      commit: () => client.createSubtask(cardId, { title }),
-      settle: (b, subtask) => ({ ...b, subtasks: mapById(b.subtasks, tempId, () => subtask) }),
-    });
-  },
-
-  // Batch add (PRD §12): the whole batch appears at once and lands or rolls back
-  // as one — the server adds all titles or none.
+  // The one way to add Subtasks (PRD §12): a pasted batch, or a single typed
+  // title as a batch of one (#67). The whole batch appears at once and lands or
+  // rolls back as one — the server adds all titles or none.
   createSubtasks: async (cardId, titles) => {
     const cardSubtasks = (get().board?.subtasks ?? []).filter(s => s.cardId === cardId);
     const placeholders = [];

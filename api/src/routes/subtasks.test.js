@@ -22,101 +22,19 @@ async function setup() {
   return { user, board: boardRes.body, column: colRes.body, card: cardRes.body };
 }
 
-describe('POST /cards/:id/subtasks', () => {
-  it('happy path → 201 with subtask object', async () => {
-    const { user, card } = await setup();
+// The one way to add Subtasks (#67): a single add is a batch of one.
+const addBatch = (token, cardId, titles) => request(app)
+  .post(`/cards/${cardId}/subtasks/batch`)
+  .set('Authorization', `Bearer ${token}`)
+  .send({ titles });
 
-    const res = await request(app)
-      .post(`/cards/${card.id}/subtasks`)
-      .set('Authorization', `Bearer ${user.token}`)
-      .send({ title: 'Write unit tests' });
-
-    expect(res.status).toBe(201);
-    expect(res.body.id).toBeTruthy();
-    expect(res.body.card_id).toBe(card.id);
-    expect(res.body.title).toBe('Write unit tests');
-    expect(res.body.checked).toBe(false);
-    expect(res.body.position).toBeGreaterThan(0);
-  });
-
-  it('empty title → 400', async () => {
-    const { user, card } = await setup();
-    const res = await request(app)
-      .post(`/cards/${card.id}/subtasks`)
-      .set('Authorization', `Bearer ${user.token}`)
-      .send({ title: '' });
-    expect(res.status).toBe(400);
-  });
-
-  it('title longer than 100 chars → 400', async () => {
-    const { user, card } = await setup();
-    const res = await request(app)
-      .post(`/cards/${card.id}/subtasks`)
-      .set('Authorization', `Bearer ${user.token}`)
-      .send({ title: 'a'.repeat(101) });
-    expect(res.status).toBe(400);
-  });
-
-  it('non-member → 403', async () => {
-    const { card } = await setup();
-    const stranger = await createUser({ email: 'stranger@example.com' });
-    const res = await request(app)
-      .post(`/cards/${card.id}/subtasks`)
-      .set('Authorization', `Bearer ${stranger.token}`)
-      .send({ title: 'Sneaky subtask' });
-    expect(res.status).toBe(403);
-  });
-
-  it('non-existent card → 404', async () => {
-    const { user } = await setup();
-    const res = await request(app)
-      .post('/cards/00000000-0000-0000-0000-000000000000/subtasks')
-      .set('Authorization', `Bearer ${user.token}`)
-      .send({ title: 'Ghost subtask' });
-    expect(res.status).toBe(404);
-  });
-
-  const addSubtask = (token, cardId, title) => request(app)
-    .post(`/cards/${cardId}/subtasks`)
-    .set('Authorization', `Bearer ${token}`)
-    .send({ title });
-
-  it('accepts the 50th subtask and rejects the 51st → 400', async () => {
-    const { user, card } = await setup();
-    for (let i = 1; i <= 49; i++) {
-      expect((await addSubtask(user.token, card.id, `Step ${i}`)).status).toBe(201);
-    }
-
-    expect((await addSubtask(user.token, card.id, 'Step 50')).status).toBe(201);
-
-    const res = await addSubtask(user.token, card.id, 'One too many');
-    expect(res.status).toBe(400);
-    expect(res.body.error).toBe('maximum 50 subtasks per card');
-  });
-
-  it('concurrent adds near the limit never push a card past 50', async () => {
-    const { user, board, card } = await setup();
-    for (let i = 1; i <= 48; i++) await addSubtask(user.token, card.id, `Step ${i}`);
-
-    const results = await Promise.all(
-      Array.from({ length: 6 }, (_, i) => addSubtask(user.token, card.id, `Race ${i}`))
-    );
-
-    expect(results.filter(r => r.status === 201)).toHaveLength(2);
-    expect(results.filter(r => r.status === 400)).toHaveLength(4);
-    const snap = await request(app)
-      .get(`/boards/${board.id}`)
-      .set('Authorization', `Bearer ${user.token}`);
-    expect(snap.body.columns[0].cards[0].subtasks).toHaveLength(50);
-  });
-});
+async function createSubtask(token, cardId, title = 'Step') {
+  const res = await addBatch(token, cardId, [title]);
+  if (res.status !== 201) throw new Error(`createSubtask failed: ${res.status}`);
+  return res.body[0];
+}
 
 describe('POST /cards/:id/subtasks/batch', () => {
-  const addBatch = (token, cardId, titles) => request(app)
-    .post(`/cards/${cardId}/subtasks/batch`)
-    .set('Authorization', `Bearer ${token}`)
-    .send({ titles });
-
   const subtasksOf = async (token, boardId) => {
     const snap = await request(app).get(`/boards/${boardId}`).set('Authorization', `Bearer ${token}`);
     return snap.body.columns[0].cards[0].subtasks;
@@ -124,10 +42,7 @@ describe('POST /cards/:id/subtasks/batch', () => {
 
   it('happy path → 201 with every subtask, appended in array order after existing ones', async () => {
     const { user, card } = await setup();
-    await request(app)
-      .post(`/cards/${card.id}/subtasks`)
-      .set('Authorization', `Bearer ${user.token}`)
-      .send({ title: 'Existing' });
+    await createSubtask(user.token, card.id, 'Existing');
 
     const res = await addBatch(user.token, card.id, ['ครั้งที่ 1', '  ครั้งที่ 2  ', 'ครั้งที่ 3']);
 
@@ -152,6 +67,7 @@ describe('POST /cards/:id/subtasks/batch', () => {
     const { user, board, card } = await setup();
     const res = await addBatch(user.token, card.id, ['ok', '   ']);
     expect(res.status).toBe(400);
+    expect((await addBatch(user.token, card.id, [''])).status).toBe(400);
     expect(await subtasksOf(user.token, board.id)).toHaveLength(0);
   });
 
@@ -165,6 +81,43 @@ describe('POST /cards/:id/subtasks/batch', () => {
     expect(await subtasksOf(user.token, board.id)).toHaveLength(40);
 
     expect((await addBatch(user.token, card.id, titles(10))).status).toBe(201);
+    expect(await subtasksOf(user.token, board.id)).toHaveLength(50);
+  });
+
+  it('a batch of one → 201 with that one subtask, placed after the existing ones', async () => {
+    const { user, card } = await setup();
+    const first = await createSubtask(user.token, card.id, 'First');
+
+    const res = await addBatch(user.token, card.id, ['  Write unit tests  ']);
+
+    expect(res.status).toBe(201);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({ card_id: card.id, title: 'Write unit tests', checked: false });
+    expect(res.body[0].position).toBeGreaterThan(first.position);
+  });
+
+  it('accepts the 50th single add and rejects the 51st → 400', async () => {
+    const { user, board, card } = await setup();
+    for (let i = 1; i <= 49; i++) await createSubtask(user.token, card.id, `Step ${i}`);
+
+    expect((await addBatch(user.token, card.id, ['Step 50'])).status).toBe(201);
+
+    const res = await addBatch(user.token, card.id, ['One too many']);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('maximum 50 subtasks per card (room for 0)');
+    expect(await subtasksOf(user.token, board.id)).toHaveLength(50);
+  });
+
+  it('concurrent single adds near the limit never push a card past 50', async () => {
+    const { user, board, card } = await setup();
+    await addBatch(user.token, card.id, Array.from({ length: 48 }, (_, i) => `Step ${i + 1}`));
+
+    const results = await Promise.all(
+      Array.from({ length: 6 }, (_, i) => addBatch(user.token, card.id, [`Race ${i}`]))
+    );
+
+    expect(results.filter(r => r.status === 201)).toHaveLength(2);
+    expect(results.filter(r => r.status === 400)).toHaveLength(4);
     expect(await subtasksOf(user.token, board.id)).toHaveLength(50);
   });
 
@@ -208,15 +161,6 @@ describe('POST /cards/:id/subtasks/batch', () => {
 });
 
 describe('PATCH /subtasks/:id', () => {
-  async function createSubtask(token, cardId, title = 'Step') {
-    const res = await request(app)
-      .post(`/cards/${cardId}/subtasks`)
-      .set('Authorization', `Bearer ${token}`)
-      .send({ title });
-    if (res.status !== 201) throw new Error(`createSubtask failed: ${res.status}`);
-    return res.body;
-  }
-
   it('updates title → 200 with new title', async () => {
     const { user, card } = await setup();
     const sub = await createSubtask(user.token, card.id, 'Old title');
@@ -324,15 +268,6 @@ describe('PATCH /subtasks/:id', () => {
 });
 
 describe('DELETE /subtasks/:id', () => {
-  async function createSubtask(token, cardId, title = 'Step') {
-    const res = await request(app)
-      .post(`/cards/${cardId}/subtasks`)
-      .set('Authorization', `Bearer ${token}`)
-      .send({ title });
-    if (res.status !== 201) throw new Error(`createSubtask failed: ${res.status}`);
-    return res.body;
-  }
-
   it('happy path → 204', async () => {
     const { user, card } = await setup();
     const sub = await createSubtask(user.token, card.id, 'Step');
@@ -369,10 +304,7 @@ describe('DELETE /subtasks/:id', () => {
 describe('GET /boards/:id — snapshot includes subtasks', () => {
   it('card in snapshot has subtasks array', async () => {
     const { user, board, card } = await setup();
-    await request(app)
-      .post(`/cards/${card.id}/subtasks`)
-      .set('Authorization', `Bearer ${user.token}`)
-      .send({ title: 'Subtask A' });
+    await createSubtask(user.token, card.id, 'Subtask A');
 
     const res = await request(app)
       .get(`/boards/${board.id}`)

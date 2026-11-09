@@ -390,7 +390,7 @@ describe('moveSubtask with done Subtasks hidden (PRD §12)', () => {
   });
 });
 
-describe('createSubtasks (batch add, PRD §12)', () => {
+describe('createSubtasks (the one way to add Subtasks: PRD §12, #67)', () => {
   const card1Subtasks = () => useBoardStore.getState().board.subtasks
     .filter(s => s.cardId === 'card1')
     .sort((a, b) => a.position - b.position);
@@ -421,6 +421,15 @@ describe('createSubtasks (batch add, PRD §12)', () => {
 
     expect(card1Subtasks().map(s => s.id)).toEqual(['s1', 's2', 's3']);
     expect(useBoardStore.getState().error).toBe('maximum 50 subtasks per card');
+  });
+
+  test('a single typed title is a batch of one, placed last', async () => {
+    client.createSubtasks.mockResolvedValue([{ id: 'real-d', cardId: 'card1', title: 'D', checked: false, position: 4 }]);
+
+    await useBoardStore.getState().createSubtasks('card1', ['D']);
+
+    expect(client.createSubtasks).toHaveBeenCalledWith('card1', ['D']);
+    expect(card1Subtasks().map(s => s.id)).toEqual(['s1', 's2', 's3', 'real-d']);
   });
 });
 

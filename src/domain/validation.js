@@ -51,11 +51,6 @@ export const validateSubtaskTitle = (title) => validateName(title, 'Subtask titl
 // the authoritative server check can't disagree.
 export const MAX_SUBTASKS_PER_CARD = 50;
 
-export function validateSubtaskCount(count) {
-  if (count >= MAX_SUBTASKS_PER_CARD) return `Maximum ${MAX_SUBTASKS_PER_CARD} subtasks per card`;
-  return null;
-}
-
 export function validateDisplayName(name) {
   if (!name || name.trim().length === 0) return 'Display name is required';
   if (name.length > MAX_NAME_LENGTH) return `Display name must be ${MAX_NAME_LENGTH} characters or fewer`;
