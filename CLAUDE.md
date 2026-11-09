@@ -50,7 +50,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 
 ### State
 
-`src/store/useBoardStore.js` — the open board is a **pending-ops board** (#73): `ops` = the last server board + in-flight mutations, `board` = them replayed on it (`domain/pendingOps.js`). A failure removes only its own op. The `/boards` list keeps snapshot → apply → API → rollback.
+`src/store/useBoardStore.js` — the open board is a **pending-ops board** (#73): `ops` = the last server board + in-flight mutations, `board` = them replayed on it (`domain/pendingOps.js`). A failure removes only its own op. The `/boards` list is optimistic with per-record rollback; a new Board's id is client-chosen (#75), and opening, polling, renaming or deleting a Board whose `POST /boards` is still in flight waits for the create (`awaitBoardCreate`) — a failed create opens nothing and keeps its error.
 
 `src/store/useSession.js` — JWT auth. `login()`/`register()` call the real backend, store token in localStorage, decode JWT `sub` → `currentUserId`. Also stores `displayName` and `email` fetched from `GET /auth/me` after auth. Exposes `fetchProfile()` (re-fetch on page reload) and `updateProfile()` (PATCH /auth/me).
 
@@ -63,7 +63,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 ### Key Decisions
 
 - **Fractional float position**: `positionBetween(prev, next)` for drag-and-drop and subtask reordering — single record update; for cards and columns the backend rebalances on write when any gap < 1e-9 (subtasks never rebalance) — in the **same transaction** as the move, via `api/src/db/reposition.js` (#66), which locks the scope rows (source + target Column for Cards, the board for Columns) before the write so concurrent moves into one scope take turns. A request rejected inside the transaction (e.g. an unattached Category) throws an error carrying `status`, so the move rolls back too. The client proposes the position on move and the backend stores it as sent (a concurrent collision has gap 0, so it triggers a rebalance); on create the backend assigns `MAX(position) + 1` and the placeholder's position is replaced — PRD §1.3, decided in #53
-- **Optimistic UI**: open board = server board + pending ops replayed (#69/#73); a failure drops just that op; the `/boards` list uses snapshot → apply → API → rollback
+- **Optimistic UI**: open board = server board + pending ops replayed (#69/#73); a failure drops just that op; the `/boards` list is optimistic with per-record rollback (new Boards' placeholders carry their real, client-chosen id — #75)
 - **Board snapshot**: `GET /boards/:id` returns nested shape; `client.js` flattens to `{ board, columns[], cards[], labels[], members[], cardLabels[], cardAssignees[], subtasks[] }`
 - **snake_case ↔ camelCase**: `normalizeBoard()` / `normalizeColumn()` / `normalizeLabel()` / `normalizeCard()` / `normalizeSubtask()` (responses), `normalizeSnapshot()` (the nested `GET /boards/:id` body), and `cardPatchToApi()` (requests) in `client.js` handle conversion. `attachLabel`/`attachAssignee` return the store's `{cardId, labelId}` / `{cardId, userId}` join shape. The API returns `board_id` on column/label create and patch so the normalizers never have to guess it (#52).
 - **Profile endpoints**: `GET /auth/me`, `PATCH /auth/me`, `PATCH /auth/me/password` — implemented in `api/src/routes/auth.js`
@@ -102,7 +102,7 @@ Validation runs client-side (UX) and is enforced by the backend (authoritative).
 
 ## Tests
 
-### Unit tests (260)
+### Unit tests (267)
 `src/domain/` (incl. `progress.test.js`, `accent.test.js`, `dates.test.js`, `completion.test.js`, `titleEdit.test.js`, `dragDrop.test.js`, `category.test.js`, `assignees.test.js`, `subtaskBatch.test.js`, `subtaskVisibility.test.js`, `cardView.test.js`, `pendingOps.test.js`), `src/api/client.test.js` (response normalization, no token storage), `src/hooks/`, `src/store/useSession.test.js`, `src/store/useBoardStore.test.js`, `src/store/boardActions.test.js` (the error policy). Run: `npm test -- --watchAll=false`
 
 Not unit-tested: components — covered by E2E.
@@ -111,7 +111,7 @@ Not unit-tested: components — covered by E2E.
 
 ### E2E tests (Playwright)
 
-`e2e/` — 79 tests across 14 files. Require the full stack (`docker compose up`).
+`e2e/` — 80 tests across 14 files. Require the full stack (`docker compose up`).
 
 | File | Flows covered | Status |
 |---|---|---|
@@ -120,7 +120,7 @@ Not unit-tested: components — covered by E2E.
 | `dnd.spec.js` | drag card cross-column → persist on refresh; the dragged Card (drag overlay) shows the same Subtask progress and assignee avatars as the resting Card | ✅ |
 | `profile.spec.js` | update name, email conflict, change password, wrong password | ✅ |
 | `subtask.spec.js` | create, single-add inline validation in batch wording (no POST), toggle, rename, reorder, delete subtasks; max 50 limit; paste multi-line → batch box → Enter adds all in order (persists), single-line paste acts like typing, over-limit message keeps the text, Esc cancels, Shift+Enter adds a line, server failure rolls back, double Enter posts once; done Subtasks hidden behind a reveal line (resets on reopen), all-done card, ↑ skips a hidden Subtask → persists | ✅ |
-| `board.spec.js` | create/rename/delete board; owner-only buttons show on a new board without reload; member cannot delete | ✅ |
+| `board.spec.js` | create/rename/delete board; owner-only buttons show on a new board without reload; member cannot delete; open a new board with its POST held → opens once it lands, persists (#75) | ✅ |
 | `member.spec.js` | invite member → member sees board | ✅ |
 | `column-color.spec.js` | set column color, persist after reload, clear color | ✅ |
 | `category.spec.js` | attach label → auto-set as category → shows on card; rename label → card reflects it; ☆ pressed while the attach PUT is held → its PATCH is sent only after the PUT, Category set, no error banner (#56/#74) | ✅ |
@@ -144,7 +144,7 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs both `test-frontend` (260 unit tests) and `test-api` (214 integration tests, postgres:16-alpine service) on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs both `test-frontend` (267 unit tests) and `test-api` (218 integration tests, postgres:16-alpine service) on every push/PR to `main`.
 
 ## API
 
@@ -197,7 +197,7 @@ Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env
 
 ### Tests
 
-214 integration tests across 9 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
+218 integration tests across 9 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
 
 **Critical**: use `--maxWorkers=1`, NOT `--runInBand`. Jest 30 runs test files in parallel by default.
 
@@ -207,7 +207,7 @@ Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env
 - **Card completion**: `cards.completed_at DATE NULL` — null = not done. `PATCH /cards/:id` accepts it. No server-side subtask check (client-side UX guard only).
 - **Card Category**: `cards.category_label_id` (nullable FK → labels, `ON DELETE SET NULL`). Snapshot returns it per card. Label attach/detach auto-set/promote it transactionally using the shared `src/domain/category.js`; PATCH only accepts an attached label (or null), checked in the same transaction. Every Category path locks the card row **first** among card-level locks (`lockCard` — `SELECT … FOR UPDATE`; only a move's Column locks, #66, come before it): locking after the `card_labels` INSERT deadlocks concurrent attaches (its FK check holds KEY SHARE on the card). A card deleted mid-request returns 404.
 - **Multiple assignees**: `card_assignees (card_id, user_id)` join. `PUT`/`DELETE /cards/:id/assignees/:userId`.
-- **Client-chosen ids** (#71, decision 3 of #69): `POST /boards/:id/columns`, `POST /columns/:id/cards` and `POST /boards/:id/labels` accept an optional `id`; `POST /cards/:cardId/subtasks/batch` an optional `ids[]` parallel to `titles[]` (same length). Given → the row is inserted with it (`COALESCE($n::uuid, gen_random_uuid())`); not a UUID (or `ids` of the wrong length / non-strings) → 400, already taken → 409 (`db/clientId.js` — a 23505 on the table's `_pkey`), nothing inserted (the batch stays all-or-nothing). Omitted → the server picks it, as before (`id: null` is a 400, like `ids: null`). Membership is still checked first (403/404 win over 400). `client.js` forwards them (`createColumn`/`createCard`/`createLabel` pass `data` through; `createSubtasks(cardId, titles, ids?)`); the store still uses its own temp ids until #73. `POST /boards` takes no id. Tests: `routes/clientIds.test.js`.
+- **Client-chosen ids** (#71, decision 3 of #69; Boards in #75): `POST /boards`, `POST /boards/:id/columns`, `POST /columns/:id/cards` and `POST /boards/:id/labels` accept an optional `id`; `POST /cards/:cardId/subtasks/batch` an optional `ids[]` parallel to `titles[]` (same length). Given → the row is inserted with it (`COALESCE($n::uuid, gen_random_uuid())`); not a UUID (or `ids` of the wrong length / non-strings) → 400, already taken → 409 (`db/clientId.js` — a 23505 on the table's `_pkey`), nothing inserted (the batch stays all-or-nothing). Omitted → the server picks it, as before (`id: null` is a 400, like `ids: null`). Membership is still checked first (403/404 win over 400). `client.js` forwards them (`createBoard`/`createColumn`/`createCard`/`createLabel` pass `data` through; `createSubtasks(cardId, titles, ids?)`). Tests: `routes/clientIds.test.js`.
 - **Authorization**: board membership resolved via FK chain; never trust client-supplied role claims. Board-id routes use `requireMembership`/`requireOwner`; every route reached by a Card, Subtask, Column or Label id uses `requireAccess(kind)` (#65), so all answer alike **before body validation**: unknown or malformed id → 404, non-member → 403 (matrix in `requireAccess.test.js`). An entity deleted after the check → 404 too: every PATCH that updates no row returns 404 (DELETE of a Card/Column/Label stays an idempotent 204; DELETE of a Subtask returns 404), and the two INSERTs whose only FK parent is the resolved entity (POST a Card into a Column, PUT an assignee) map an FK violation to 404 via `db/isParentGone.js` — not globally, since a Card PATCH whose target Column/Label vanished must not read as "card deleted". Length limits come from `src/domain/validation.js` (`MAX_NAME_LENGTH`, `MAX_CARD_TITLE_LENGTH`, `MAX_CARD_DESCRIPTION_LENGTH`, `MAX_SUBTASK_TITLE_LENGTH`) — no hard-coded numbers in routes.
 - **Rate limiter**: bypassed when `NODE_ENV === 'development'` or `'test'` to avoid accumulation across test runs.
 - **ESM**: `api/` uses `"type": "module"` (full ESM). `api/src/db/reposition.js` imports `needsRebalance`/`rebalance` directly from the shared `src/domain/ordering.js` — there is no separate backend copy. `cross-env` in test scripts ensures `NODE_OPTIONS=--experimental-vm-modules` works on Windows and Linux.

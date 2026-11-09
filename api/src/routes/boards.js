@@ -11,22 +11,29 @@ const router = express.Router();
 router.use(requireAuth);
 
 router.post('/', async (req, res) => {
-  const { name } = req.body;
+  const { name, id: clientId } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
   if (name.trim().length > MAX_NAME_LENGTH) return res.status(400).json({ error: 'name too long' });
+  if (!isClientId(clientId)) return res.status(400).json({ error: CLIENT_ID_ERROR });
 
-  const board = await inTransaction(async client => {
-    const { rows } = await client.query(
-      `INSERT INTO boards (name, owner_id) VALUES ($1, $2) RETURNING id, name, owner_id, created_at`,
-      [name.trim(), req.user.id]
-    );
-    await client.query(
-      `INSERT INTO board_members (board_id, user_id, role) VALUES ($1, $2, 'owner')`,
-      [rows[0].id, req.user.id]
-    );
-    return rows[0];
-  });
-  return res.status(201).json(board);
+  try {
+    const board = await inTransaction(async client => {
+      const { rows } = await client.query(
+        `INSERT INTO boards (id, name, owner_id) VALUES (COALESCE($3::uuid, gen_random_uuid()), $1, $2)
+         RETURNING id, name, owner_id, created_at`,
+        [name.trim(), req.user.id, clientId ?? null]
+      );
+      await client.query(
+        `INSERT INTO board_members (board_id, user_id, role) VALUES ($1, $2, 'owner')`,
+        [rows[0].id, req.user.id]
+      );
+      return rows[0];
+    });
+    return res.status(201).json(board);
+  } catch (err) {
+    if (isIdTaken(err)) return res.status(409).json({ error: ID_TAKEN_ERROR });
+    throw err;
+  }
 });
 
 router.get('/', async (req, res) => {

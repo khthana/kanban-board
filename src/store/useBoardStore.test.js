@@ -744,3 +744,109 @@ describe('pending-ops board — edges (#73 review)', () => {
     expect(board().cards[0].categoryLabelId).toBeNull();
   });
 });
+
+// #75: a new Board's placeholder carries a client-chosen id, so it is the real
+// Board; opening (or renaming/deleting) it while its POST is in flight waits
+// for the create instead of hitting the server with an id it doesn't know yet.
+describe('createBoard with a client-chosen id (#75)', () => {
+  const snapshot = id => ({ ...makeBoard(), board: { id, name: 'New' } });
+  beforeEach(() => client.getBoard.mockClear());   // the outer beforeEach opened b1
+
+  it('sends the placeholder id and keeps it once the server answers', async () => {
+    client.createBoard.mockImplementation(async ({ name, id }) => ({ id, name, ownerId: 'u1' }));
+    const created = await useBoardStore.getState().createBoard('u1', { name: 'New' });
+    const [[sent]] = client.createBoard.mock.calls;
+    expect(sent.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(created.id).toBe(sent.id);
+    expect(useBoardStore.getState().boards.map(b => b.id)).toEqual([sent.id]);
+  });
+
+  it('opening the Board while its POST is in flight waits for the create', async () => {
+    const post = held();
+    client.createBoard.mockReturnValueOnce(post.promise);
+    const creating = useBoardStore.getState().createBoard('u1', { name: 'New' });
+    const { id } = useBoardStore.getState().boards[0];
+
+    client.getBoard.mockResolvedValueOnce(snapshot(id));
+    const opening = useBoardStore.getState().fetchBoard(id);
+    await flush();
+    expect(client.getBoard).not.toHaveBeenCalled();
+
+    post.resolve({ id, name: 'New', ownerId: 'u1' });
+    await Promise.all([creating, opening]);
+    expect(client.getBoard).toHaveBeenCalledWith(id);
+    expect(board().board.id).toBe(id);
+  });
+
+  it('a poll of the Board while its POST is in flight waits too', async () => {
+    const post = held();
+    client.createBoard.mockReturnValueOnce(post.promise);
+    useBoardStore.getState().createBoard('u1', { name: 'New' });
+    const { id } = useBoardStore.getState().boards[0];
+
+    client.getBoard.mockResolvedValueOnce(snapshot(id));
+    const polling = useBoardStore.getState().pollBoard(id);
+    await flush();
+    expect(client.getBoard).not.toHaveBeenCalled();
+    post.resolve({ id, name: 'New', ownerId: 'u1' });
+    await polling;
+    expect(client.getBoard).toHaveBeenCalledWith(id);
+  });
+
+  it('renaming or deleting it while the POST is in flight is sent after the create', async () => {
+    const post = held();
+    client.createBoard.mockReturnValueOnce(post.promise);
+    client.patchBoard.mockImplementation(async (id, { name }) => ({ id, name, ownerId: 'u1' }));
+    client.deleteBoard.mockResolvedValue(undefined);
+    useBoardStore.getState().createBoard('u1', { name: 'New' });
+    const { id } = useBoardStore.getState().boards[0];
+
+    const renaming = useBoardStore.getState().renameBoard(id, { name: 'Renamed' });
+    expect(useBoardStore.getState().boards[0].name).toBe('Renamed');   // still optimistic
+    await flush();
+    expect(client.patchBoard).not.toHaveBeenCalled();
+
+    post.resolve({ id, name: 'New', ownerId: 'u1' });
+    await renaming;
+    expect(client.patchBoard).toHaveBeenCalledWith(id, { name: 'Renamed' });
+    expect(useBoardStore.getState().boards[0].name).toBe('Renamed');   // the create's answer doesn't undo it
+  });
+
+  it('a failed create rolls back just its placeholder and shows the error (#49)', async () => {
+    useBoardStore.setState({ boards: [{ id: 'old', name: 'Old', ownerId: 'u1' }] });
+    client.createBoard.mockRejectedValueOnce(new Error('boom'));
+    await expect(useBoardStore.getState().createBoard('u1', { name: 'New' })).rejects.toThrow('boom');
+    expect(useBoardStore.getState().boards.map(b => b.id)).toEqual(['old']);
+    expect(useBoardStore.getState().error).toBe('boom');
+  });
+
+  it('a failed create: opening it sends no GET, closes the open board and keeps the create error', async () => {
+    const post = held();
+    client.createBoard.mockReturnValueOnce(post.promise);
+    const creating = useBoardStore.getState().createBoard('u1', { name: 'New' }).catch(() => {});
+    const { id } = useBoardStore.getState().boards[0];
+
+    const opening = useBoardStore.getState().fetchBoard(id);
+    const polling = useBoardStore.getState().pollBoard(id);
+    post.reject(new Error('boom'));
+    await Promise.all([creating, opening]);
+    await expect(polling).rejects.toMatchObject({ status: 404 });   // usePolling navigates away
+    expect(client.getBoard).not.toHaveBeenCalled();
+    expect(useBoardStore.getState().boards).toEqual([]);
+    expect(board()).toBeNull();                                       // b1 no longer shows under the new URL
+    expect(useBoardStore.getState().error).toBe('boom');
+  });
+
+  it('a failed delete puts back only that Board, not a list that went stale meanwhile', async () => {
+    useBoardStore.setState({ boards: [{ id: 'x', name: 'X', ownerId: 'u1' }] });
+    const del = held();
+    client.deleteBoard.mockReturnValueOnce(del.promise);
+    const deleting = useBoardStore.getState().deleteBoard('x').catch(() => {});
+    client.createBoard.mockImplementation(async ({ name, id }) => ({ id, name, ownerId: 'u1' }));
+    const created = await useBoardStore.getState().createBoard('u1', { name: 'New' });
+
+    del.reject(new Error('nope'));
+    await deleting;
+    expect(useBoardStore.getState().boards.map(b => b.id)).toEqual(['x', created.id]);
+  });
+});

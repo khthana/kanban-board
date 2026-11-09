@@ -74,3 +74,34 @@ test('member cannot delete board', async ({ page, browser }) => {
   await page3.close();
   await ctx3.close();
 });
+
+// #75: a new Board's id is client-chosen, so its link points at the real Board
+// even before POST /boards answers; opening it waits for the create.
+test('open a new board while its POST is still in flight → it opens once the create lands, and persists', async ({ page }) => {
+  await register(page, `user-${uid()}@test.com`, PW, 'Test User');
+
+  let release;
+  const held = new Promise(r => { release = r; });
+  await page.route(/\/boards$/, async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    await held;
+    return route.continue();
+  });
+
+  await page.fill('input[placeholder="New board name…"]', 'Early Board');
+  await page.click('button:has-text("Create Board")');
+  await page.getByRole('link', { name: 'Early Board' }).click();
+  await expect(page).toHaveURL(/\/boards\/[0-9a-f-]{36}$/);
+  const url = page.url();
+
+  await Promise.all([
+    page.waitForResponse(r => /\/boards$/.test(r.url()) && r.request().method() === 'POST' && r.status() === 201),
+    release(),
+  ]);
+  await expect(page.getByText('+ Add column')).toBeVisible();
+  expect(page.url()).toBe(url);                          // not ejected to /boards
+
+  await page.reload();
+  await expect(page.getByText('+ Add column')).toBeVisible();
+  expect(page.url()).toBe(url);
+});

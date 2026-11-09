@@ -104,3 +104,46 @@ describe('POST subtask batch — ids[]', () => {
     expect(await count('subtasks', ID_A)).toBe(0);
   });
 });
+
+// #75: a new Board's id can be chosen by the client too, so the /boards list's
+// placeholder is the real Board and a link clicked early points at it.
+describe('POST /boards — client-chosen id', () => {
+  const post = (user, body) =>
+    request(app).post('/boards').set({ Authorization: `Bearer ${user.token}` }).send(body);
+
+  it('creates the Board (and its owner membership) with the supplied id', async () => {
+    const owner = await createUser();
+    const res = await post(owner, { name: 'B', id: ID_A });
+    expect(res.status).toBe(201);
+    expect(res.body.id).toBe(ID_A);
+    expect(await count('boards', ID_A)).toBe(1);
+    const open = await request(app).get(`/boards/${ID_A}`).set({ Authorization: `Bearer ${owner.token}` });
+    expect(open.status).toBe(200);
+  });
+
+  it('omitted → the server picks the id', async () => {
+    const owner = await createUser();
+    const res = await post(owner, { name: 'B' });
+    expect(res.status).toBe(201);
+    expect(await count('boards', res.body.id)).toBe(1);
+  });
+
+  it('malformed id → 400, nothing inserted', async () => {
+    const owner = await createUser();
+    for (const bad of ['nope', 42, null, '11111111-1111-4111-8111-11111111111']) {
+      const res = await post(owner, { name: 'B', id: bad });
+      expect(res.status).toBe(400);
+    }
+    expect((await pool.query('SELECT COUNT(*) AS n FROM boards')).rows[0].n).toBe('0');
+  });
+
+  it('an id that is already taken → 409, nothing inserted', async () => {
+    const owner = await createUser();
+    const other = await createUser({ email: 'mallory@example.com', displayName: 'Mallory' });
+    await post(owner, { name: 'B', id: ID_A });
+    const res = await post(other, { name: 'Mine', id: ID_A });
+    expect(res.status).toBe(409);
+    expect((await pool.query('SELECT COUNT(*) AS n FROM boards')).rows[0].n).toBe('1');
+    expect((await pool.query('SELECT COUNT(*) AS n FROM board_members WHERE board_id = $1', [ID_A])).rows[0].n).toBe('1');
+  });
+});

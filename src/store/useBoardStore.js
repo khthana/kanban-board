@@ -119,6 +119,13 @@ const useBoardStore = create((set, get) => {
     return done;
   };
 
+  // New Boards whose POST is still in flight, by their client-chosen id (#75):
+  // the placeholder is the real Board, so anything sent about it (open, poll,
+  // rename, delete) first waits for the create. Resolves with the create's
+  // error if it failed (the Board never existed), else null.
+  const boardCreates = new Map();
+  const awaitBoardCreate = id => (boardCreates.get(id) ?? Promise.resolve()).then(() => null, err => err);
+
   return {
     boards: [],
     ops: null,
@@ -143,6 +150,12 @@ const useBoardStore = create((set, get) => {
     // fresh pending-ops board whose clock carries on, so an old poll is stale.
     fetchBoard: async (boardId) => {
       set({ loading: true, error: null });
+      const createFailed = await awaitBoardCreate(boardId);
+      if (createFailed) {                    // nothing to open: keep the create's error
+        closeBoard();
+        set({ ops: null, board: null, error: createFailed.message, loading: false });
+        return;
+      }
       const sent = get().ops && startPoll(get().ops);
       if (sent) set({ ops: sent.state });
       try {
@@ -163,6 +176,8 @@ const useBoardStore = create((set, get) => {
     // after it went out; pending ops replay on top. Resolves with the snapshot,
     // rejects with the fetch error (usePolling routes 403/404).
     pollBoard: async (boardId) => {
+      const createFailed = await awaitBoardCreate(boardId);
+      if (createFailed) throw Object.assign(new Error(createFailed.message), { status: 404 });
       const sent = get().ops && startPoll(get().ops);
       if (sent) setOps(sent.state);
       const data = await client.getBoard(boardId);
@@ -171,43 +186,54 @@ const useBoardStore = create((set, get) => {
       return data;
     },
 
-    // The /boards list keeps plain snapshot rollback (#69 decision 6).
+    // The /boards list stays optimistic with rollback (#69 decision 6), but a
+    // new Board's id is client-chosen (#75), so its placeholder is the record.
     // ownerId: the current user, so the placeholder shows owner-only controls.
     createBoard: async (ownerId, { name }) => {
-      const tempId = uuidv4();
-      const placeholder = { id: tempId, name, ownerId };
-      const snapshot = get().boards;
-      set({ boards: [...snapshot, placeholder], error: null });
+      const id = uuidv4();
+      set(s => ({ boards: [...s.boards, { id, name, ownerId }], error: null }));
+      const post = client.createBoard({ name, id });
+      boardCreates.set(id, post);
       try {
-        const board = await client.createBoard({ name });
-        set(s => ({ boards: mapById(s.boards, tempId, () => board) }));
+        const board = await post;
+        set(s => ({ boards: mapById(s.boards, id, () => board) }));
         return board;
       } catch (err) {
-        set({ boards: snapshot, error: err.message });
+        set(s => ({ boards: s.boards.filter(b => b.id !== id), error: err.message }));
         throw err;
+      } finally {
+        boardCreates.delete(id);
       }
     },
 
     renameBoard: async (boardId, { name }) => {
-      const snapshot = get().boards;
+      const before = get().boards.find(b => b.id === boardId)?.name;
       set(s => ({ boards: mapById(s.boards, boardId, b => ({ ...b, name })), error: null }));
       try {
+        if (await awaitBoardCreate(boardId)) return undefined;   // never created: nothing to rename
         const board = await client.patchBoard(boardId, { name });
         set(s => ({ boards: mapById(s.boards, boardId, () => board) }));
         return board;
       } catch (err) {
-        set({ boards: snapshot, error: err.message });
+        set(s => ({ boards: mapById(s.boards, boardId, b => ({ ...b, name: before })), error: err.message }));
         throw err;
       }
     },
 
     deleteBoard: async (boardId) => {
-      const snapshot = get().boards;
+      const index = get().boards.findIndex(b => b.id === boardId);
+      const removed = get().boards[index];
       set(s => ({ boards: s.boards.filter(b => b.id !== boardId), error: null }));
       try {
+        if (await awaitBoardCreate(boardId)) return undefined;   // never created: already gone
         await client.deleteBoard(boardId);
       } catch (err) {
-        set({ boards: snapshot, error: err.message });
+        // Put just this Board back, so a create that landed meanwhile stays.
+        set(s => ({
+          boards: !removed || s.boards.some(b => b.id === boardId) ? s.boards
+            : [...s.boards.slice(0, index), removed, ...s.boards.slice(index)],
+          error: err.message,
+        }));
         throw err;
       }
     },
