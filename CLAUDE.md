@@ -142,7 +142,7 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs both `test-frontend` (198 unit tests) and `test-api` (150 integration tests, postgres:16-alpine service) on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs both `test-frontend` (198 unit tests) and `test-api` (196 integration tests, postgres:16-alpine service) on every push/PR to `main`.
 
 ## API
 
@@ -170,6 +170,7 @@ Docker is the recommended way to run the API in development — `docker compose 
 | `api/src/db/migrate.js` | Idempotent migration runner (schema_migrations table) |
 | `api/src/db/migrations/` | SQL migration files 001–007 |
 | `api/src/middleware/requireAuth.js` | JWT verify → `req.user.id` |
+| `api/src/middleware/requireAccess.js` | `requireAccess(kind, param)` — Card/Subtask/Column/Label id → board + membership in one query → 404/403 before the handler; `req.access` |
 | `api/src/routes/auth.js` | POST /auth/register, /auth/login, GET /auth/me, PATCH /auth/me |
 | `api/src/routes/boards.js` | Board CRUD, membership, labels, full snapshot GET /boards/:id |
 | `api/src/routes/columns.js` | Column CRUD + POST /columns/:id/cards |
@@ -192,7 +193,7 @@ Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env
 
 ### Tests
 
-150 integration tests across 7 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
+196 integration tests across 8 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
 
 **Critical**: use `--maxWorkers=1`, NOT `--runInBand`. Jest 30 runs test files in parallel by default.
 
@@ -202,7 +203,7 @@ Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env
 - **Card completion**: `cards.completed_at DATE NULL` — null = not done. `PATCH /cards/:id` accepts it. No server-side subtask check (client-side UX guard only).
 - **Card Category**: `cards.category_label_id` (nullable FK → labels, `ON DELETE SET NULL`). Snapshot returns it per card. Label attach/detach auto-set/promote it transactionally using the shared `src/domain/category.js`; PATCH only accepts an attached label (or null), checked in the same transaction. Every Category path locks the card row **first** (`lockCard` — `SELECT … FOR UPDATE`): locking after the `card_labels` INSERT deadlocks concurrent attaches (its FK check holds KEY SHARE on the card). A card deleted mid-request returns 404.
 - **Multiple assignees**: `card_assignees (card_id, user_id)` join. `PUT`/`DELETE /cards/:id/assignees/:userId`.
-- **Authorization**: board membership resolved via FK chain; never trust client-supplied role claims.
+- **Authorization**: board membership resolved via FK chain; never trust client-supplied role claims. Board-id routes use `requireMembership`/`requireOwner`; every route reached by a Card, Subtask, Column or Label id uses `requireAccess(kind)` (#65), so all answer alike **before body validation**: unknown or malformed id → 404, non-member → 403 (matrix in `requireAccess.test.js`). An entity deleted after the check → 404 too: every PATCH that updates no row returns 404 (DELETE of a Card/Column/Label stays an idempotent 204; DELETE of a Subtask returns 404), and the two INSERTs whose only FK parent is the resolved entity (POST a Card into a Column, PUT an assignee) map an FK violation to 404 via `db/isParentGone.js` — not globally, since a Card PATCH whose target Column/Label vanished must not read as "card deleted". Length limits come from `src/domain/validation.js` (`MAX_NAME_LENGTH`, `MAX_CARD_TITLE_LENGTH`, `MAX_CARD_DESCRIPTION_LENGTH`, `MAX_SUBTASK_TITLE_LENGTH`) — no hard-coded numbers in routes.
 - **Rate limiter**: bypassed when `NODE_ENV === 'development'` or `'test'` to avoid accumulation across test runs.
 - **ESM**: `api/` uses `"type": "module"` (full ESM). `api/src/routes/columns.js` and `cards.js` import `positionBetween`/`needsRebalance`/`rebalance` directly from the shared `src/domain/ordering.js` — there is no separate backend copy. `cross-env` in test scripts ensures `NODE_OPTIONS=--experimental-vm-modules` works on Windows and Linux.
 

@@ -4,6 +4,7 @@ import { randomBytes, createHash } from 'crypto';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import pool from '../db/pool.js';
+import { MAX_NAME_LENGTH } from '../../../src/domain/validation.js';
 import requireAuth from '../middleware/requireAuth.js';
 
 const router = express.Router();
@@ -122,7 +123,7 @@ router.patch('/me', requireAuth, async (req, res) => {
     if (typeof displayName !== 'string' || !displayName.trim()) {
       return res.status(400).json({ error: 'displayName is required' });
     }
-    if (displayName.trim().length > 100) return res.status(400).json({ error: 'displayName too long' });
+    if (displayName.trim().length > MAX_NAME_LENGTH) return res.status(400).json({ error: 'displayName too long' });
   }
 
   const fields = [];

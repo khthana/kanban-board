@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../db/pool.js';
+import { MAX_NAME_LENGTH } from '../../../src/domain/validation.js';
 import requireAuth from '../middleware/requireAuth.js';
 import { requireMembership, requireOwner } from '../middleware/requireMembership.js';
 import { isValidHex } from '../lib/validation.js';
@@ -10,7 +11,7 @@ router.use(requireAuth);
 router.post('/', async (req, res) => {
   const { name } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
-  if (name.trim().length > 100) return res.status(400).json({ error: 'name too long' });
+  if (name.trim().length > MAX_NAME_LENGTH) return res.status(400).json({ error: 'name too long' });
 
   const client = await pool.connect();
   try {
@@ -148,7 +149,7 @@ router.patch('/:id', requireOwner('id'), async (req, res) => {
   const id = req.boardId;
   const { name } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
-  if (name.trim().length > 100) return res.status(400).json({ error: 'name too long' });
+  if (name.trim().length > MAX_NAME_LENGTH) return res.status(400).json({ error: 'name too long' });
 
   const { rows } = await pool.query(
     `UPDATE boards SET name = $1, updated_at = now() WHERE id = $2 RETURNING id, name, owner_id, created_at`,
@@ -167,7 +168,7 @@ router.post('/:id/columns', requireMembership('id'), async (req, res) => {
   const id = req.boardId;
   const { name } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
-  if (name.trim().length > 100) return res.status(400).json({ error: 'name too long' });
+  if (name.trim().length > MAX_NAME_LENGTH) return res.status(400).json({ error: 'name too long' });
 
   const { rows: maxRows } = await pool.query(
     `SELECT COALESCE(MAX(position), 0) AS max_pos FROM columns WHERE board_id = $1`, [id]
@@ -210,7 +211,7 @@ router.post('/:id/labels', requireMembership('id'), async (req, res) => {
   const id = req.boardId;
   const { name, color } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
-  if (name.trim().length > 100) return res.status(400).json({ error: 'name too long' });
+  if (name.trim().length > MAX_NAME_LENGTH) return res.status(400).json({ error: 'name too long' });
   if (!color || !isValidHex(color)) return res.status(400).json({ error: 'color must be a valid hex color' });
 
   const { rows } = await pool.query(

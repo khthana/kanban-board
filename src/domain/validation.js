@@ -4,13 +4,19 @@ function validateName(name, label, maxLen) {
   return null;
 }
 
-export const validateBoardName  = (name) => validateName(name, 'Board name',  100);
-export const validateColumnName = (name) => validateName(name, 'Column name', 100);
-export const validateLabelName  = (name) => validateName(name, 'Label name',  100);
-export const validateCardTitle  = (title) => validateName(title, 'Card title', 255);
+// Length limits, shared with the API routes (#65) so the client check and the
+// authoritative server check can't disagree.
+export const MAX_NAME_LENGTH = 100;              // board, column, label, display name
+export const MAX_CARD_TITLE_LENGTH = 255;
+export const MAX_CARD_DESCRIPTION_LENGTH = 5000;
+
+export const validateBoardName  = (name) => validateName(name, 'Board name',  MAX_NAME_LENGTH);
+export const validateColumnName = (name) => validateName(name, 'Column name', MAX_NAME_LENGTH);
+export const validateLabelName  = (name) => validateName(name, 'Label name',  MAX_NAME_LENGTH);
+export const validateCardTitle  = (title) => validateName(title, 'Card title', MAX_CARD_TITLE_LENGTH);
 
 export function validateCardDescription(desc) {
-  if (desc && desc.length > 5000) return 'Description must be 5000 characters or fewer';
+  if (desc && desc.length > MAX_CARD_DESCRIPTION_LENGTH) return `Description must be ${MAX_CARD_DESCRIPTION_LENGTH} characters or fewer`;
   return null;
 }
 
@@ -52,7 +58,7 @@ export function validateSubtaskCount(count) {
 
 export function validateDisplayName(name) {
   if (!name || name.trim().length === 0) return 'Display name is required';
-  if (name.length > 100) return 'Display name must be 100 characters or fewer';
+  if (name.length > MAX_NAME_LENGTH) return `Display name must be ${MAX_NAME_LENGTH} characters or fewer`;
   return null;
 }
 

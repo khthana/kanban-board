@@ -3,42 +3,24 @@ import pool from '../db/pool.js';
 import inTransaction from '../db/inTransaction.js';
 import lockCard from '../db/lockCard.js';
 import requireAuth from '../middleware/requireAuth.js';
+import requireAccess from '../middleware/requireAccess.js';
+import isParentGone from '../db/isParentGone.js';
+import { MAX_CARD_TITLE_LENGTH, MAX_CARD_DESCRIPTION_LENGTH } from '../../../src/domain/validation.js';
 import { needsRebalance, rebalance } from '../../../src/domain/ordering.js';
 import { resolveAttach, resolveDetach } from '../../../src/domain/category.js';
 
 const router = express.Router();
 router.use(requireAuth);
 
-async function getMembershipViaCard(cardId, userId) {
-  const { rows } = await pool.query(
-    `SELECT c.id, c.column_id, col.board_id
-     FROM cards c
-     JOIN columns col ON col.id = c.column_id
-     WHERE c.id = $1`,
-    [cardId]
-  );
-  if (rows.length === 0) return { card: null };
-  const card = rows[0];
-  const { rows: membership } = await pool.query(
-    `SELECT 1 FROM board_members WHERE board_id = $1 AND user_id = $2`,
-    [card.board_id, userId]
-  );
-  return { card, isMember: membership.length > 0 };
-}
-
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', requireAccess('card'), async (req, res) => {
   const { id } = req.params;
   const { title, description, due_date, column_id, position, category_label_id, completed_at } = req.body;
 
-  const { card, isMember } = await getMembershipViaCard(id, req.user.id);
-  if (!card) return res.status(404).json({ error: 'card not found' });
-  if (!isMember) return res.status(403).json({ error: 'forbidden' });
-
   if (title !== undefined) {
     if (typeof title !== 'string' || !title.trim()) return res.status(400).json({ error: 'title is required' });
-    if (title.trim().length > 255) return res.status(400).json({ error: 'title too long' });
+    if (title.trim().length > MAX_CARD_TITLE_LENGTH) return res.status(400).json({ error: 'title too long' });
   }
-  if (description != null && description.length > 5000) {
+  if (description != null && description.length > MAX_CARD_DESCRIPTION_LENGTH) {
     return res.status(400).json({ error: 'description too long' });
   }
 
@@ -46,7 +28,7 @@ router.patch('/:id', async (req, res) => {
     const { rows: targetCol } = await pool.query(
       `SELECT board_id FROM columns WHERE id = $1`, [column_id]
     );
-    if (targetCol.length === 0 || targetCol[0].board_id !== card.board_id) {
+    if (targetCol.length === 0 || targetCol[0].board_id !== req.access.board_id) {
       return res.status(400).json({ error: 'target column not on same board' });
     }
   }
@@ -55,7 +37,7 @@ router.patch('/:id', async (req, res) => {
     const { rows: label } = await pool.query(
       `SELECT board_id FROM labels WHERE id = $1`, [category_label_id]
     );
-    if (label.length === 0 || label[0].board_id !== card.board_id) {
+    if (label.length === 0 || label[0].board_id !== req.access.board_id) {
       return res.status(400).json({ error: 'category label not on same board' });
     }
   }
@@ -136,17 +118,13 @@ async function updateCategory(client, cardId, current, next) {
   return next;
 }
 
-router.put('/:id/labels/:labelId', async (req, res) => {
+router.put('/:id/labels/:labelId', requireAccess('card'), async (req, res) => {
   const { id, labelId } = req.params;
-
-  const { card, isMember } = await getMembershipViaCard(id, req.user.id);
-  if (!card) return res.status(404).json({ error: 'card not found' });
-  if (!isMember) return res.status(403).json({ error: 'forbidden' });
 
   const { rows: label } = await pool.query(
     `SELECT board_id FROM labels WHERE id = $1`, [labelId]
   );
-  if (label.length === 0 || label[0].board_id !== card.board_id) {
+  if (label.length === 0 || label[0].board_id !== req.access.board_id) {
     return res.status(400).json({ error: 'label not on same board' });
   }
 
@@ -164,12 +142,8 @@ router.put('/:id/labels/:labelId', async (req, res) => {
   return res.json({ card_id: id, label_id: labelId, category_label_id: result.categoryLabelId });
 });
 
-router.delete('/:id/labels/:labelId', async (req, res) => {
+router.delete('/:id/labels/:labelId', requireAccess('card'), async (req, res) => {
   const { id, labelId } = req.params;
-
-  const { card, isMember } = await getMembershipViaCard(id, req.user.id);
-  if (!card) return res.status(404).json({ error: 'card not found' });
-  if (!isMember) return res.status(403).json({ error: 'forbidden' });
 
   const result = await inTransaction(async client => {
     const locked = await lockCard(client, id);
@@ -190,34 +164,32 @@ router.delete('/:id/labels/:labelId', async (req, res) => {
   return res.json({ card_id: id, label_id: labelId, category_label_id: result.categoryLabelId });
 });
 
-router.put('/:id/assignees/:userId', async (req, res) => {
+router.put('/:id/assignees/:userId', requireAccess('card'), async (req, res) => {
   const { id, userId } = req.params;
-
-  const { card, isMember } = await getMembershipViaCard(id, req.user.id);
-  if (!card) return res.status(404).json({ error: 'card not found' });
-  if (!isMember) return res.status(403).json({ error: 'forbidden' });
 
   const { rows: target } = await pool.query(
     `SELECT 1 FROM board_members WHERE board_id = $1 AND user_id = $2`,
-    [card.board_id, userId]
+    [req.access.board_id, userId]
   );
   if (target.length === 0) {
     return res.status(400).json({ error: 'assignee is not a board member' });
   }
 
-  await pool.query(
-    `INSERT INTO card_assignees (card_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-    [id, userId]
-  );
+  try {
+    await pool.query(
+      `INSERT INTO card_assignees (card_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [id, userId]
+    );
+  } catch (err) {
+    // The assignee was just checked to be a member, so the gone parent is the card.
+    if (isParentGone(err)) return res.status(404).json({ error: 'card not found' });
+    throw err;
+  }
   return res.json({ card_id: id, user_id: userId });
 });
 
-router.delete('/:id/assignees/:userId', async (req, res) => {
+router.delete('/:id/assignees/:userId', requireAccess('card'), async (req, res) => {
   const { id, userId } = req.params;
-
-  const { card, isMember } = await getMembershipViaCard(id, req.user.id);
-  if (!card) return res.status(404).json({ error: 'card not found' });
-  if (!isMember) return res.status(403).json({ error: 'forbidden' });
 
   await pool.query(
     `DELETE FROM card_assignees WHERE card_id = $1 AND user_id = $2`, [id, userId]
@@ -225,12 +197,8 @@ router.delete('/:id/assignees/:userId', async (req, res) => {
   return res.sendStatus(204);
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAccess('card'), async (req, res) => {
   const { id } = req.params;
-  const { card, isMember } = await getMembershipViaCard(id, req.user.id);
-  if (!card) return res.status(404).json({ error: 'card not found' });
-  if (!isMember) return res.status(403).json({ error: 'forbidden' });
-
   await pool.query(`DELETE FROM cards WHERE id = $1`, [id]);
   return res.sendStatus(204);
 });
