@@ -197,6 +197,14 @@ describe('POST /cards/:id/subtasks/batch', () => {
     const res = await addBatch(user.token, '00000000-0000-0000-0000-000000000000', ['x']);
     expect(res.status).toBe(404);
   });
+
+  it('membership is checked before the body: a bad body still gets 403 / 404', async () => {
+    const { card } = await setup();
+    const stranger = await createUser({ email: 'stranger@example.com' });
+    expect((await addBatch(stranger.token, card.id, [])).status).toBe(403);
+    expect((await addBatch(stranger.token, card.id, 'not-an-array')).status).toBe(403);
+    expect((await addBatch(stranger.token, '00000000-0000-0000-0000-000000000000', [])).status).toBe(404);
+  });
 });
 
 describe('PATCH /subtasks/:id', () => {

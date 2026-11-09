@@ -75,16 +75,17 @@ router.post('/cards/:cardId/subtasks/batch', async (req, res) => {
   const { cardId } = req.params;
   const { titles } = req.body;
 
+  // Membership first (#60): a stranger learns nothing about the body's validity.
+  const { found, isMember } = await getMembershipViaCard(cardId, req.user.id);
+  if (!found) return res.status(404).json({ error: 'card not found' });
+  if (!isMember) return res.status(403).json({ error: 'forbidden' });
+
   if (!Array.isArray(titles) || titles.some(t => typeof t !== 'string')) {
     return res.status(400).json({ error: 'titles must be an array of strings' });
   }
   const items = titles.map((title, i) => ({ line: i + 1, title: title.trim() }));
   const invalid = checkSubtaskBatch(items, 0);
   if (invalid) return res.status(400).json({ error: BATCH_ERRORS[invalid.reason](invalid) });
-
-  const { found, isMember } = await getMembershipViaCard(cardId, req.user.id);
-  if (!found) return res.status(404).json({ error: 'card not found' });
-  if (!isMember) return res.status(403).json({ error: 'forbidden' });
 
   const result = await inTransaction(async client => {
     if (!await lockCard(client, cardId)) return { status: 404, body: { error: 'card not found' } };

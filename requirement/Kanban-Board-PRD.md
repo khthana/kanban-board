@@ -981,7 +981,7 @@ Inline title editing บนหน้าการ์ดบน board (Card.jsx) �
 6. As a developer, I want `CLAUDE.md`, `README.md`, and `.gitignore` to describe the full project in one file each, so that context is never split across repos.
 7. As a developer, I want to delete the `kanban.code-workspace` multi-root workspace file, so that there is no stale artifact left over from the two-repo setup.
 8. As a developer, I want the migration to preserve all existing frontend (`src/`) and backend (`api/src/`) import paths, so that no application code needs to change.
-9. As a developer, I want the React dev proxy (`src/setupProxy.js`) to continue targeting `localhost:4000` unchanged, so that local non-Docker development also works without edits.
+9. As a developer, I want the React dev proxy (`src/setupProxy.js`) to continue targeting `localhost:3350` unchanged, so that local non-Docker development also works without edits.
 
 ### Implementation Decisions
 
@@ -1042,7 +1042,7 @@ npm workspaces / Turborepo / Nx — ไม่ถูกนำมาใช้ เ�
 
 ### Further Notes
 
-`src/api/client.js` proxy ยังชี้ไป `localhost:4000` ตอน local dev (non-Docker) ไม่แก้ `src/setupProxy.js` ไฟล์ `api/.env` ต้องถูกเติมโดย developer เองหลังย้าย (copy จาก `api/.env.example`) Docker Compose inject env var ตรงๆ ไม่อ่าน `.env` จึง Docker workflow ไม่กระทบ backend `node_modules` อยู่ที่ `api/node_modules/` — ถูก exclude โดย Docker volume mount ของ `api/` อยู่แล้ว (`/app/node_modules` anonymous volume) จึงไม่ต้องแก้ Dockerfile repo `kanban-board-api` บน GitHub ควรถูก **ลบ** (ไม่ใช่ archive) เพื่อไม่ให้สับสนว่า canonical source อยู่ที่ไหน
+`src/api/client.js` proxy ยังชี้ไป `localhost:3350` ตอน local dev (non-Docker) ไม่แก้ `src/setupProxy.js` ไฟล์ `api/.env` ต้องถูกเติมโดย developer เองหลังย้าย (copy จาก `api/.env.example`) Docker Compose inject env var ตรงๆ ไม่อ่าน `.env` จึง Docker workflow ไม่กระทบ backend `node_modules` อยู่ที่ `api/node_modules/` — ถูก exclude โดย Docker volume mount ของ `api/` อยู่แล้ว (`/app/node_modules` anonymous volume) จึงไม่ต้องแก้ Dockerfile repo `kanban-board-api` บน GitHub ควรถูก **ลบ** (ไม่ใช่ archive) เพื่อไม่ให้สับสนว่า canonical source อยู่ที่ไหน
 
 ---
 
