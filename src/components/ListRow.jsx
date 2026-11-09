@@ -1,21 +1,10 @@
-import { categoryLabel, cardAccent } from '../domain/accent';
-import { isOverdue, formatDueDate } from '../domain/dates';
-import { progressView } from '../domain/progress';
-import { isDone } from '../domain/completion';
-import { assigneeUsers } from '../domain/assignees';
+import { formatDueDate } from '../domain/dates';
 import AvatarStack from './common/AvatarStack';
 import styles from './ListRow.module.css';
 
-export default function ListRow({ card, labels = [], subtasks = [], members = [], assigneeIds = [], onClick }) {
-  const category = categoryLabel(card.categoryLabelId, labels);
-  const accent = cardAccent(category?.color ?? null);
-  const cardDone = isDone(card);
-  const overdue = isOverdue(card.dueDate);
-  const assignees = assigneeUsers(assigneeIds, members);
-
-  const total = subtasks.length;
-  const done = subtasks.filter(s => s.checked).length;
-  const progress = total > 0 ? progressView(done, total) : null;
+// `face` is the Card view (domain/cardView.js) — the same face data as Card.jsx.
+export default function ListRow({ card, face, onClick }) {
+  const { category, accent, done: cardDone, overdue, date, assignees, progress } = face;
 
   return (
     <div
@@ -45,31 +34,31 @@ export default function ListRow({ card, labels = [], subtasks = [], members = []
         <span className={styles.dot} style={{ background: accent.solid }} data-testid="list-row-category-none" />
       )}
       <p className={styles.title}>{card.title}</p>
-      {cardDone ? (
+      {date.kind === 'completed' ? (
         <span className={`${styles.due} ${styles.completed}`} data-testid="list-row-completed">
-          เสร็จ {formatDueDate(card.completedAt)}
+          เสร็จ {formatDueDate(date.ymd)}
         </span>
-      ) : card.dueDate ? (
+      ) : date.kind === 'due' ? (
         <span className={`${styles.due} ${overdue ? styles.overdueDue : ''}`} data-testid="list-row-due">
-          {formatDueDate(card.dueDate)}
+          {formatDueDate(date.ymd)}
         </span>
       ) : (
         <span className={`${styles.due} ${styles.muted}`} data-testid="list-row-due">ไม่มีกำหนด</span>
       )}
       {progress && (
         <span className={styles.progress} data-testid="list-row-progress">
-          {progress.mode === 'segments' ? (
+          {progress.view.mode === 'segments' ? (
             <span className={styles.segs}>
-              {progress.segments.map((on, i) => (
+              {progress.view.segments.map((on, i) => (
                 <span key={i} className={styles.seg} style={on ? { background: accent.solid } : undefined} />
               ))}
             </span>
           ) : (
             <span className={styles.minibar}>
-              <span className={styles.minifill} style={{ width: `${progress.pct}%`, background: accent.solid }} />
+              <span className={styles.minifill} style={{ width: `${progress.view.pct}%`, background: accent.solid }} />
             </span>
           )}
-          <span className={`${styles.count} ${progress.complete ? styles.countDone : ''}`}>{done}/{total}</span>
+          <span className={`${styles.count} ${progress.view.complete ? styles.countDone : ''}`}>{progress.done}/{progress.total}</span>
         </span>
       )}
       <AvatarStack users={assignees} size={24} />

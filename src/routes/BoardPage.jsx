@@ -9,6 +9,7 @@ import useSession from '../store/useSession';
 import useBoardStore from '../store/useBoardStore';
 import { usePolling } from '../hooks/usePolling';
 import { resolveDrag } from '../domain/dragDrop';
+import { cardView } from '../domain/cardView';
 import { DND_ACTIVATION_DISTANCE } from '../constants';
 import TopBar from '../components/TopBar';
 import Column from '../components/Column';
@@ -130,7 +131,7 @@ export default function BoardPage() {
     return <div className={styles.loading}>Loading…</div>;
   }
 
-  const { board: boardData, columns, cards, labels, members, cardLabels, cardAssignees = [], subtasks: allSubtasks = [] } = board;
+  const { board: boardData, columns, cards, members } = board;
   const sortedColumns = [...columns].sort((a, b) => a.position - b.position);
 
   // Active drag overlay data
@@ -175,11 +176,7 @@ export default function BoardPage() {
                     key={col.id}
                     column={col}
                     cards={cards.filter(c => c.columnId === col.id).sort((a, b) => a.position - b.position)}
-                    labels={labels}
-                    cardLabels={cardLabels}
-                    cardAssignees={cardAssignees}
-                    members={members}
-                    subtasks={allSubtasks}
+                    board={board}
                     onRename={(colId, name, color) => reportOpError(renameColumn(colId, currentUserId, { name, color }))}
                     onDelete={(colId) => reportOpError(deleteColumn(colId, currentUserId))}
                     onCardClick={setActiveCard}
@@ -192,18 +189,12 @@ export default function BoardPage() {
 
             <DragOverlay>
               {activeCardData && (
-                <Card card={activeCardData} dragOverlay
-                  labels={labels.filter(l =>
-                    new Set(cardLabels.filter(cl => cl.cardId === activeCardData.id).map(cl => cl.labelId)).has(l.id)
-                  )}
-                  members={members}
-                  assigneeIds={cardAssignees.filter(ca => ca.cardId === activeCardData.id).map(ca => ca.userId)}
-                />
+                <Card card={activeCardData} face={cardView(board, activeCardData)} dragOverlay />
               )}
               {activeColData && (
                 <Column column={activeColData}
                   cards={cards.filter(c => c.columnId === activeColData.id).sort((a, b) => a.position - b.position)}
-                  labels={labels} cardLabels={cardLabels} members={members}
+                  board={board}
                   onRename={() => {}} onDelete={() => {}} onCardClick={() => {}} onAddCard={() => {}}
                   dragOverlay
                 />
@@ -215,11 +206,7 @@ export default function BoardPage() {
         {view === 'list' && (
           <ListView
             sortedColumns={sortedColumns}
-            cards={cards}
-            labels={labels}
-            subtasks={allSubtasks}
-            members={members}
-            cardAssignees={cardAssignees}
+            board={board}
             onAddColumn={handleAddColumn}
             onCardClick={setActiveCard}
             onAddCard={handleAddCard}
@@ -239,10 +226,7 @@ export default function BoardPage() {
       {activeCard && (
         <CardPanel
           card={activeCard}
-          allLabels={labels}
-          cardLabels={cardLabels}
-          cardAssignees={cardAssignees}
-          members={members}
+          board={board}
           boardId={boardId}
           userId={currentUserId}
           onSave={handleSaveCard}
@@ -255,7 +239,6 @@ export default function BoardPage() {
           onDetachLabel={(cardId, labelId, uId) => reportOpError(detachLabel(cardId, labelId, uId))}
           onAttachAssignee={(cardId, uId) => reportOpError(attachAssignee(cardId, uId))}
           onDetachAssignee={(cardId, uId) => reportOpError(detachAssignee(cardId, uId))}
-          subtasks={(board?.subtasks ?? []).filter(s => s.cardId === activeCard?.id)}
           onCreateSubtask={title => createSubtask(activeCard.id, { title })}
           onCreateSubtasks={titles => createSubtasks(activeCard.id, titles)}
           onToggleSubtask={id => reportOpError(toggleSubtask(id))}

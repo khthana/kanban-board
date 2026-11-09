@@ -17,3 +17,12 @@ export function progressView(done, total) {
     complete,
   };
 }
+
+// A card's Subtask progress: how many are done out of how many, plus the
+// adaptive view (null when the card has no Subtasks). The one place the done
+// count is computed — the card face, List row and Subtask section all use it.
+export function subtaskProgress(subtasks = []) {
+  const total = subtasks.length;
+  const done = subtasks.filter(s => s.checked).length;
+  return { done, total, view: total > 0 ? progressView(done, total) : null };
+}

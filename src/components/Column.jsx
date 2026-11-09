@@ -3,6 +3,7 @@ import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-
 import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { validateColumnName } from '../domain/validation';
+import { cardView } from '../domain/cardView';
 import Card from './Card';
 import CardComposer from './CardComposer';
 import ColorPicker from './common/ColorPicker';
@@ -42,7 +43,7 @@ function RenameForm({ column, onSave, onCancel }) {
 }
 
 export default function Column({
-  column, cards, labels = [], cardLabels = [], cardAssignees = [], members = [], subtasks = [],
+  column, cards, board,
   onRename, onDelete, onCardClick, onAddCard,
   dragOverlay = false,
 }) {
@@ -102,16 +103,9 @@ export default function Column({
           {cards.length === 0 && (
             <p className={styles.empty}>No cards yet.</p>
           )}
-          {cards.map(card => {
-            const attachedIds = new Set(cardLabels.filter(cl => cl.cardId === card.id).map(cl => cl.labelId));
-            const cardLabelObjs = labels.filter(l => attachedIds.has(l.id));
-            const assigneeIds = cardAssignees.filter(ca => ca.cardId === card.id).map(ca => ca.userId);
-            return (
-              <Card key={card.id} card={card} onClick={onCardClick}
-                labels={cardLabelObjs} members={members} assigneeIds={assigneeIds}
-                subtasks={subtasks.filter(s => s.cardId === card.id)} />
-            );
-          })}
+          {cards.map(card => (
+            <Card key={card.id} card={card} face={cardView(board, card)} onClick={onCardClick} />
+          ))}
         </SortableContext>
         {!dragOverlay && <CardComposer accent={accent} onAdd={title => onAddCard(column.id, title)} />}
       </div>

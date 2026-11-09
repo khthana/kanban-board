@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { validateSubtaskTitle, validateSubtaskCount } from '../domain/validation';
 import { splitSubtaskLines, checkSubtaskBatch, describeSubtaskBatchError } from '../domain/subtaskBatch';
 import { visibleSubtasks } from '../domain/subtaskVisibility';
+import { subtaskProgress } from '../domain/progress';
 import styles from './SubtaskSection.module.css';
 
 // The Subtask checklist inside the Card panel: rows (toggle / inline rename /
@@ -31,7 +32,7 @@ export default function SubtaskSection({
   // Guards against a second Enter while the batch POST is in flight (would add it twice).
   const batchSubmitting = useRef(false);
   const [hideDone, setHideDone]     = useState(true);
-  const doneCount = subtasks.filter(s => s.checked).length;
+  const doneCount = subtaskProgress(subtasks).done;
   const visible = visibleSubtasks(subtasks, { hideDone });
   // A row being renamed that just got hidden (ticked here or by another tab):
   // drop the draft so it doesn't reappear in edit mode on reveal.

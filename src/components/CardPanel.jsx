@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { validateCardDescription } from '../domain/validation';
 import { resolveTitleCommit } from '../domain/titleEdit';
-import { isDone, completionPatch, incompleteSubtasks } from '../domain/completion';
+import { isDone, completionPatch } from '../domain/completion';
+import { cardView } from '../domain/cardView';
 import { formatDueDate } from '../domain/dates';
 import LabelPicker from './LabelPicker';
 import AssigneePicker from './AssigneePicker';
@@ -10,12 +11,11 @@ import SubtaskSection from './SubtaskSection';
 import styles from './CardPanel.module.css';
 
 export default function CardPanel({
-  card, allLabels, cardLabels, cardAssignees = [], members, boardId,
+  card, board, boardId,
   onSave, onDelete, onClose,
   onCreateLabel, onPatchLabel, onDeleteLabel, onAttachLabel, onDetachLabel,
   onAttachAssignee, onDetachAssignee,
   userId,
-  subtasks = [],
   onCreateSubtask,
   onCreateSubtasks,
   onToggleSubtask,
@@ -38,6 +38,8 @@ export default function CardPanel({
   // server rejects such a label as the Category until its attach commits, so
   // LabelPicker keeps its ☆/★ disabled meanwhile (#56).
   const [pendingAttaches, setPendingAttaches] = useState(() => new Map());
+  const { labels: allLabels = [], members = [] } = board;
+  const { labelIds: attachedIds, assigneeIds, subtasks, progress } = cardView(board, card);
   const pendingLabelIds = new Set(
     allLabels.filter(l => pendingAttaches.has(`${card.id}:${l.id}`)).map(l => l.id));
 
@@ -115,15 +117,13 @@ export default function CardPanel({
   }
 
   function handleComplete() {
-    const remaining = incompleteSubtasks(subtasks);
+    const remaining = progress ? progress.total - progress.done : 0;
     if (remaining > 0 &&
-        !window.confirm(`ยังมี subtask ที่ยังไม่เสร็จ ${remaining}/${subtasks.length} — ทำเครื่องหมายว่าเสร็จเลยไหม?`)) {
+        !window.confirm(`ยังมี subtask ที่ยังไม่เสร็จ ${remaining}/${progress.total} — ทำเครื่องหมายว่าเสร็จเลยไหม?`)) {
       return;
     }
     onSave(completionPatch(true));
   }
-
-  const attachedIds = new Set(cardLabels.filter(cl => cl.cardId === card.id).map(cl => cl.labelId));
 
   return (
     <aside className={styles.panel}>
@@ -189,7 +189,7 @@ export default function CardPanel({
 
         <AssigneePicker
           members={members}
-          assigneeIds={cardAssignees.filter(ca => ca.cardId === card.id).map(ca => ca.userId)}
+          assigneeIds={assigneeIds}
           onAttach={uid => onAttachAssignee(card.id, uid)}
           onDetach={uid => onDetachAssignee(card.id, uid)}
         />

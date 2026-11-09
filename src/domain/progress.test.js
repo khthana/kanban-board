@@ -1,4 +1,4 @@
-import { progressView } from './progress';
+import { progressView, subtaskProgress } from './progress';
 
 describe('progressView', () => {
   test('renders one segment per subtask when total <= 8, first `done` marked complete', () => {
@@ -30,5 +30,14 @@ describe('progressView', () => {
     expect(v.mode).toBe('segments');
     expect(v.segments).toEqual([]);
     expect(v.complete).toBe(false);
+  });
+});
+
+describe('subtaskProgress', () => {
+  test('counts done of total, view only when there are Subtasks', () => {
+    expect(subtaskProgress([])).toEqual({ done: 0, total: 0, view: null });
+    const p = subtaskProgress([{ checked: true }, { checked: false }, { checked: true }]);
+    expect(p).toMatchObject({ done: 2, total: 3 });
+    expect(p.view.mode).toBe('segments');
   });
 });

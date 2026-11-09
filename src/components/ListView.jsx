@@ -1,9 +1,11 @@
+import { cardView } from '../domain/cardView';
 import ListRow from './ListRow';
 import ColumnComposer from './ColumnComposer';
 import CardComposer from './CardComposer';
 import styles from './ListView.module.css';
 
-export default function ListView({ sortedColumns, cards, labels = [], subtasks = [], members = [], cardAssignees = [], onAddColumn, onCardClick, onAddCard, style }) {
+export default function ListView({ sortedColumns, board, onAddColumn, onCardClick, onAddCard, style }) {
+  const { cards } = board;
   return (
     <div className={styles.list} data-testid="list-view" style={style}>
       {sortedColumns.length === 0 && <ColumnComposer onAdd={onAddColumn} />}
@@ -22,11 +24,7 @@ export default function ListView({ sortedColumns, cards, labels = [], subtasks =
               <span className={styles.count} data-testid="list-section-count">{colCards.length}</span>
             </div>
             {colCards.map(card => (
-              <ListRow key={card.id} card={card} labels={labels}
-                subtasks={subtasks.filter(s => s.cardId === card.id)}
-                members={members}
-                assigneeIds={cardAssignees.filter(ca => ca.cardId === card.id).map(ca => ca.userId)}
-                onClick={onCardClick} />
+              <ListRow key={card.id} card={card} face={cardView(board, card)} onClick={onCardClick} />
             ))}
             <CardComposer accent={accent} onAdd={title => onAddCard(col.id, title)} />
           </section>

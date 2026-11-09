@@ -1,10 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { isOverdue, formatDueDate } from '../domain/dates';
-import { progressView } from '../domain/progress';
-import { cardAccent, categoryLabel } from '../domain/accent';
-import { isDone } from '../domain/completion';
-import { assigneeUsers } from '../domain/assignees';
+import { formatDueDate } from '../domain/dates';
 import AvatarStack from './common/AvatarStack';
 import styles from './Card.module.css';
 
@@ -27,31 +23,21 @@ function CheckIcon() {
   );
 }
 
-export default function Card({ card, onClick, labels = [], members = [], assigneeIds = [], subtasks = [], dragOverlay = false }) {
+export default function Card({ card, face, onClick, dragOverlay = false }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
     data: { type: 'card', card, columnId: card.columnId },
   });
 
-  const cardDone = isDone(card);
+  // Face data (Category + accent, done/overdue, assignees, progress) comes from
+  // domain/cardView.js — this component only renders it.
+  const { category, accent, done: cardDone, overdue, date, assignees, progress } = face;
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0 : (cardDone ? 0.6 : 1),
   };
-
-  // The Category is the label flagged by category_label_id; its color is the
-  // card's accent. Falls back to neutral when unset (categoryLabel → null).
-  const category = categoryLabel(card.categoryLabelId, labels);
-  const accent   = cardAccent(category?.color ?? null);
-
-  const overdue  = isOverdue(card.dueDate);
-  const assignees = assigneeUsers(assigneeIds, members);
-
-  const total = subtasks.length;
-  const done  = subtasks.filter(s => s.checked).length;
-  const progress = total > 0 ? progressView(done, total) : null;
 
   return (
     <div
@@ -88,15 +74,15 @@ export default function Card({ card, onClick, labels = [], members = [], assigne
       <div className={styles.rule} />
 
       <div className={styles.foot}>
-        {cardDone ? (
+        {date.kind === 'completed' ? (
           <span className={`${styles.due} ${styles.completed}`} data-testid="card-completed">
             <CheckIcon />
-            เสร็จ {formatDueDate(card.completedAt)}
+            เสร็จ {formatDueDate(date.ymd)}
           </span>
-        ) : card.dueDate ? (
+        ) : date.kind === 'due' ? (
           <span className={`${styles.due} ${overdue ? styles.overdueDue : ''}`} data-testid="card-due">
             <CalIcon />
-            {formatDueDate(card.dueDate)}
+            {formatDueDate(date.ymd)}
           </span>
         ) : (
           <span className={`${styles.due} ${styles.muted}`}>ไม่มีกำหนด</span>
@@ -104,18 +90,18 @@ export default function Card({ card, onClick, labels = [], members = [], assigne
 
         {progress && (
           <span className={styles.check} data-testid="card-progress">
-            {progress.mode === 'segments' ? (
+            {progress.view.mode === 'segments' ? (
               <span className={styles.segs}>
-                {progress.segments.map((on, i) => (
+                {progress.view.segments.map((on, i) => (
                   <span key={i} className={styles.seg} style={on ? { background: accent.solid } : undefined} />
                 ))}
               </span>
             ) : (
               <span className={styles.minibar}>
-                <span className={styles.minifill} style={{ width: `${progress.pct}%`, background: accent.solid }} />
+                <span className={styles.minifill} style={{ width: `${progress.view.pct}%`, background: accent.solid }} />
               </span>
             )}
-            <span className={`${styles.count} ${progress.complete ? styles.countDone : ''}`}>{done}/{total}</span>
+            <span className={`${styles.count} ${progress.view.complete ? styles.countDone : ''}`}>{progress.done}/{progress.total}</span>
           </span>
         )}
       </div>
