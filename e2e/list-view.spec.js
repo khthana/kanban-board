@@ -216,7 +216,7 @@ test('row shows subtask progress', async ({ page }) => {
   await page.keyboard.press('Escape');
   await Promise.all([
     page.waitForResponse(r => r.url().includes('/subtasks') && r.request().method() === 'PATCH' && r.status() === 200),
-    page.locator('aside input[type="checkbox"]').first().check(),
+    page.locator('aside input[type="checkbox"]').first().click(), // .check() can't verify: done rows hide (#61)
   ]);
   await page.locator('button[title="Close panel"]').click();
 

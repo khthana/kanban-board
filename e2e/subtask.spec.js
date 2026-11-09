@@ -75,7 +75,7 @@ test('toggle checkbox → card preview shows n/total → persists after reload',
   // Wait for PATCH to confirm so checked state persists on reload
   await Promise.all([
     page.waitForResponse(r => r.url().includes('/subtasks') && r.request().method() === 'PATCH' && r.status() === 200),
-    page.locator('aside input[type="checkbox"]').check(),
+    page.locator('aside input[type="checkbox"]').click(), // .check() can't verify: done rows hide (#61)
   ]);
 
   await page.locator('button[title="Close panel"]').click();
@@ -85,6 +85,7 @@ test('toggle checkbox → card preview shows n/total → persists after reload',
   await expect(page.locator('[data-testid="card-progress"]').getByText('1/1')).toBeVisible();
 
   await openCard(page, cardTitle);
+  await page.locator('[data-testid="subtask-done-toggle"]').click();
   await expect(page.locator('aside input[type="checkbox"]')).toBeChecked();
 });
 
@@ -315,4 +316,86 @@ test('a second Enter while the batch is saving does not add it twice', async ({ 
   await openCard(page, cardTitle);
   await expect(subtaskTitles(page)).toHaveText(['A', 'B']);
   expect(posts).toBe(1);
+});
+
+// ── Hide done Subtasks (PRD §12, #61) ──
+
+const doneToggle = page => page.locator('[data-testid="subtask-done-toggle"]');
+
+async function tick(page, title) {
+  const row = page.locator('[data-testid="subtask-row"]').filter({ has: page.getByText(title, { exact: true }) });
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/subtasks') && r.request().method() === 'PATCH' && r.status() === 200),
+    row.locator('input[type="checkbox"]').click(),
+  ]);
+}
+
+test('ticking hides the row; reveal shows it in place; reopening the panel hides it again', async ({ page }) => {
+  const { cardTitle } = await setupBoard(page);
+  await openCard(page, cardTitle);
+  await pasteBatch(page, ['A', 'B', 'C']);
+  await expect(doneToggle(page)).toHaveCount(0); // nothing done yet
+
+  await tick(page, 'B');
+  await expect(subtaskTitles(page)).toHaveText(['A', 'C']);
+  await expect(doneToggle(page)).toHaveText('▸ แสดงที่เสร็จแล้ว (1)');
+  await expect(page.locator('aside').getByText('Subtasks (3)')).toBeVisible(); // count still includes done
+
+  await doneToggle(page).click();
+  await expect(subtaskTitles(page)).toHaveText(['A', 'B', 'C']);
+  await expect(doneToggle(page)).toHaveText('▾ ซ่อนที่เสร็จแล้ว');
+
+  // Revealed: unticking keeps it in place.
+  await tick(page, 'B');
+  await expect(subtaskTitles(page)).toHaveText(['A', 'B', 'C']);
+  await tick(page, 'B');
+  await expect(subtaskTitles(page)).toHaveText(['A', 'B', 'C']);
+
+  // Close and reopen → hidden again.
+  await page.locator('aside button[title="Close panel"]').click();
+  await expect(page.locator('[data-testid="card-progress"]').getByText('1/3')).toBeVisible(); // card face counts all
+  await openCard(page, cardTitle);
+  await expect(subtaskTitles(page)).toHaveText(['A', 'C']);
+  await expect(doneToggle(page)).toHaveText('▸ แสดงที่เสร็จแล้ว (1)');
+});
+
+test('a Card with every Subtask done shows only the reveal line and "+ Add subtask"', async ({ page }) => {
+  const { cardTitle } = await setupBoard(page);
+  await openCard(page, cardTitle);
+  await pasteBatch(page, ['A', 'B']);
+  await tick(page, 'A');
+  await tick(page, 'B');
+  await page.locator('aside button[title="Close panel"]').click();
+  await openCard(page, cardTitle);
+
+  await expect(subtaskTitles(page)).toHaveCount(0);
+  await expect(doneToggle(page)).toHaveText('▸ แสดงที่เสร็จแล้ว (2)');
+  await expect(page.locator('aside').getByRole('button', { name: '+ Add subtask' })).toBeVisible();
+});
+
+test('↑ skips a hidden done Subtask in one press; hidden one stays put; persists after reload', async ({ page }) => {
+  const { cardTitle } = await setupBoard(page);
+  await openCard(page, cardTitle);
+  await pasteBatch(page, ['A', 'B', 'C']);
+  await tick(page, 'B');
+  await expect(subtaskTitles(page)).toHaveText(['A', 'C']);
+
+  const panel = page.locator('aside');
+  // ↑ disabled on the first visible row, ↓ on the last.
+  await expect(panel.locator('button[title="Move up"]').first()).toBeDisabled();
+  await expect(panel.locator('button[title="Move down"]').last()).toBeDisabled();
+
+  await Promise.all([
+    page.waitForResponse(r => r.url().includes('/subtasks') && r.request().method() === 'PATCH' && r.status() === 200),
+    panel.locator('button[title="Move up"]').last().click(), // C ↑
+  ]);
+  await expect(subtaskTitles(page)).toHaveText(['C', 'A']);
+
+  await doneToggle(page).click();
+  await expect(subtaskTitles(page)).toHaveText(['C', 'A', 'B']); // B kept its slot after A
+
+  await page.reload();
+  await openCard(page, cardTitle);
+  await doneToggle(page).click();
+  await expect(subtaskTitles(page)).toHaveText(['C', 'A', 'B']);
 });

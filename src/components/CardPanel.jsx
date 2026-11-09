@@ -200,6 +200,7 @@ export default function CardPanel({
         />
 
         <SubtaskSection
+          key={card.id}
           subtasks={subtasks}
           onCreate={onCreateSubtask}
           onCreateMany={onCreateSubtasks}

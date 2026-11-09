@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import * as client from '../api/client';
 import { positionBetween } from '../domain/ordering';
 import { resolveAttach, resolveDetach } from '../domain/category';
+import { visibleNeighbour } from '../domain/subtaskVisibility';
 
 // Optimistic-update helper for mutations on the active `board`:
 //   1. snapshot current board
@@ -292,27 +293,22 @@ const useBoardStore = create((set, get) => ({
   // ── subtasks ─────────────────────────────────────────────────────────────────
 
   // dir: -1 moves up, +1 moves down. Recomputes a float position from neighbours.
-  moveSubtask: async (subtaskId, dir) => {
+  // `hideDone`: the panel is hiding checked Subtasks, so swap with the next
+  // *visible* one (PRD §12); hidden Subtasks keep their positions.
+  moveSubtask: async (subtaskId, dir, { hideDone = false } = {}) => {
     const all = get().board?.subtasks ?? [];
-    const moving = all.find(s => s.id === subtaskId);
-    if (!moving) return;
-    // Neighbours must come from the same card only — board.subtasks holds every
+    const target = visibleNeighbour(all, subtaskId, dir, { hideDone });
+    if (!target) return;
+    // Real order of the card (hidden ones included) — board.subtasks holds every
     // card's subtasks, whose positions overlap (each card starts at 1).
     const sorted = all
-      .filter(s => s.cardId === moving.cardId)
+      .filter(s => s.cardId === target.cardId)
       .sort((a, b) => a.position - b.position);
-    const idx = sorted.findIndex(s => s.id === subtaskId);
-    if (idx < 0) return;
-    const swapIdx = idx + dir;
-    if (swapIdx < 0 || swapIdx >= sorted.length) return;
-
-    // neighbours of the slot we are moving into
-    const lo = Math.min(idx, swapIdx);
-    const before = sorted[lo - 1] ?? null;
-    const target = sorted[swapIdx];
+    const t = sorted.indexOf(target);
+    // Land just past the target: between it and its real-order neighbour beyond.
     const newPos = dir < 0
-      ? positionBetween(before?.position ?? null, target.position)
-      : positionBetween(target.position, sorted[swapIdx + 1]?.position ?? null);
+      ? positionBetween(sorted[t - 1]?.position ?? null, target.position)
+      : positionBetween(target.position, sorted[t + 1]?.position ?? null);
 
     return optimistic(get, set, {
       apply: b => ({ ...b, subtasks: mapById(b.subtasks, subtaskId, st => ({ ...st, position: newPos })) }),
@@ -321,8 +317,8 @@ const useBoardStore = create((set, get) => ({
     });
   },
 
-  moveSubtaskUp: (subtaskId) => get().moveSubtask(subtaskId, -1),
-  moveSubtaskDown: (subtaskId) => get().moveSubtask(subtaskId, 1),
+  moveSubtaskUp: (subtaskId, opts) => get().moveSubtask(subtaskId, -1, opts),
+  moveSubtaskDown: (subtaskId, opts) => get().moveSubtask(subtaskId, 1, opts),
 
   toggleSubtask: async (subtaskId) => {
     const current = get().board?.subtasks?.find(s => s.id === subtaskId);

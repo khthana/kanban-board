@@ -261,8 +261,8 @@ export default function BoardPage() {
           onToggleSubtask={id => reportOpError(toggleSubtask(id))}
           onRenameSubtask={renameSubtask}
           onDeleteSubtask={id => reportOpError(deleteSubtask(id))}
-          onMoveSubtaskUp={id => reportOpError(moveSubtaskUp(id))}
-          onMoveSubtaskDown={id => reportOpError(moveSubtaskDown(id))}
+          onMoveSubtaskUp={(id, opts) => reportOpError(moveSubtaskUp(id, opts))}
+          onMoveSubtaskDown={(id, opts) => reportOpError(moveSubtaskDown(id, opts))}
         />
       )}
     </div>

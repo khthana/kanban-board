@@ -92,3 +92,16 @@
   color: #94a3b8;
   margin: 0.25rem 0 0;
 }
+
+/* Reveal / hide done Subtasks (PRD §12). */
+.doneToggle {
+  display: block;
+  margin-top: 0.25rem;
+  padding: 0.125rem 0;
+  font-size: 0.75rem;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.doneToggle:hover { color: #334155; }

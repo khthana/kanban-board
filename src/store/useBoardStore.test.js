@@ -293,6 +293,57 @@ describe('moveSubtask', () => {
   });
 });
 
+describe('moveSubtask with done Subtasks hidden (PRD §12)', () => {
+  // card1 real order: a(1) b(2, done) c(3, done) d(4)
+  beforeEach(() => {
+    useBoardStore.setState({
+      board: {
+        ...useBoardStore.getState().board,
+        subtasks: [
+          { id: 'a', cardId: 'card1', title: 'a', checked: false, position: 1 },
+          { id: 'b', cardId: 'card1', title: 'b', checked: true,  position: 2 },
+          { id: 'c', cardId: 'card1', title: 'c', checked: true,  position: 3 },
+          { id: 'd', cardId: 'card1', title: 'd', checked: false, position: 4 },
+        ],
+      },
+    });
+    client.patchSubtask.mockImplementation((id, patch) => Promise.resolve({ id, cardId: 'card1', title: id, checked: false, ...patch }));
+  });
+  const pos = id => useBoardStore.getState().board.subtasks.find(s => s.id === id).position;
+
+  test('↑ lands before the visible neighbour, past the hidden ones; hidden positions untouched', async () => {
+    await useBoardStore.getState().moveSubtaskUp('d', { hideDone: true });
+
+    expect(pos('d')).toBeLessThan(1); // above a
+    expect(pos('b')).toBe(2);
+    expect(pos('c')).toBe(3);
+    expect(client.patchSubtask).toHaveBeenCalledTimes(1);
+  });
+
+  test('↓ lands between the visible neighbour and the next item in real order', async () => {
+    await useBoardStore.getState().moveSubtaskDown('a', { hideDone: true });
+
+    expect(pos('a')).toBeGreaterThan(4); // after d, nothing follows
+    expect(pos('b')).toBe(2);
+    expect(pos('c')).toBe(3);
+  });
+
+  test('revealed mode swaps with the true neighbour', async () => {
+    await useBoardStore.getState().moveSubtaskUp('d', { hideDone: false });
+
+    expect(pos('d')).toBeGreaterThan(2);
+    expect(pos('d')).toBeLessThan(3); // between b and c
+  });
+
+  test('rolls back and rethrows on failure', async () => {
+    client.patchSubtask.mockRejectedValue(new Error('fail'));
+
+    await expect(useBoardStore.getState().moveSubtaskUp('d', { hideDone: true })).rejects.toThrow('fail');
+
+    expect(pos('d')).toBe(4);
+  });
+});
+
 describe('createSubtasks (batch add, PRD §12)', () => {
   const card1Subtasks = () => useBoardStore.getState().board.subtasks
     .filter(s => s.cardId === 'card1')

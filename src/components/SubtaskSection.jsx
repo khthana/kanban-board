@@ -1,11 +1,14 @@
 import { useRef, useState } from 'react';
 import { validateSubtaskTitle, validateSubtaskCount } from '../domain/validation';
 import { splitSubtaskLines, checkSubtaskBatch, describeSubtaskBatchError } from '../domain/subtaskBatch';
+import { visibleSubtasks } from '../domain/subtaskVisibility';
 import styles from './SubtaskSection.module.css';
 
 // The Subtask checklist inside the Card panel: rows (toggle / inline rename /
 // ↑ ↓ ✕) plus the "+ Add subtask" input — pasting several lines there turns it
-// into a batch box (PRD §12). Owns only its own editing state;
+// into a batch box (PRD §12). Done Subtasks are hidden until revealed, and
+// start hidden on every mount (the Card panel keys this by Card). Owns only its
+// own UI state;
 // every mutation goes through the callbacks, which may reject (shown inline).
 export default function SubtaskSection({
   subtasks = [],
@@ -27,6 +30,12 @@ export default function SubtaskSection({
   const [editError, setEditError]   = useState(null);
   // Guards against a second Enter while the batch POST is in flight (would add it twice).
   const batchSubmitting = useRef(false);
+  const [hideDone, setHideDone]     = useState(true);
+  const doneCount = subtasks.filter(s => s.checked).length;
+  const visible = visibleSubtasks(subtasks, { hideDone });
+  // A row being renamed that just got hidden (ticked here or by another tab):
+  // drop the draft so it doesn't reappear in edit mode on reveal.
+  if (editingId !== null && !visible.some(s => s.id === editingId)) setEditingId(null);
 
   async function handleAddKeyDown(e) {
     if (e.key === 'Escape') { setAdding(false); setInput(''); setInputError(null); return; }
@@ -101,8 +110,8 @@ export default function SubtaskSection({
     <div className={styles.section}>
       <p className={styles.label}>Subtasks {subtasks.length > 0 && <span className={styles.count}>({subtasks.length})</span>}</p>
 
-      {[...subtasks].sort((a, b) => a.position - b.position).map((s, idx, arr) => (
-        <div key={s.id} className={styles.row}>
+      {visible.map((s, idx, arr) => (
+        <div key={s.id} className={styles.row} data-testid="subtask-row">
           <input
             type="checkbox"
             className={styles.check}
@@ -133,13 +142,13 @@ export default function SubtaskSection({
             <button
               className={styles.moveBtn}
               disabled={idx === 0}
-              onClick={() => onMoveUp?.(s.id)}
+              onClick={() => onMoveUp?.(s.id, { hideDone })}
               title="Move up"
             >↑</button>
             <button
               className={styles.moveBtn}
               disabled={idx === arr.length - 1}
-              onClick={() => onMoveDown?.(s.id)}
+              onClick={() => onMoveDown?.(s.id, { hideDone })}
               title="Move down"
             >↓</button>
             <button
@@ -150,6 +159,15 @@ export default function SubtaskSection({
           </div>
         </div>
       ))}
+
+      {doneCount > 0 && (
+        <button
+          className={styles.doneToggle}
+          data-testid="subtask-done-toggle"
+          aria-expanded={!hideDone}
+          onClick={() => setHideDone(v => !v)}
+        >{hideDone ? `▸ แสดงที่เสร็จแล้ว (${doneCount})` : '▾ ซ่อนที่เสร็จแล้ว'}</button>
+      )}
 
       {adding && batchText !== null ? (
         <div className={styles.inputRow}>
