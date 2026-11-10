@@ -8,10 +8,12 @@ import styles from './SubtaskSection.module.css';
 // The Subtask checklist inside the Card panel: rows (toggle / inline rename /
 // ↑ ↓ ✕) plus the "+ Add subtask" input — pasting several lines there turns it
 // into a batch box (PRD §12); a typed title is added as a batch of one (#67).
-// Done Subtasks are hidden until revealed, and start hidden on every mount (the
-// Card panel keys this by Card). Owns only its own UI state; every mutation goes
-// through the board actions (#68) — add and rename reject on failure (shown
-// inline), the rest report to the banner.
+// Done Subtasks are hidden until revealed by the `✓ N` switch in the header
+// (#83), and start hidden on every mount (the Card panel keys this by Card); the
+// switch is gone while nothing is done, but keeps its state for when it
+// returns. Owns only its own UI state; every mutation goes through the board
+// actions (#68) — add and rename reject on failure (shown inline), the rest
+// report to the banner.
 export default function SubtaskSection({ cardId, subtasks = [], actions }) {
   const [adding, setAdding]         = useState(false);
   const [input, setInput]           = useState('');
@@ -103,7 +105,24 @@ export default function SubtaskSection({ cardId, subtasks = [], actions }) {
 
   return (
     <div className={styles.section}>
-      <p className={styles.label}>Subtasks {subtasks.length > 0 && <span className={styles.count}>({subtasks.length})</span>}</p>
+      <div className={styles.header}>
+        <p className={styles.label}>Subtasks {subtasks.length > 0 && <span className={styles.count}>({subtasks.length})</span>}</p>
+        {doneCount > 0 && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={!hideDone}
+            aria-label={`แสดงที่เสร็จแล้ว ✓ ${doneCount}`}
+            title="แสดงที่เสร็จแล้ว"
+            className={styles.doneSwitch}
+            data-testid="subtask-done-toggle"
+            onClick={() => setHideDone(v => !v)}
+          >
+            <span data-testid="subtask-done-count">✓ {doneCount}</span>
+            <span className={styles.track} aria-hidden="true"><span className={styles.thumb} /></span>
+          </button>
+        )}
+      </div>
 
       {visible.map((s, idx, arr) => (
         <div key={s.id} className={styles.row} data-testid="subtask-row">
@@ -154,15 +173,6 @@ export default function SubtaskSection({ cardId, subtasks = [], actions }) {
           </div>
         </div>
       ))}
-
-      {doneCount > 0 && (
-        <button
-          className={styles.doneToggle}
-          data-testid="subtask-done-toggle"
-          aria-expanded={!hideDone}
-          onClick={() => setHideDone(v => !v)}
-        >{hideDone ? `▸ แสดงที่เสร็จแล้ว (${doneCount})` : '▾ ซ่อนที่เสร็จแล้ว'}</button>
-      )}
 
       {adding && batchText !== null ? (
         <div className={styles.inputRow}>

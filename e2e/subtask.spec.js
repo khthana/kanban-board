@@ -336,9 +336,16 @@ test('a second Enter while the batch is saving does not add it twice', async ({ 
   expect(posts).toBe(1);
 });
 
-// ── Hide done Subtasks (PRD §12, #61) ──
+// ── Hide done Subtasks (PRD §12, #61) — a `✓ N` switch in the header (#83) ──
 
 const doneToggle = page => page.locator('[data-testid="subtask-done-toggle"]');
+const doneCount = page => page.locator('[data-testid="subtask-done-count"]');
+async function expectSwitch(page, n, on) {
+  await expect(doneCount(page)).toHaveText(`✓ ${n}`);
+  await expect(doneToggle(page)).toHaveAttribute('role', 'switch');
+  await expect(doneToggle(page)).toHaveAttribute('aria-checked', String(on));
+  await expect(doneToggle(page)).toHaveAccessibleName(`แสดงที่เสร็จแล้ว ✓ ${n}`);
+}
 
 async function tick(page, title) {
   const row = page.locator('[data-testid="subtask-row"]').filter({ has: page.getByText(title, { exact: true }) });
@@ -356,12 +363,17 @@ test('ticking hides the row; reveal shows it in place; reopening the panel hides
 
   await tick(page, 'B');
   await expect(subtaskTitles(page)).toHaveText(['A', 'C']);
-  await expect(doneToggle(page)).toHaveText('▸ แสดงที่เสร็จแล้ว (1)');
+  await expectSwitch(page, 1, false);
   await expect(page.locator('aside').getByText('Subtasks (3)')).toBeVisible(); // count still includes done
+  // In the header, above the list — it doesn't move when the list grows.
+  const switchBox = await doneToggle(page).boundingBox();
+  const firstRow = await page.locator('[data-testid="subtask-row"]').first().boundingBox();
+  expect(switchBox.y + switchBox.height).toBeLessThanOrEqual(firstRow.y);
 
   await doneToggle(page).click();
   await expect(subtaskTitles(page)).toHaveText(['A', 'B', 'C']);
-  await expect(doneToggle(page)).toHaveText('▾ ซ่อนที่เสร็จแล้ว');
+  await expectSwitch(page, 1, true);
+  expect((await doneToggle(page).boundingBox()).y).toBeCloseTo(switchBox.y, 0);
 
   // Revealed: unticking keeps it in place.
   await tick(page, 'B');
@@ -374,10 +386,27 @@ test('ticking hides the row; reveal shows it in place; reopening the panel hides
   await expect(page.locator('[data-testid="card-progress"]').getByText('1/3')).toBeVisible(); // card face counts all
   await openCard(page, cardTitle);
   await expect(subtaskTitles(page)).toHaveText(['A', 'C']);
-  await expect(doneToggle(page)).toHaveText('▸ แสดงที่เสร็จแล้ว (1)');
+  await expectSwitch(page, 1, false);
 });
 
-test('a Card with every Subtask done shows only the reveal line and "+ Add subtask"', async ({ page }) => {
+test('switch on: untick the last done → switch gone; tick one again → it comes back on, row stays', async ({ page }) => {
+  const { cardTitle } = await setupBoard(page);
+  await openCard(page, cardTitle);
+  await pasteBatch(page, ['A', 'B']);
+  await tick(page, 'A');
+  await doneToggle(page).click();
+  await expectSwitch(page, 1, true);
+
+  await tick(page, 'A'); // untick the only done one
+  await expect(doneToggle(page)).toHaveCount(0);
+  await expect(doneCount(page)).toHaveCount(0);
+
+  await tick(page, 'B');
+  await expectSwitch(page, 1, true);
+  await expect(subtaskTitles(page)).toHaveText(['A', 'B']);
+});
+
+test('a Card with every Subtask done shows only the header switch and "+ Add subtask"', async ({ page }) => {
   const { cardTitle } = await setupBoard(page);
   await openCard(page, cardTitle);
   await pasteBatch(page, ['A', 'B']);
@@ -387,7 +416,7 @@ test('a Card with every Subtask done shows only the reveal line and "+ Add subta
   await openCard(page, cardTitle);
 
   await expect(subtaskTitles(page)).toHaveCount(0);
-  await expect(doneToggle(page)).toHaveText('▸ แสดงที่เสร็จแล้ว (2)');
+  await expectSwitch(page, 2, false);
   await expect(page.locator('aside').getByRole('button', { name: '+ Add subtask' })).toBeVisible();
 });
 

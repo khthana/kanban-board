@@ -1162,15 +1162,14 @@ Subtask ของงานบางประเภทซ้ำเป็นรู
 
 1. **Batch add ด้วยการวาง** — วางข้อความหลายบรรทัดลงในช่อง "+ Add subtask" → ช่องขยายเป็นกล่องหลายบรรทัดให้เห็นทุกบรรทัด พร้อมคำใบ้ `Enter เพื่อเพิ่ม N รายการ · Esc ยกเลิก` → กด Enter ได้ Subtask หนึ่งรายการต่อหนึ่งบรรทัด ต่อท้ายรายการเดิมตามลำดับบรรทัด แต่ละบรรทัดตั้งชื่ออิสระ (ไม่มี syntax รันเลข) — **ทั้งหมดหรือไม่เลย**: ถ้าผิดกติกาข้อใด ไม่เพิ่มสักรายการ ข้อความค้างในกล่องให้แก้แล้วกด Enter ใหม่
 2. **ขยายลิมิตเป็น 50 subtask ต่อ Card** (ทั้งเพิ่มทีละรายการและแบบ batch) — Subtask ยังเป็นชั้นเดียว
-3. **ซ่อน Subtask ที่เสร็จแล้ว** — `CardPanel` แสดงเฉพาะ Subtask ที่ยังไม่ติ๊ก ท้ายรายการมีบรรทัดเดียว `▸ แสดงที่เสร็จแล้ว (N)` กดแล้วกางรายการที่ติ๊กแล้วกลับมาในตำแหน่งเดิม (กลายเป็น `▾ ซ่อนที่เสร็จแล้ว`) ทุกครั้งที่เปิด panel จะ **ซ่อนเสมอ** (ไม่จำสถานะที่กาง) ในโหมดซ่อน ปุ่ม ↑ ↓ **ข้ามรายการที่ซ่อนอยู่** — สลับกับรายการถัดไปที่ *มองเห็น*
+3. **ซ่อน Subtask ที่เสร็จแล้ว** — `CardPanel` แสดงเฉพาะ Subtask ที่ยังไม่ติ๊ก หัวข้อ Subtasks มี **switch ชิดขวา** `✓ N [switch]` (N = จำนวนที่เสร็จ, เปิด = แสดงที่เสร็จแล้ว) เปิดแล้วรายการที่ติ๊กแล้วกางกลับมาในตำแหน่งเดิม — *เดิมเป็นบรรทัด `▸ แสดงที่เสร็จแล้ว (N)` ท้ายรายการ (#61) ย้ายขึ้นหัวข้อใน #83 เพราะกดแล้วของโผล่ด้านบนห่างจากจุดที่กดและปุ่มถูกดันลง* ทุกครั้งที่เปิด panel จะ **ซ่อนเสมอ** (ไม่จำสถานะที่กาง) ในโหมดซ่อน ปุ่ม ↑ ↓ **ข้ามรายการที่ซ่อนอยู่** — สลับกับรายการถัดไปที่ *มองเห็น*
 
 ```
-Subtasks (36)
+Subtasks (36)                    ✓ 14 [○─]
 ☐ ครั้งที่ 5 – เตรียม slide          ↑ ↓ ✕
 ☐ ครั้งที่ 5 – lecture note           ↑ ↓ ✕
   …
 + Add subtask
-▸ แสดงที่เสร็จแล้ว (14)
 ```
 
 ทั้งหมดอยู่ใน `CardPanel` ซึ่ง Board view และ List view ใช้ร่วมกัน จึงได้ทั้งสอง view
@@ -1196,7 +1195,7 @@ Subtasks (36)
 17. As a board member, I want up to 50 subtasks per Card, so that a full semester (12 sessions × several tasks) fits in one Card without nesting.
 18. As a board member, I want the "Maximum subtasks" hint and hidden "+ Add subtask" button to kick in at 50 instead of 20, so that the limit messaging stays consistent.
 19. As a board member, I want ticked subtasks hidden from the panel by default, so that I only see work that's still left.
-20. As a board member, I want a single `▸ แสดงที่เสร็จแล้ว (N)` line under the list, so that I know how many are done and can reveal them without extra clutter.
+20. As a board member, I want a compact `✓ N` switch at the right of the Subtasks header (#83; was a line under the list), so that I know how many are done and can reveal/hide them from a spot that doesn't move.
 21. As a board member, I want revealed done subtasks shown in their original positions (strikethrough as today), so that I can see the full sequence in context.
 22. As a board member, I want the done subtasks hidden again every time I open a Card panel, so that the default view is always "what's left".
 23. As a board member, I want a subtask I tick to disappear from the list immediately while hidden mode is on, so that the remaining list shrinks as I progress.
@@ -1204,7 +1203,7 @@ Subtasks (36)
 25. As a board member, I want ↑/↓ to swap with the next *visible* subtask while done items are hidden, so that every press visibly moves the item.
 26. As a board member, I want done subtasks skipped by ↑/↓ to keep their own positions, so that reordering visible items doesn't shuffle hidden ones.
 27. As a board member, I want the header count and the Card-face progress (segments/mini-bar + `done/total`) to keep counting all subtasks, hidden or not, so that progress stays accurate.
-28. As a board member, I want a Card whose subtasks are all done to show just the `▸ แสดงที่เสร็จแล้ว (N)` line and the "+ Add subtask" affordance, so that a finished checklist looks finished.
+28. As a board member, I want a Card whose subtasks are all done to show just the header switch `✓ N` and the "+ Add subtask" affordance, so that a finished checklist looks finished.
 29. As a board member, I want batch add and hiding to work identically from Board view and List view, so that I don't need to learn two flows.
 30. As a board member, I want batch-added subtasks to appear for teammates on the next poll, so that collaboration works as it does for single subtasks.
 
@@ -1237,7 +1236,7 @@ POST /cards/:cardId/subtasks/batch   body: { titles: string[] }  → 201 [subtas
 - ในกล่องหลายบรรทัด: **Enter** = commit batch, **Shift+Enter** = ขึ้นบรรทัดใหม่ (ให้แก้/เพิ่มบรรทัดเองได้), **Escape** = ยกเลิก + กลับเป็นช่องบรรทัดเดียว ข้อผิดพลาด (validation หรือจากเซิร์ฟเวอร์) แสดง inline ที่เดียวกับ error ของการเพิ่ม subtask เดิม ข้อความค้างอยู่ — ตาม pattern เดิมที่ subtask create จับ error แล้วแสดง inline (ไม่ใช้ op-error banner)
 - สำเร็จ → กลับเป็นช่องบรรทัดเดียวว่างที่ยังเปิดอยู่ (เหมือนหลังเพิ่มทีละรายการ)
 - state "แสดงที่เสร็จแล้ว" เป็น local state ของ panel เริ่มเป็นซ่อน reset ทุกครั้งที่เปิด panel หรือเปลี่ยน Card ไม่ persist
-- โหมดซ่อน: render เฉพาะรายการที่ยังไม่ติ๊ก + บรรทัด toggle `▸ แสดงที่เสร็จแล้ว (N)` (แสดงเมื่อ N > 0) โหมดกาง: render ทั้งหมดตาม position (เหมือนวันนี้) + `▾ ซ่อนที่เสร็จแล้ว`
+- โหมดซ่อน (switch ปิด): render เฉพาะรายการที่ยังไม่ติ๊ก โหมดกาง (switch เปิด): render ทั้งหมดตาม position — switch (`role="switch"`, `aria-checked`, label "แสดงที่เสร็จแล้ว") อยู่ชิดขวาในหัวข้อ Subtasks พร้อม `✓ N` แสดงเมื่อ N > 0 เท่านั้น; N กลับเป็น 0 แล้วมีรายการเสร็จอีก → switch กลับมาในสถานะเดิม (state ไม่ reset ระหว่างที่ panel เปิด) (#83)
 - ↑ ↓ ส่งโหมดปัจจุบันไปให้ `moveSubtask`; การ disable ปุ่ม ↑ ของรายการแรก / ↓ ของรายการสุดท้าย คิดจากรายการที่ *มองเห็น*
 - header `Subtasks (N)` และ progress บน Card face ไม่เปลี่ยน — นับทั้งหมด
 
@@ -1250,7 +1249,7 @@ POST /cards/:cardId/subtasks/batch   body: { titles: string[] }  → 201 [subtas
 - **API client (unit)** — `createSubtasks` normalize ทุกรายการ Prior art: `client.test.js`
 - **API integration** — endpoint batch: happy path (ลำดับ position ตาม array, คืน 201 array); ทั้งหมดหรือไม่เลย (ชื่อหนึ่งยาวเกิน → 400 และไม่มีอะไรถูก insert); ลิมิตรวมของเดิม (มี 40 + batch 11 → 400, batch 10 → 201); array ว่าง/ไม่ใช่ array → 400; non-member → 403; card ไม่พบ → 404; endpoint เดิมยอมรับรายการที่ 50 และปฏิเสธรายการที่ 51 Prior art: subtasks route tests
 - **Component** — ไม่มี unit test (ตามแนวทางเดิม) ครอบคลุมด้วย E2E
-- **E2E (Playwright)** ใน subtask spec: วางหลายบรรทัด (dispatch paste event) → กล่องขยาย + คำใบ้ → Enter → รายการครบตามลำดับ → reload ยังอยู่; วางเกินลิมิต → ไม่เพิ่ม ข้อความค้าง + ข้อความเตือน; Escape ยกเลิก; ติ๊ก → รายการหาย + บรรทัด "แสดงที่เสร็จแล้ว (1)" → กาง → เห็น → เปิด panel ใหม่ → ซ่อนอีก; ↑ ข้ามรายการที่ซ่อน → ลำดับ persist หลัง reload; เทส "max 20" เดิมเปลี่ยนเป็น 50 (seed ผ่าน batch เพื่อให้เร็ว) รอ response ของ POST/PATCH ก่อน assert ตาม wait pattern เดิมของ subtask spec
+- **E2E (Playwright)** ใน subtask spec: วางหลายบรรทัด (dispatch paste event) → กล่องขยาย + คำใบ้ → Enter → รายการครบตามลำดับ → reload ยังอยู่; วางเกินลิมิต → ไม่เพิ่ม ข้อความค้าง + ข้อความเตือน; Escape ยกเลิก; ติ๊ก → รายการหาย + switch `✓ 1` (ปิด) → เปิด → เห็น → เปิด panel ใหม่ → ซ่อนอีก; ↑ ข้ามรายการที่ซ่อน → ลำดับ persist หลัง reload; เทส "max 20" เดิมเปลี่ยนเป็น 50 (seed ผ่าน batch เพื่อให้เร็ว) รอ response ของ POST/PATCH ก่อน assert ตาม wait pattern เดิมของ subtask spec
 
 ### Out of Scope
 
