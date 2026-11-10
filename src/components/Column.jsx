@@ -42,11 +42,14 @@ function RenameForm({ column, onSave, onCancel }) {
   );
 }
 
+// view: the Column view (domain/columnView.js) — the Column, its Accent and its
+// Cards in position order. board: for each Card's Card view.
 export default function Column({
-  column, cards, board,
+  view, board,
   onRename, onDelete, onCardClick, onAddCard,
   dragOverlay = false,
 }) {
+  const { column, accent, cards, count } = view;
   const [renaming, setRenaming] = useState(false);
 
   const {
@@ -63,14 +66,13 @@ export default function Column({
   };
 
   function handleDelete() {
-    if (cards.length > 0) {
-      if (!window.confirm(`Delete "${column.name}"? Its ${cards.length} card(s) will also be deleted.`)) return;
+    if (count > 0) {
+      if (!window.confirm(`Delete "${column.name}"? Its ${count} card(s) will also be deleted.`)) return;
     }
     onDelete(column.id);
   }
 
   const cardIds = cards.map(c => c.id);
-  const accent = column.color || null;
   const rootClass = `${styles.column} ${accent ? styles.accented : ''}`;
   const rootStyle = accent ? { ...style, '--accent': accent } : style;
 
@@ -87,7 +89,7 @@ export default function Column({
           <>
             <div className={styles.dragHandle} {...listeners} title="Drag to reorder column">⋮⋮</div>
             <span className={styles.nameChip} data-testid="column-chip">{column.name}</span>
-            <span className={styles.count}>{cards.length}</span>
+            <span className={styles.count}>{count}</span>
             {!dragOverlay && (
               <div className={styles.headerRight}>
                 <button className={styles.btnIcon} title="Rename column" aria-label={`Rename column ${column.name}`} onClick={() => setRenaming(true)}>✏️</button>
@@ -100,7 +102,7 @@ export default function Column({
 
       <div ref={setDropRef} className={styles.cards}>
         <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
-          {cards.length === 0 && (
+          {count === 0 && (
             <p className={styles.empty}>No cards yet.</p>
           )}
           {cards.map(card => (

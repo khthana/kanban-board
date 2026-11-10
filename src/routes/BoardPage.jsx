@@ -10,6 +10,7 @@ import useBoardStore from '../store/useBoardStore';
 import { useBoardActions } from '../hooks/useBoardActions';
 import { usePolling } from '../hooks/usePolling';
 import { resolveDrag } from '../domain/dragDrop';
+import { columnView, columnViews } from '../domain/columnView';
 import { cardView } from '../domain/cardView';
 import { DND_ACTIVATION_DISTANCE } from '../constants';
 import TopBar from '../components/TopBar';
@@ -103,7 +104,7 @@ export default function BoardPage() {
   }
 
   const { board: boardData, columns, cards, members } = board;
-  const sortedColumns = [...columns].sort((a, b) => a.position - b.position);
+  const colViews = columnViews(board);
 
   // Active drag overlay data
   const activeCardData = activeDrag?.type === 'card'
@@ -140,13 +141,12 @@ export default function BoardPage() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <SortableContext items={sortedColumns.map(c => c.id)} strategy={horizontalListSortingStrategy}>
+            <SortableContext items={colViews.map(v => v.column.id)} strategy={horizontalListSortingStrategy}>
               <div className={styles.columns} style={activeCard ? { marginRight: 380 } : {}}>
-                {sortedColumns.map(col => (
+                {colViews.map(colView => (
                   <Column
-                    key={col.id}
-                    column={col}
-                    cards={cards.filter(c => c.columnId === col.id).sort((a, b) => a.position - b.position)}
+                    key={colView.column.id}
+                    view={colView}
                     board={board}
                     onRename={(colId, name, color) => actions.renameColumn(colId, { name, color })}
                     onDelete={actions.deleteColumn}
@@ -163,8 +163,7 @@ export default function BoardPage() {
                 <Card card={activeCardData} face={cardView(board, activeCardData)} dragOverlay />
               )}
               {activeColData && (
-                <Column column={activeColData}
-                  cards={cards.filter(c => c.columnId === activeColData.id).sort((a, b) => a.position - b.position)}
+                <Column view={columnView(board, activeColData)}
                   board={board}
                   onRename={() => {}} onDelete={() => {}} onCardClick={() => {}} onAddCard={() => {}}
                   dragOverlay
@@ -176,7 +175,6 @@ export default function BoardPage() {
 
         {view === 'list' && (
           <ListView
-            sortedColumns={sortedColumns}
             board={board}
             onAddColumn={actions.createColumn}
             onCardClick={setActiveCard}

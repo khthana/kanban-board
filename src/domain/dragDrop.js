@@ -1,4 +1,5 @@
 import { positionBetween } from './ordering';
+import { columnViews } from './columnView';
 
 function moveInArray(arr, fromIdx, toIdx) {
   const result = [...arr];
@@ -27,10 +28,12 @@ function resolveCardTarget(overId, overData) {
   return null;
 }
 
-export function resolveDrag({ columns, cards }, { active, over }) {
+export function resolveDrag(board, { active, over }) {
   if (!over || active.id === over.id) return null;
 
-  const sortedCols = [...columns].sort((a, b) => a.position - b.position);
+  const views = columnViews(board);
+  const sortedCols = views.map(v => v.column);
+  const cards = board.cards;
   const activeType = active.data.current?.type;
 
   if (activeType === 'column') {
@@ -51,9 +54,8 @@ export function resolveDrag({ columns, cards }, { active, over }) {
     const toColumnId = resolveCardTarget(over.id, over.data.current);
     if (!toColumnId) return null;
 
-    const colCards = cards
-      .filter(c => c.columnId === toColumnId && c.id !== active.id)
-      .sort((a, b) => a.position - b.position);
+    const colCards = (views.find(v => v.column.id === toColumnId)?.cards ?? [])
+      .filter(c => c.id !== active.id);
 
     const overType = over.data.current?.type;
     let position;
