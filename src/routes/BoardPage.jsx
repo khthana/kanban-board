@@ -25,7 +25,7 @@ export default function BoardPage() {
   const { boardId } = useParams();
   const navigate    = useNavigate();
   const { currentUserId } = useSession();
-  const { board, loading, error, failedCreate, fetchBoard, pollBoard } = useBoardStore();
+  const { board, boardStatus, fetchBoard, pollBoard } = useBoardStore();
 
   const [activeCard, setActiveCard]   = useState(null);
   const [inviteOpen, setInviteOpen]   = useState(false);
@@ -63,14 +63,15 @@ export default function BoardPage() {
     }
   }, [board?.cards, board?.cardLabels]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // only navigate away for fetch/auth errors (403/404, or the Board's create
-  // failed), not mutation errors. A failed create's error goes along, since
-  // the list's fetch on mount clears the store's (#76).
+  // The Board didn't open (fetch 403/404, or its create failed): back to the
+  // list. A failed create's error is the list's own `listError`, so it shows
+  // there without being carried along (#76, #79).
+  // Only this Board's status counts: one left failed by the Board before must
+  // not eject this one.
+  const status = boardStatus.boardId === boardId ? boardStatus.state : 'loading';
   useEffect(() => {
-    if (error && (loading === false && !board)) {
-      navigate('/boards', { replace: true, state: failedCreate ? { error: failedCreate } : undefined });
-    }
-  }, [error, failedCreate, loading, board, navigate]);
+    if (status === 'failed') navigate('/boards', { replace: true });
+  }, [status, navigate]);
 
   // Polling (pollBoard has already written the snapshot into the store): if
   // the open card is now missing from the board, another member deleted it.
@@ -97,7 +98,7 @@ export default function BoardPage() {
     }
   }
 
-  if (loading || !board) {
+  if (status !== 'open' || !board) {
     return <div className={styles.loading}>Loading…</div>;
   }
 

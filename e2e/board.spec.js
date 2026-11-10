@@ -133,3 +133,20 @@ test('open a new board, then its POST fails → back on /boards with the error s
   await expect(page.getByRole('button', { name: 'Create Board' })).toBeVisible();
   await expect(page.getByText('Server error')).toHaveCount(0);
 });
+
+// #79: a Board that failed to open must not eject the next one opened.
+test('after a Board fails to open, the next Board opens normally', async ({ page }) => {
+  await register(page, `user-${uid()}@test.com`, PW, 'Test User');
+  await page.fill('input[placeholder="New board name…"]', 'Next Board');
+  await Promise.all([
+    page.waitForResponse(r => /\/boards$/.test(r.url()) && r.request().method() === 'POST' && r.status() === 201),
+    page.click('button:has-text("Create Board")'),
+  ]);
+
+  await page.goto('/boards/00000000-0000-4000-8000-000000000000');   // no such Board
+  await expect(page).toHaveURL(/\/boards$/);
+
+  await page.getByRole('link', { name: 'Next Board' }).click();
+  await expect(page.getByText('+ Add column')).toBeVisible();
+  await expect(page).toHaveURL(/\/boards\/[0-9a-f-]{36}$/);
+});

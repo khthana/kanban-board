@@ -19,7 +19,17 @@ import { init, enqueue, ready, start, succeed, fail, startPoll, receivePoll, vie
 // - New records get a client-chosen id (#71), so a placeholder is the record.
 // A failure removes just that op (and, for a create, the ops waiting on it);
 // a 404 runs `gone` on the server board. The caller's promise resolves with
-// the commit's result or rejects with its error, and `error` is set.
+// the commit's result or rejects with its error — that rejection is the only
+// report; the board actions decide what the user sees (#68, #79).
+//
+// Status (#79), one home per meaning:
+// - boardStatus: the last Board load — { state: 'idle' } or { state, boardId }
+//   with state 'loading' | 'open', or 'failed' plus `error` (fetch 403/404, or
+//   its create failed). Keyed on the Board, so a status left from another
+//   Board (e.g. the one that just failed) never speaks for this one.
+// - listError: a /boards list op failed. Kept until the next list op or until
+//   a Board opens, so a failed create still shows after the eject to /boards.
+// - listFetchError / listLoading: the /boards list fetch.
 
 // position after the last item in a collection (or first slot when empty)
 const nextPosition = (items, getPos = i => i.position) =>
@@ -71,8 +81,10 @@ const dependantError = err => new Error(err.message);
 const useBoardStore = create((set, get) => {
   // A pending-ops queue over one slice of the store: `opsKey` holds the
   // pendingOps state, `viewKey` its view. Two adapters (#78): the open board
-  // (ops → board) and the /boards list (listOps → boards).
-  const opQueue = (opsKey, viewKey) => {
+  // (ops → board) and the /boards list (listOps → boards). `errorKey`, if
+  // given, holds the last op failure (cleared when an op is enqueued).
+  const opQueue = (opsKey, viewKey, errorKey) => {
+    const errorOf = message => (errorKey ? { [errorKey]: message } : undefined);
     const state = () => get()[opsKey];
     const setOps = (ops, extra) => set({ [opsKey]: ops, [viewKey]: view(ops), ...extra });
 
@@ -100,7 +112,7 @@ const useBoardStore = create((set, get) => {
             const { state: next, failed } = fail(state(), op.id, err);
             // `quiet`: the failure no longer matters to the user (a rename of a
             // Board they have since asked to delete) — drop it without a banner.
-            setOps(next, op.quiet?.(next) ? undefined : { error: err.message });
+            setOps(next, op.quiet?.(next) ? undefined : errorOf(err.message));
             failed.filter(id => id !== op.id).forEach(id => answer(id, 'reject', dependantError(err)));
             answer(op.id, 'reject', err);
             pump();
@@ -116,7 +128,7 @@ const useBoardStore = create((set, get) => {
       let resolve, reject;
       const done = new Promise((res, rej) => { resolve = res; reject = rej; });
       callers.set(id, { resolve, reject, done });
-      setOps(enqueue(ops, { ...op, id }), { error: null });
+      setOps(enqueue(ops, { ...op, id }), errorOf(null));
       pump();
       return done;
     };
@@ -156,18 +168,21 @@ const useBoardStore = create((set, get) => {
 
   // The open board (#73) and the /boards list (#78).
   const open = opQueue('ops', 'board');
-  const list = opQueue('listOps', 'boards');
+  const list = opQueue('listOps', 'boards', 'listError');
   const { setOps, run } = open;
   const closeBoard = () => open.dropUnstarted('The board was closed.');
+  // Board `boardId` opened: the list's last op error has had its moment.
+  const openedPatch = boardId => ({ boardStatus: { state: 'open', boardId }, listError: null });
 
   return {
     listOps: init([]),
     boards: [],
     ops: null,
     board: null,
-    loading: false,
-    error: null,
-    failedCreate: null,   // the error of a just-opened Board whose create failed (#76)
+    boardStatus: { state: 'idle' },
+    listError: null,
+    listFetchError: null,
+    listLoading: false,
 
     // ── boards ──────────────────────────────────────────────────────────────────
     // The /boards list is a pending-ops list (#78, re-deciding #69 decision 6):
@@ -177,12 +192,12 @@ const useBoardStore = create((set, get) => {
     // list fetch is a poll that pending ops replay on.
 
     fetchBoards: async () => {
-      set({ loading: true, error: null });
+      set({ listLoading: true, listFetchError: null });
       try {
         await list.poll(() => client.getBoards());
-        set({ loading: false });
+        set({ listLoading: false });
       } catch (err) {
-        set({ error: err.message, loading: false });
+        set({ listFetchError: err.message, listLoading: false });
       }
     },
 
@@ -191,12 +206,11 @@ const useBoardStore = create((set, get) => {
     // fresh pending-ops board whose clock carries on, so an old poll is stale.
     // A Board whose create is still pending is opened once the create lands.
     fetchBoard: async (boardId) => {
-      set({ loading: true, error: null, failedCreate: null });
+      set({ boardStatus: { state: 'loading', boardId } });
       const createFailed = await list.created(boardId);
-      if (createFailed) {                    // nothing to open: keep the create's error
+      if (createFailed) {                    // nothing to open (listError keeps the message)
         closeBoard();
-        const error = createFailed.message;
-        set({ ops: null, board: null, error, failedCreate: error, loading: false });
+        set({ ops: null, board: null, boardStatus: { state: 'failed', boardId, error: createFailed.message } });
         return;
       }
       const sent = get().ops && startPoll(get().ops);
@@ -205,13 +219,16 @@ const useBoardStore = create((set, get) => {
         const data = await client.getBoard(boardId);
         const ops = get().ops;
         if (ops && ops.server.board?.id === boardId) {
-          setOps(receivePoll(ops, data, sent.mark), { loading: false });
+          // Sent with nothing open, and another fetch opened it meanwhile (e.g.
+          // StrictMode's double effect): no mark to order it by — that one's
+          // snapshot stands.
+          setOps(sent ? receivePoll(ops, data, sent.mark) : ops, openedPatch(boardId));
         } else {
           closeBoard();
-          setOps(init(data, ops), { loading: false });
+          setOps(init(data, ops), openedPatch(boardId));
         }
       } catch (err) {
-        set({ error: err.message, loading: false });
+        set({ boardStatus: { state: 'failed', boardId, error: err.message } });
       }
     },
 
@@ -408,13 +425,7 @@ const useBoardStore = create((set, get) => {
     // the email — so on success it polls the board like the timer does. A failed
     // poll doesn't fail the invite (it went through; the next poll catches up).
     addMember: async (boardId, { email }) => {
-      try {
-        await client.addMember(boardId, { email });
-      } catch (err) {
-        set({ error: err.message });
-        throw err;
-      }
-      set({ error: null });
+      await client.addMember(boardId, { email });   // a failure rejects: InviteDialog shows it
       await get().pollBoard(boardId).catch(() => {});
     },
 

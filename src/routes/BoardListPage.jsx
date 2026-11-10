@@ -5,8 +5,8 @@ import useBoardStore from '../store/useBoardStore';
 import { validateBoardName } from '../domain/validation';
 import styles from './BoardListPage.module.css';
 
-// Board mutations roll back and set the store's `error` (rendered on this page)
-// on failure; swallow the rethrow so it isn't an unhandled rejection.
+// Board mutations roll back and set the store's `listError` (rendered on this
+// page) on failure; swallow the rethrow so it isn't an unhandled rejection.
 const handledByStore = () => {};
 
 function CreateBoardForm({ onSubmit }) {
@@ -66,22 +66,14 @@ function RenameForm({ board, onSave, onCancel }) {
 
 export default function BoardListPage() {
   const { currentUserId, logout } = useSession();
-  const { boards, loading, error, fetchBoards, createBoard, renameBoard, deleteBoard } = useBoardStore();
+  const { boards, listLoading, listError, listFetchError, fetchBoards, createBoard, renameBoard, deleteBoard } = useBoardStore();
   const [renamingId, setRenamingId] = useState(null);
   const location = useLocation();
   const navigate  = useNavigate();
   const ejected   = location.state?.ejected ?? false;
-  // Why the Board just left didn't open — its create failed (#76). Shown until
-  // the next list action, and taken out of the history entry so a reload or
-  // Back doesn't bring it back. The list's own errors win.
-  const [failedCreate, setFailedCreate] = useState(location.state?.error ?? null);
-  useEffect(() => {
-    if (location.state?.error) {
-      const { error: _shown, ...rest } = location.state;
-      navigate(location.pathname, { replace: true, state: Object.keys(rest).length ? rest : null });
-    }
-  }, [location, navigate]);
-  const shownError = error ?? failedCreate;
+  // A failed list op (incl. the create of a Board that was being opened, #76)
+  // shows until the next list op; a failed fetch until the next fetch (#79).
+  const shownError = listError ?? listFetchError;
 
   function handleLogout() {
     logout();
@@ -93,19 +85,16 @@ export default function BoardListPage() {
   }, [fetchBoards]);
 
   function handleCreate(name) {
-    setFailedCreate(null);
     createBoard(currentUserId, { name }).catch(handledByStore);
   }
 
   function handleRename(boardId, name) {
     setRenamingId(null);
-    setFailedCreate(null);
     renameBoard(boardId, { name }).catch(handledByStore);
   }
 
   function handleDelete(boardId) {
     if (!window.confirm('Delete this board? This cannot be undone.')) return;
-    setFailedCreate(null);
     deleteBoard(boardId).catch(handledByStore);
   }
 
@@ -124,9 +113,9 @@ export default function BoardListPage() {
 
         <CreateBoardForm onSubmit={handleCreate} />
 
-        {loading && <p className={styles.status}>Loading…</p>}
+        {listLoading && <p className={styles.status}>Loading…</p>}
 
-        {!loading && boards.length === 0 && (
+        {!listLoading && boards.length === 0 && (
           <p className={styles.empty}>No boards yet. Create one above.</p>
         )}
 

@@ -40,7 +40,7 @@ const board = () => useBoardStore.getState().board;
 
 beforeEach(async () => {
   jest.clearAllMocks();
-  useBoardStore.setState({ listOps: init([]), boards: [], ops: null, board: null, loading: false, error: null, failedCreate: null });
+  useBoardStore.setState({ listOps: init([]), boards: [], ops: null, board: null, boardStatus: { state: 'idle' }, listError: null, listFetchError: null, listLoading: false });
   await openBoard({ board: makeBoard() });
 });
 
@@ -209,7 +209,6 @@ describe('patchCard', () => {
 
     expect(result).toMatchObject({ title: 'Server' });
     expect(useBoardStore.getState().board.cards[0].title).toBe('Server');
-    expect(useBoardStore.getState().error).toBeNull();
   });
 
   test('rolls back and rethrows on API failure', async () => {
@@ -219,7 +218,6 @@ describe('patchCard', () => {
       .rejects.toThrow('boom');
 
     expect(useBoardStore.getState().board.cards[0].title).toBe('Old');
-    expect(useBoardStore.getState().error).toBe('boom');
   });
 });
 
@@ -329,7 +327,6 @@ describe('moveSubtask', () => {
     await expect(useBoardStore.getState().moveSubtaskDown('s1')).rejects.toThrow('fail');
 
     expect(useBoardStore.getState().board.subtasks.find(s => s.id === 's1').position).toBe(1);
-    expect(useBoardStore.getState().error).toBe('fail');
   });
 
   test('is a no-op at the boundary (first item cannot move up)', async () => {
@@ -444,7 +441,6 @@ describe('createSubtasks (the one way to add Subtasks: PRD §12, #67)', () => {
       .rejects.toThrow('maximum 50 subtasks per card');
 
     expect(card1Subtasks().map(s => s.id)).toEqual(['s1', 's2', 's3']);
-    expect(useBoardStore.getState().error).toBe('maximum 50 subtasks per card');
   });
 
   test('a single typed title is a batch of one, placed last', async () => {
@@ -464,7 +460,6 @@ describe('toggleSubtask', () => {
     await expect(useBoardStore.getState().toggleSubtask('s1')).rejects.toThrow('x');
 
     expect(useBoardStore.getState().board.subtasks.find(s => s.id === 's1').checked).toBe(false);
-    expect(useBoardStore.getState().error).toBe('x');
   });
 });
 
@@ -475,7 +470,6 @@ describe('deleteSubtask', () => {
     await expect(useBoardStore.getState().deleteSubtask('s1')).rejects.toThrow('gone');
 
     expect(useBoardStore.getState().board.subtasks.map(s => s.id)).toContain('s1');
-    expect(useBoardStore.getState().error).toBe('gone');
   });
 });
 
@@ -722,7 +716,6 @@ describe('pending-ops board — edges (#73 review)', () => {
     await expect(queued).rejects.toThrow('The board was closed.');
     first.reject(new Error('late failure'));
     await expect(inFlight).rejects.toThrow('late failure');
-    expect(useBoardStore.getState().error).toBeNull();
     expect(board().board.id).toBe('b2');
   });
 
@@ -820,7 +813,7 @@ describe('createBoard with a client-chosen id (#75)', () => {
     client.createBoard.mockRejectedValueOnce(new Error('boom'));
     await expect(useBoardStore.getState().createBoard('u1', { name: 'New' })).rejects.toThrow('boom');
     expect(useBoardStore.getState().boards.map(b => b.id)).toEqual(['old']);
-    expect(useBoardStore.getState().error).toBe('boom');
+    expect(useBoardStore.getState().listError).toBe('boom');
   });
 
   it('a failed create: opening it sends no GET, closes the open board and keeps the create error', async () => {
@@ -837,7 +830,7 @@ describe('createBoard with a client-chosen id (#75)', () => {
     expect(client.getBoard).not.toHaveBeenCalled();
     expect(useBoardStore.getState().boards).toEqual([]);
     expect(board()).toBeNull();                                       // b1 no longer shows under the new URL
-    expect(useBoardStore.getState().error).toBe('boom');
+    expect(useBoardStore.getState().listError).toBe('boom');
   });
 
   it('a failed delete puts back only that Board, not a list that went stale meanwhile', async () => {
@@ -905,7 +898,7 @@ describe('renameBoard: the latest rename owns the name (#76; queued per Board si
     b.reject(new Error('nope'));
     await rb;
     expect(names()).toEqual(['A']);
-    expect(useBoardStore.getState().error).toBe('nope');
+    expect(useBoardStore.getState().listError).toBe('nope');
   });
 
   // #78: renames of one Board are queued on its id — the second PATCH goes
@@ -964,11 +957,11 @@ describe('/boards list: renames, deletes and a list fetch in flight together (#7
     await renaming;
     await flush();
     expect(names()).toEqual([]);                          // the delete still pending
-    expect(useBoardStore.getState().error).toBeNull();    // the user asked to delete it
+    expect(useBoardStore.getState().listError).toBeNull();    // the user asked to delete it
     del.reject(new Error('delete failed'));
     await deleting;
     expect(names()).toEqual(['Orig']);
-    expect(useBoardStore.getState().error).toBe('delete failed');
+    expect(useBoardStore.getState().listError).toBe('delete failed');
   });
 
   it('a list fetch landing mid-flight: pending creates, renames and deletes replay on top', async () => {
@@ -987,17 +980,6 @@ describe('/boards list: renames, deletes and a list fetch in flight together (#7
     ]);
     await useBoardStore.getState().fetchBoards();
     expect(useBoardStore.getState().boards.map(b => [b.id, b.name])).toEqual([['x', 'X2'], ['z', 'Z'], [newId, 'New']]);
-  });
-
-  it('opening a Board whose create failed flags it, so the eject can carry the error to /boards', async () => {
-    client.createBoard.mockRejectedValueOnce(new Error('boom'));
-    const creating = useBoardStore.getState().createBoard('u1', { name: 'New' }).catch(() => {});
-    const { id } = useBoardStore.getState().boards[0];
-    await Promise.all([creating, useBoardStore.getState().fetchBoard(id)]);
-    expect(useBoardStore.getState().failedCreate).toBe('boom');
-
-    await openBoard({ board: makeBoard() });
-    expect(useBoardStore.getState().failedCreate).toBeNull();
   });
 });
 
@@ -1020,7 +1002,7 @@ describe('the /boards list is a pending-ops list (#78)', () => {
     await fetching;
     expect(client.getBoards).toHaveBeenCalledTimes(2);
     expect(ids()).toEqual(['old', id]);
-    expect(useBoardStore.getState().loading).toBe(false);
+    expect(useBoardStore.getState().listLoading).toBe(false);
   });
 
   it('overlapping list fetches: an older one landing after a newer one is dropped, not fetched again', async () => {
@@ -1050,6 +1032,101 @@ describe('the /boards list is a pending-ops list (#78)', () => {
     expect(client.patchBoard).not.toHaveBeenCalled();
     expect(client.deleteBoard).not.toHaveBeenCalled();
     expect(ids()).toEqual([]);
-    expect(useBoardStore.getState().error).toBe('boom');
+    expect(useBoardStore.getState().listError).toBe('boom');
+  });
+});
+
+// #79: one `error` meant three things. Now the list has its own error, the
+// open board an explicit load status, and open-board op failures reach the
+// user only through the board actions' policy (the op's promise rejects).
+describe('split store errors (#79)', () => {
+  const st = () => useBoardStore.getState();
+
+  it('an open-board op failing after the user went back to /boards is not a list error', async () => {
+    const patch = held();
+    client.patchCard.mockReturnValueOnce(patch.promise);
+    const patching = st().patchCard('card1', { title: 'New' }).catch(e => e);
+    client.getBoards.mockResolvedValueOnce([]);
+    await st().fetchBoards();                       // on /boards now
+    patch.reject(new Error('op failed'));
+    expect((await patching).message).toBe('op failed');
+    expect(st().listError).toBeNull();
+    expect(st().listFetchError).toBeNull();
+  });
+
+  it('load status: loading → open; a failed fetch (404 or 403) → failed with its error', async () => {
+    expect(st().boardStatus).toEqual({ state: 'open', boardId: 'b1' });   // the outer beforeEach opened b1
+    const get = held();
+    client.getBoard.mockReturnValueOnce(get.promise);
+    const opening = st().fetchBoard('b2');
+    expect(st().boardStatus).toEqual({ state: 'loading', boardId: 'b2' });
+    get.reject(Object.assign(new Error('board not found'), { status: 404 }));
+    await opening;
+    expect(st().boardStatus).toEqual({ state: 'failed', boardId: 'b2', error: 'board not found' });
+
+    client.getBoard.mockRejectedValueOnce(Object.assign(new Error('forbidden'), { status: 403 }));
+    await st().fetchBoard('b3');
+    expect(st().boardStatus).toEqual({ state: 'failed', boardId: 'b3', error: 'forbidden' });
+  });
+
+  it('two fetches of a Board opened from nothing (StrictMode runs the effect twice) both open it', async () => {
+    useBoardStore.setState({ ops: null, board: null, boardStatus: { state: 'idle' } });
+    const a = held(), b = held();
+    client.getBoard.mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise);
+    const first = st().fetchBoard('b1');
+    const second = st().fetchBoard('b1');
+    a.resolve(makeBoard());
+    await first;
+    b.resolve(makeBoard());
+    await second;
+    expect(st().boardStatus).toEqual({ state: 'open', boardId: 'b1' });
+    expect(board().board.id).toBe('b1');
+  });
+
+  it('load status is keyed on the Board: after one failed, opening the next starts fresh', async () => {
+    client.getBoard.mockRejectedValueOnce(Object.assign(new Error('board not found'), { status: 404 }));
+    await st().fetchBoard('gone');
+    expect(st().boardStatus.boardId).toBe('gone');
+    await openBoard({ board: makeBoard() });
+    expect(st().boardStatus).toEqual({ state: 'open', boardId: 'b1' });
+  });
+
+  it('load status: a Board whose create failed → failed with the create error, which the list keeps', async () => {
+    const post = held();
+    client.createBoard.mockReturnValueOnce(post.promise);
+    st().createBoard('u1', { name: 'New' }).catch(() => {});
+    const { id } = st().boards[0];
+    const opening = st().fetchBoard(id);
+    post.reject(new Error('boom'));
+    await opening;
+    expect(st().boardStatus).toEqual({ state: 'failed', boardId: id, error: 'boom' });
+
+    client.getBoards.mockResolvedValueOnce([]);
+    await st().fetchBoards();                       // back on /boards: the list's mount fetch
+    expect(st().listError).toBe('boom');
+  });
+
+  it('the list error clears on the next list action, or when a Board opens', async () => {
+    client.createBoard.mockRejectedValueOnce(new Error('boom'));
+    await st().createBoard('u1', { name: 'X' }).catch(() => {});
+    expect(st().listError).toBe('boom');
+    await openBoard({ board: makeBoard() });
+    expect(st().listError).toBeNull();
+
+    client.createBoard.mockRejectedValueOnce(new Error('again'));
+    await st().createBoard('u1', { name: 'X' }).catch(() => {});
+    client.createBoard.mockImplementationOnce(async ({ name, id }) => ({ id, name, ownerId: 'u1' }));
+    await st().createBoard('u1', { name: 'Y' });
+    expect(st().listError).toBeNull();
+  });
+
+  it('a failed list fetch is its own error, cleared by the next fetch', async () => {
+    client.getBoards.mockRejectedValueOnce(new Error('offline'));
+    await st().fetchBoards();
+    expect(st().listFetchError).toBe('offline');
+    expect(st().listLoading).toBe(false);
+    client.getBoards.mockResolvedValueOnce([]);
+    await st().fetchBoards();
+    expect(st().listFetchError).toBeNull();
   });
 });
