@@ -1,27 +1,26 @@
 import express from 'express';
 import pool from '../db/pool.js';
 import inTransaction from '../db/inTransaction.js';
-import { MAX_NAME_LENGTH } from '../../../src/domain/validation.js';
 import requireAuth from '../middleware/requireAuth.js';
 import { requireMembership, requireOwner } from '../middleware/requireMembership.js';
-import { isValidHex } from '../lib/validation.js';
+import * as entity from '../db/entities.js';
 import { isClientId, isIdTaken, CLIENT_ID_ERROR, ID_TAKEN_ERROR } from '../db/clientId.js';
 
 const router = express.Router();
 router.use(requireAuth);
 
 router.post('/', async (req, res) => {
-  const { name, id: clientId } = req.body;
-  if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
-  if (name.trim().length > MAX_NAME_LENGTH) return res.status(400).json({ error: 'name too long' });
+  const { error, values } = entity.checkFields(entity.board, req.body, { required: ['name'] });
+  if (error) return res.status(400).json({ error });
+  const { id: clientId } = req.body;
   if (!isClientId(clientId)) return res.status(400).json({ error: CLIENT_ID_ERROR });
 
   try {
     const board = await inTransaction(async client => {
       const { rows } = await client.query(
         `INSERT INTO boards (id, name, owner_id) VALUES (COALESCE($3::uuid, gen_random_uuid()), $1, $2)
-         RETURNING id, name, owner_id, created_at`,
-        [name.trim(), req.user.id, clientId ?? null]
+         RETURNING ${entity.columnList(entity.board)}`,
+        [values.name, req.user.id, clientId ?? null]
       );
       await client.query(
         `INSERT INTO board_members (board_id, user_id, role) VALUES ($1, $2, 'owner')`,
@@ -38,7 +37,7 @@ router.post('/', async (req, res) => {
 
 router.get('/', async (req, res) => {
   const { rows } = await pool.query(
-    `SELECT b.id, b.name, b.owner_id, b.created_at
+    `SELECT ${entity.columnList(entity.board, 'b')}
      FROM boards b
      JOIN board_members bm ON bm.board_id = b.id
      WHERE bm.user_id = $1
@@ -52,17 +51,16 @@ router.get('/:id', requireMembership('id'), async (req, res) => {
   const id = req.boardId;
 
   const { rows: boards } = await pool.query(
-    `SELECT id, name, owner_id, created_at FROM boards WHERE id = $1`, [id]
+    `SELECT ${entity.columnList(entity.board)} FROM boards WHERE id = $1`, [id]
   );
   if (boards.length === 0) return res.status(404).json({ error: 'board not found' });
 
   const { rows: columns } = await pool.query(
-    `SELECT id, name, position, color FROM columns WHERE board_id = $1 ORDER BY position`, [id]
+    `SELECT ${entity.columnList(entity.column)} FROM columns WHERE board_id = $1 ORDER BY position`, [id]
   );
 
   const { rows: cards } = await pool.query(
-    `SELECT c.id, c.column_id, c.title, c.description,
-            c.due_date, c.position, c.category_label_id, c.completed_at
+    `SELECT ${entity.columnList(entity.card, 'c')}
      FROM cards c
      JOIN columns col ON col.id = c.column_id
      WHERE col.board_id = $1
@@ -71,7 +69,7 @@ router.get('/:id', requireMembership('id'), async (req, res) => {
   );
 
   const { rows: labels } = await pool.query(
-    `SELECT id, name, color FROM labels WHERE board_id = $1 ORDER BY created_at, id`, [id]
+    `SELECT ${entity.columnList(entity.label)} FROM labels WHERE board_id = $1 ORDER BY created_at, id`, [id]
   );
 
   const { rows: memberRows } = await pool.query(
@@ -121,7 +119,7 @@ router.get('/:id', requireMembership('id'), async (req, res) => {
   }
 
   const { rows: subtaskRows } = await pool.query(
-    `SELECT s.id, s.card_id, s.title, s.checked, s.position
+    `SELECT ${entity.columnList(entity.subtask, 's')}
      FROM subtasks s
      JOIN cards c ON c.id = s.card_id
      JOIN columns col ON col.id = c.column_id
@@ -133,7 +131,7 @@ router.get('/:id', requireMembership('id'), async (req, res) => {
   const subtasksByCard = {};
   for (const s of subtaskRows) {
     if (!subtasksByCard[s.card_id]) subtasksByCard[s.card_id] = [];
-    subtasksByCard[s.card_id].push({ id: s.id, card_id: s.card_id, title: s.title, checked: s.checked, position: s.position });
+    subtasksByCard[s.card_id].push(s);
   }
 
   const columnMap = columns.map(col => ({
@@ -148,16 +146,12 @@ router.get('/:id', requireMembership('id'), async (req, res) => {
 
 router.patch('/:id', requireOwner('id'), async (req, res) => {
   const id = req.boardId;
-  const { name } = req.body;
-  if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
-  if (name.trim().length > MAX_NAME_LENGTH) return res.status(400).json({ error: 'name too long' });
+  const { error, values } = entity.checkFields(entity.board, req.body, { required: ['name'] });
+  if (error) return res.status(400).json({ error });
 
-  const { rows } = await pool.query(
-    `UPDATE boards SET name = $1, updated_at = now() WHERE id = $2 RETURNING id, name, owner_id, created_at`,
-    [name.trim(), id]
-  );
-  if (rows.length === 0) return res.status(404).json({ error: 'board not found' });
-  return res.json(rows[0]);
+  const updated = await entity.updateRow(pool, entity.board, id, values);
+  if (!updated) return res.status(404).json({ error: 'board not found' });
+  return res.json(updated);
 });
 
 router.delete('/:id', requireOwner('id'), async (req, res) => {
@@ -167,9 +161,9 @@ router.delete('/:id', requireOwner('id'), async (req, res) => {
 
 router.post('/:id/columns', requireMembership('id'), async (req, res) => {
   const id = req.boardId;
-  const { name, id: clientId } = req.body;
-  if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
-  if (name.trim().length > MAX_NAME_LENGTH) return res.status(400).json({ error: 'name too long' });
+  const { error, values } = entity.checkFields(entity.column, req.body, { only: ['name'], required: ['name'] });
+  if (error) return res.status(400).json({ error });
+  const { id: clientId } = req.body;
   if (!isClientId(clientId)) return res.status(400).json({ error: CLIENT_ID_ERROR });
 
   const { rows: maxRows } = await pool.query(
@@ -181,8 +175,8 @@ router.post('/:id/columns', requireMembership('id'), async (req, res) => {
   try {
     ({ rows } = await pool.query(
       `INSERT INTO columns (id, board_id, name, position) VALUES (COALESCE($4::uuid, gen_random_uuid()), $1, $2, $3)
-       RETURNING id, board_id, name, position, color`,
-      [id, name.trim(), position, clientId ?? null]
+       RETURNING ${entity.columnList(entity.column)}`,
+      [id, values.name, position, clientId ?? null]
     ));
   } catch (err) {
     if (isIdTaken(err)) return res.status(409).json({ error: ID_TAKEN_ERROR });
@@ -218,18 +212,17 @@ router.post('/:id/members', requireOwner('id'), async (req, res) => {
 
 router.post('/:id/labels', requireMembership('id'), async (req, res) => {
   const id = req.boardId;
-  const { name, color, id: clientId } = req.body;
-  if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
-  if (name.trim().length > MAX_NAME_LENGTH) return res.status(400).json({ error: 'name too long' });
-  if (!color || !isValidHex(color)) return res.status(400).json({ error: 'color must be a valid hex color' });
+  const { error, values } = entity.checkFields(entity.label, req.body, { required: ['name', 'color'] });
+  if (error) return res.status(400).json({ error });
+  const { id: clientId } = req.body;
   if (!isClientId(clientId)) return res.status(400).json({ error: CLIENT_ID_ERROR });
 
   let rows;
   try {
     ({ rows } = await pool.query(
       `INSERT INTO labels (id, board_id, name, color) VALUES (COALESCE($4::uuid, gen_random_uuid()), $1, $2, $3)
-       RETURNING id, board_id, name, color`,
-      [id, name.trim(), color, clientId ?? null]
+       RETURNING ${entity.columnList(entity.label)}`,
+      [id, values.name, values.color, clientId ?? null]
     ));
   } catch (err) {
     if (isIdTaken(err)) return res.status(409).json({ error: ID_TAKEN_ERROR });

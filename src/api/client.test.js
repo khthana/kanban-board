@@ -1,11 +1,41 @@
 import * as client from './client';
 import * as auth from './auth';
+import { card as apiCard } from '../../api/src/db/entities';
+
+const camel = s => s.replace(/_(\w)/g, (_, c) => c.toUpperCase());
 
 jest.mock('./auth');
 
 const hasSnakeKey = obj => Object.keys(obj).some(k => k.includes('_'));
 
 beforeEach(() => jest.clearAllMocks());
+
+describe('the client mapper covers every Card field the API returns (#82)', () => {
+  // api/src/db/entities.js describes the Card row every route returns; a field
+  // added there fails here until normalizeCard maps it.
+
+  test('normalizeCard maps each column of the API Card row', async () => {
+    const row = Object.fromEntries(apiCard.returns.map(c => [c, `v-${c}`]));
+    auth.apiFetch.mockResolvedValue(row);
+
+    const normalized = await client.patchCard('k1', { title: 'T' });
+
+    for (const column of apiCard.returns) {
+      expect(normalized).toHaveProperty(camel(column));
+      expect(normalized[camel(column)]).toBeDefined();
+    }
+    expect(hasSnakeKey(normalized)).toBe(false);
+  });
+
+  test('cardPatchToApi sends each field a Card PATCH accepts', async () => {
+    auth.apiFetch.mockResolvedValue(null);
+    const fields = Object.keys(apiCard.fields);
+    await client.patchCard('k1', Object.fromEntries(fields.map(f => [camel(f), `v-${f}`])));
+
+    const [, , body] = auth.apiFetch.mock.calls[0];
+    expect(body).toEqual(Object.fromEntries(fields.map(f => [f, `v-${f}`])));
+  });
+});
 
 describe('entity responses are normalized to camelCase', () => {
   test('createBoard', async () => {

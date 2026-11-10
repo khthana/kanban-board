@@ -5,8 +5,8 @@ import lockCard from '../db/lockCard.js';
 import requireAuth from '../middleware/requireAuth.js';
 import requireAccess from '../middleware/requireAccess.js';
 import isParentGone from '../db/isParentGone.js';
-import { MAX_CARD_TITLE_LENGTH, MAX_CARD_DESCRIPTION_LENGTH } from '../../../src/domain/validation.js';
 import { moveCard } from '../db/reposition.js';
+import { card, checkFields, updateRow } from '../db/entities.js';
 import { resolveAttach, resolveDetach } from '../../../src/domain/category.js';
 
 const router = express.Router();
@@ -14,15 +14,9 @@ router.use(requireAuth);
 
 router.patch('/:id', requireAccess('card'), async (req, res) => {
   const { id } = req.params;
-  const { title, description, due_date, column_id, position, category_label_id, completed_at } = req.body;
-
-  if (title !== undefined) {
-    if (typeof title !== 'string' || !title.trim()) return res.status(400).json({ error: 'title is required' });
-    if (title.trim().length > MAX_CARD_TITLE_LENGTH) return res.status(400).json({ error: 'title too long' });
-  }
-  if (description != null && description.length > MAX_CARD_DESCRIPTION_LENGTH) {
-    return res.status(400).json({ error: 'description too long' });
-  }
+  const { error, values } = checkFields(card, req.body);
+  if (error) return res.status(400).json({ error });
+  const { column_id, position, category_label_id } = values;
 
   if (column_id !== undefined) {
     const { rows: targetCol } = await pool.query(
@@ -42,21 +36,6 @@ router.patch('/:id', requireAccess('card'), async (req, res) => {
     }
   }
 
-  const sets = [];
-  const values = [];
-  if (title !== undefined) { sets.push(`title = $${sets.length + 1}`); values.push(title.trim()); }
-  if (description !== undefined) { sets.push(`description = $${sets.length + 1}`); values.push(description); }
-  if (due_date !== undefined) { sets.push(`due_date = $${sets.length + 1}`); values.push(due_date); }
-  if (column_id !== undefined) { sets.push(`column_id = $${sets.length + 1}`); values.push(column_id); }
-  if (position !== undefined) { sets.push(`position = $${sets.length + 1}`); values.push(position); }
-  if (category_label_id !== undefined) { sets.push(`category_label_id = $${sets.length + 1}`); values.push(category_label_id); }
-  if (completed_at !== undefined) { sets.push(`completed_at = $${sets.length + 1}`); values.push(completed_at); }
-
-  if (sets.length === 0) return res.status(400).json({ error: 'no fields to update' });
-
-  sets.push(`updated_at = now()`);
-  values.push(id);
-
   // Returns the updated row, or null when the card is gone; throws (→ rollback) to reject.
   const updateCard = async client => {
     if (category_label_id !== undefined && category_label_id !== null) {
@@ -69,12 +48,7 @@ router.patch('/:id', requireAccess('card'), async (req, res) => {
         throw Object.assign(new Error('category label is not attached to the card'), { status: 400 });
       }
     }
-    const { rows } = await client.query(
-      `UPDATE cards SET ${sets.join(', ')} WHERE id = $${values.length}
-       RETURNING id, column_id, title, description, due_date, position, category_label_id, completed_at`,
-      values
-    );
-    return rows[0] ?? null;
+    return updateRow(client, card, id, values);
   };
   // A move re-spaces the target Column in the same transaction (#66).
   const updated = await inTransaction(client => position === undefined

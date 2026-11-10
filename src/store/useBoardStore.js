@@ -290,7 +290,8 @@ const useBoardStore = create((set, get) => {
       return run({
         keys: [id], creates: [id],
         apply: b => ({ ...b, columns: addIfAbsent(b.columns, { id, boardId, name, position }) }),
-        commit: () => client.createColumn(boardId, { id, name, position }),
+        // The placeholder's position is a guess; the server assigns MAX + 1 (#53, #82).
+        commit: () => client.createColumn(boardId, { id, name }),
         settle: (b, col) => ({ ...b, columns: replaceWith(b.columns, id, col) }),
       });
     },
@@ -330,7 +331,7 @@ const useBoardStore = create((set, get) => {
       return run({
         keys: [id, columnId], creates: [id],
         apply: b => ({ ...b, cards: addIfAbsent(b.cards, placeholder) }),
-        commit: () => client.createCard(columnId, { id, title, position }),
+        commit: () => client.createCard(columnId, { id, title }),
         settle: (b, card) => ({ ...b, cards: replaceWith(b.cards, id, card) }),
       });
     },

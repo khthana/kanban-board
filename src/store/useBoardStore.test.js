@@ -308,6 +308,17 @@ describe('createCard', () => {
     expect(ids).toContain('real');
     expect(ids.some(id => id !== 'card1' && id !== 'real')).toBe(false);
   });
+
+  test('sends no position — the server assigns MAX + 1 (#82)', async () => {
+    client.createCard.mockResolvedValue({ id: 'real', columnId: 'c1', title: 'X', position: 2 });
+    client.createColumn.mockResolvedValue({ id: 'col', boardId: 'b1', name: 'C', position: 2, color: null });
+
+    await useBoardStore.getState().createCard('c1', { title: 'X' });
+    await useBoardStore.getState().createColumn('b1', { name: 'C' });
+
+    expect(Object.keys(client.createCard.mock.calls[0][1]).sort()).toEqual(['id', 'title']);
+    expect(Object.keys(client.createColumn.mock.calls[0][1]).sort()).toEqual(['id', 'name']);
+  });
 });
 
 describe('moveSubtask', () => {
@@ -582,7 +593,7 @@ describe('pending-ops board (#73)', () => {
     expect(board().cards.map(c => c.title)).toEqual(['Old', 'New']);
 
     const [, data] = client.createCard.mock.calls[0];
-    create.resolve({ ...data, columnId: 'c1' });
+    create.resolve({ ...data, columnId: 'c1', position: 2 });
     await pending;
     expect(board().cards.map(c => c.title)).toEqual(['Old', 'New']);
   });

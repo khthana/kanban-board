@@ -4,7 +4,7 @@ import { randomBytes, createHash } from 'crypto';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import pool from '../db/pool.js';
-import { MAX_NAME_LENGTH } from '../../../src/domain/validation.js';
+import { user, checkFields, columnList, updateRow } from '../db/entities.js';
 import requireAuth from '../middleware/requireAuth.js';
 
 const router = express.Router();
@@ -115,35 +115,11 @@ router.post('/refresh', async (req, res) => {
 });
 
 router.patch('/me', requireAuth, async (req, res) => {
-  const { displayName, email } = req.body;
-  if (!displayName && !email) {
-    return res.status(400).json({ error: 'displayName or email is required' });
-  }
-  if (displayName !== undefined) {
-    if (typeof displayName !== 'string' || !displayName.trim()) {
-      return res.status(400).json({ error: 'displayName is required' });
-    }
-    if (displayName.trim().length > MAX_NAME_LENGTH) return res.status(400).json({ error: 'displayName too long' });
-  }
-
-  const fields = [];
-  const values = [];
-  if (displayName) { fields.push(`display_name = $${fields.length + 1}`); values.push(displayName.trim()); }
-  if (email) {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: 'invalid email' });
-    }
-    fields.push(`email = $${fields.length + 1}`); values.push(email.toLowerCase().trim());
-  }
-  values.push(req.user.id);
+  const { error, values } = checkFields(user, req.body);
+  if (error) return res.status(400).json({ error });
 
   try {
-    const { rows } = await pool.query(
-      `UPDATE users SET ${fields.join(', ')}, updated_at = now()
-       WHERE id = $${values.length} RETURNING id, email, display_name`,
-      values
-    );
-    const u = rows[0];
+    const u = await updateRow(pool, user, req.user.id, values);
     return res.json({ id: u.id, email: u.email, displayName: u.display_name });
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'email already registered' });
@@ -177,7 +153,7 @@ router.patch('/me/password', requireAuth, async (req, res) => {
 
 router.get('/me', requireAuth, async (req, res) => {
   const { rows } = await pool.query(
-    'SELECT email, display_name FROM users WHERE id = $1',
+    `SELECT ${columnList(user)} FROM users WHERE id = $1`,
     [req.user.id]
   );
   if (rows.length === 0) return res.status(401).json({ error: 'user not found' });

@@ -64,7 +64,7 @@ In development, `src/setupProxy.js` proxies API routes (`/auth`, `/boards`, `/co
 
 ### Key Decisions
 
-- **Fractional float position**: `positionBetween(prev, next)` for drag-and-drop and subtask reordering — single record update; for cards and columns the backend rebalances on write when any gap < 1e-9 (subtasks never rebalance) — in the **same transaction** as the move, via `api/src/db/reposition.js` (#66), which locks the scope rows (source + target Column for Cards, the board for Columns) before the write so concurrent moves into one scope take turns. A request rejected inside the transaction (e.g. an unattached Category) throws an error carrying `status`, so the move rolls back too. The client proposes the position on move and the backend stores it as sent (a concurrent collision has gap 0, so it triggers a rebalance); on create the backend assigns `MAX(position) + 1` and the placeholder's position is replaced — PRD §1.3, decided in #53
+- **Fractional float position**: `positionBetween(prev, next)` for drag-and-drop and subtask reordering — single record update; for cards and columns the backend rebalances on write when any gap < 1e-9 (subtasks never rebalance) — in the **same transaction** as the move, via `api/src/db/reposition.js` (#66), which locks the scope rows (source + target Column for Cards, the board for Columns) before the write so concurrent moves into one scope take turns. A request rejected inside the transaction (e.g. an unattached Category) throws an error carrying `status`, so the move rolls back too. The client proposes the position on move and the backend stores it as sent (a concurrent collision has gap 0, so it triggers a rebalance); on create the client sends no position (#82) — the backend assigns `MAX(position) + 1` and the placeholder's position is replaced — PRD §1.3, decided in #53
 - **Optimistic UI**: open board = server board + pending ops replayed (#69/#73); a failure drops just that op; the `/boards` list is the same model over the Board list (#78)
 - **Board snapshot**: `GET /boards/:id` returns nested shape; `client.js` flattens to `{ board, columns[], cards[], labels[], members[], cardLabels[], cardAssignees[], subtasks[] }`
 - **snake_case ↔ camelCase**: `normalizeBoard()` / `normalizeColumn()` / `normalizeLabel()` / `normalizeCard()` / `normalizeSubtask()` (responses), `normalizeSnapshot()` (the nested `GET /boards/:id` body), and `cardPatchToApi()` (requests) in `client.js` handle conversion. `attachLabel`/`attachAssignee` return the store's `{cardId, labelId}` / `{cardId, userId}` join shape. The API returns `board_id` on column/label create and patch so the normalizers never have to guess it (#52).
@@ -105,7 +105,7 @@ Validation runs client-side (UX) and is enforced by the backend (authoritative).
 
 ## Tests
 
-### Unit tests (303)
+### Unit tests (306)
 `src/domain/` (incl. `progress.test.js`, `accent.test.js`, `dates.test.js`, `completion.test.js`, `titleEdit.test.js`, `dragDrop.test.js`, `category.test.js`, `assignees.test.js`, `subtaskBatch.test.js`, `subtaskVisibility.test.js`, `cardView.test.js`, `columnView.test.js`, `openCard.test.js`, `pendingOps.test.js`), `src/api/client.test.js` (response normalization, no token storage), `src/hooks/`, `src/store/useSession.test.js`, `src/store/useBoardStore.test.js`, `src/store/boardActions.test.js` (the error policy). Run: `npm test -- --watchAll=false`
 
 Not unit-tested: components — covered by E2E.
@@ -147,7 +147,7 @@ Run: `npm run test:e2e` (or `npx playwright test --ui` for interactive mode). **
 
 ### CI (GitHub Actions)
 
-`.github/workflows/ci.yml` — runs both `test-frontend` (303 unit tests) and `test-api` (218 integration tests, postgres:16-alpine service) on every push/PR to `main`.
+`.github/workflows/ci.yml` — runs both `test-frontend` (306 unit tests) and `test-api` (225 integration tests, postgres:16-alpine service) on every push/PR to `main`.
 
 ## API
 
@@ -173,6 +173,7 @@ Docker is the recommended way to run the API in development — `docker compose 
 | `api/src/index.js` | HTTP server (PORT=3350) |
 | `api/src/db/pool.js` | pg Pool — `DATABASE_URL` or `TEST_DATABASE_URL` from env |
 | `api/src/db/inTransaction.js` | `inTransaction(fn)` — BEGIN/COMMIT/ROLLBACK on one client; the only place routes get a transaction (no hand-written BEGIN/COMMIT) |
+| `api/src/db/entities.js` | One row description per entity (#82) — `board`, `column`, `card`, `label`, `subtask`, `user`: the returned columns (`returns`) and the patchable `fields` (validator from `src/domain/validation.js` + transform). `checkFields(entity, body, { only?, required? })` → `{ error }` / `{ values }`, `updateRow(client, entity, id, values)` (the only dynamic `SET`), `columnList(entity, alias?)` |
 | `api/src/db/reposition.js` | `moveCard(client, cardId, targetColumnId, write)` / `moveColumn(client, boardId, write)` — lock scope(s) → write → rebalance if crowded, in the caller's transaction (#66). A Card move locks its source **and** target Column in id order (else opposite cross-column moves deadlock); a Card moved by another request between read and lock → 409 |
 | `api/src/db/migrate.js` | Idempotent migration runner (schema_migrations table) |
 | `api/src/db/migrations/` | SQL migration files 001–007 |
@@ -200,13 +201,14 @@ Copy from `api/.env.example`. Docker Compose injects its own env vars; `api/.env
 
 ### Tests
 
-218 integration tests across 9 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
+225 integration tests across 10 suites. Hit a real `kanban_test` PostgreSQL database (local postgres, not Docker — Docker's postgres uses a separate network). Run with `cd api && npm test` (no env override needed; dotenv loads `api/.env`). Uses `cross-env NODE_OPTIONS=--experimental-vm-modules` for ESM/Jest compatibility on Windows and Linux.
 
 **Critical**: use `--maxWorkers=1`, NOT `--runInBand`. Jest 30 runs test files in parallel by default.
 
 ### Key Decisions
 
 - **Board snapshot**: `GET /boards/:id` returns the board's own fields at the top level (`id`, `name`, `owner_id`, …) plus `columns[]` (each with nested `cards[]`, each card carrying `label_ids[]`, `assignees[]`, `subtasks[]`), `labels[]`, and `members[]` — one call for initial render. `client.js` `normalizeSnapshot()` flattens it to `{ board, columns[], cards[], labels[], members[], cardLabels[], cardAssignees[], subtasks[] }`.
+- **Row descriptions** (#82): `api/src/db/entities.js` describes each entity's row once — it drives every PATCH (`checkFields` + `updateRow`; no route builds `SET` by hand), every create/PATCH `RETURNING`, and the entity's own column list in the `GET /boards/:id` snapshot (`columnList`); joins and aggregations (`label_ids`, `assignees`, members) stay hand-written. So create, PATCH and the snapshot return one row shape per entity (`routes/rowShapes.test.js`) — e.g. Card create now returns `category_label_id`/`completed_at`, the snapshot's Columns/Labels carry `board_id`. Validation uses the shared validators, so API error messages read like the client's (`Card title is required`). **Adding a Card field** = add it to `card` in `entities.js` + a migration + `normalizeCard`/`cardPatchToApi` in `src/api/client.js` (kept hand-written; `client.test.js` imports the API's `card.returns` and fails until `normalizeCard` maps the new one).
 - **Card completion**: `cards.completed_at DATE NULL` — null = not done. `PATCH /cards/:id` accepts it. No server-side subtask check (client-side UX guard only).
 - **Card Category**: `cards.category_label_id` (nullable FK → labels, `ON DELETE SET NULL`). Snapshot returns it per card. Label attach/detach auto-set/promote it transactionally using the shared `src/domain/category.js`; PATCH only accepts an attached label (or null), checked in the same transaction. Every Category path locks the card row **first** among card-level locks (`lockCard` — `SELECT … FOR UPDATE`; only a move's Column locks, #66, come before it): locking after the `card_labels` INSERT deadlocks concurrent attaches (its FK check holds KEY SHARE on the card). A card deleted mid-request returns 404.
 - **Multiple assignees**: `card_assignees (card_id, user_id)` join. `PUT`/`DELETE /cards/:id/assignees/:userId`.

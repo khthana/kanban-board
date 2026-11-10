@@ -4,55 +4,33 @@ import requireAuth from '../middleware/requireAuth.js';
 import requireAccess from '../middleware/requireAccess.js';
 import isParentGone from '../db/isParentGone.js';
 import { isClientId, isIdTaken, CLIENT_ID_ERROR, ID_TAKEN_ERROR } from '../db/clientId.js';
-import { MAX_NAME_LENGTH, MAX_CARD_TITLE_LENGTH, MAX_CARD_DESCRIPTION_LENGTH } from '../../../src/domain/validation.js';
 import inTransaction from '../db/inTransaction.js';
 import { moveColumn } from '../db/reposition.js';
-import { isValidHex } from '../lib/validation.js';
+import { card, column, checkFields, columnList, updateRow } from '../db/entities.js';
 
 const router = express.Router();
 router.use(requireAuth);
 
 router.patch('/:id', requireAccess('column'), async (req, res) => {
   const { id } = req.params;
-  const { name, position, color } = req.body;
-  if (name === undefined && position === undefined && color === undefined) {
-    return res.status(400).json({ error: 'name, position, or color required' });
-  }
-  if (name !== undefined) {
-    if (typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'name is required' });
-    if (name.trim().length > MAX_NAME_LENGTH) return res.status(400).json({ error: 'name too long' });
-  }
-  if (color !== undefined && color !== null && !isValidHex(color)) {
-    return res.status(400).json({ error: 'color must be a valid hex color' });
-  }
+  const { error, values } = checkFields(column, req.body);
+  if (error) return res.status(400).json({ error });
 
-  const sets = [];
-  const values = [];
-  if (name !== undefined) { sets.push(`name = $${sets.length + 1}`); values.push(name.trim()); }
-  if (position !== undefined) { sets.push(`position = $${sets.length + 1}`); values.push(position); }
-  if (color !== undefined) { sets.push(`color = $${sets.length + 1}`); values.push(color); }
-  sets.push(`updated_at = now()`);
-  values.push(id);
-
-  const updateColumn = async client => (await client.query(
-    `UPDATE columns SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING id, name, position, color, board_id`,
-    values
-  )).rows[0] ?? null;
+  const updateColumn = client => updateRow(client, column, id, values);
   // A move re-spaces the board's Columns in the same transaction (#66).
-  const updated = await inTransaction(client => position === undefined
+  const updated = await inTransaction(client => values.position === undefined
     ? updateColumn(client)
     : moveColumn(client, req.access.board_id, updateColumn));
   if (!updated) return res.status(404).json({ error: 'column not found' });
 
-  return res.json({ ...updated, color: updated.color ?? null });
+  return res.json(updated);
 });
 
 router.post('/:id/cards', requireAccess('column'), async (req, res) => {
   const { id } = req.params;
-  const { title, description, due_date, id: clientId } = req.body;
-  if (!title || !title.trim()) return res.status(400).json({ error: 'title is required' });
-  if (title.trim().length > MAX_CARD_TITLE_LENGTH) return res.status(400).json({ error: 'title too long' });
-  if (description != null && description.length > MAX_CARD_DESCRIPTION_LENGTH) return res.status(400).json({ error: 'description too long' });
+  const { error, values } = checkFields(card, req.body, { only: ['title', 'description', 'due_date'], required: ['title'] });
+  if (error) return res.status(400).json({ error });
+  const { id: clientId } = req.body;
   if (!isClientId(clientId)) return res.status(400).json({ error: CLIENT_ID_ERROR });
 
   const { rows: maxRows } = await pool.query(
@@ -65,8 +43,8 @@ router.post('/:id/cards', requireAccess('column'), async (req, res) => {
     ({ rows } = await pool.query(
       `INSERT INTO cards (id, column_id, title, description, due_date, position)
        VALUES (COALESCE($6::uuid, gen_random_uuid()), $1, $2, $3, $4, $5)
-       RETURNING id, column_id, title, description, due_date, position`,
-      [id, title.trim(), description ?? null, due_date ?? null, position, clientId ?? null]
+       RETURNING ${columnList(card)}`,
+      [id, values.title, values.description ?? null, values.due_date ?? null, position, clientId ?? null]
     ));
   } catch (err) {
     if (isParentGone(err)) return res.status(404).json({ error: 'column not found' });
