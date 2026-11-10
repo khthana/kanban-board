@@ -40,7 +40,7 @@ const board = () => useBoardStore.getState().board;
 
 beforeEach(async () => {
   jest.clearAllMocks();
-  useBoardStore.setState({ listOps: init([]), boards: [], ops: null, board: null, boardStatus: { state: 'idle' }, listError: null, listFetchError: null, listLoading: false });
+  useBoardStore.setState({ listOps: init([]), boards: [], ops: null, board: null, boardStatus: { state: 'idle' }, polledGone: [], listError: null, listFetchError: null, listLoading: false });
   await openBoard({ board: makeBoard() });
 });
 
@@ -1033,6 +1033,57 @@ describe('the /boards list is a pending-ops list (#78)', () => {
     expect(client.deleteBoard).not.toHaveBeenCalled();
     expect(ids()).toEqual([]);
     expect(useBoardStore.getState().listError).toBe('boom');
+  });
+});
+
+// #81: the open-Card decision announces "deleted by another member" only for a
+// Card a poll took off the board — recorded as the poll is written.
+describe('polledGone (#81)', () => {
+  const withoutCard1 = () => ({ ...makeBoard(), cards: [], subtasks: [] });
+
+  it('a poll that takes a Card off the board records it', async () => {
+    client.getBoard.mockResolvedValueOnce(withoutCard1());
+    await useBoardStore.getState().pollBoard('b1');
+    expect(useBoardStore.getState().polledGone).toEqual(['card1']);
+  });
+
+  it('a Card deleted here is not "gone by a poll", even once a poll confirms it', async () => {
+    const del = held();
+    client.deleteCard.mockReturnValueOnce(del.promise);
+    const deleting = useBoardStore.getState().deleteCard('card1');
+    client.getBoard.mockResolvedValueOnce(makeBoard());          // the server still has it
+    await useBoardStore.getState().pollBoard('b1');
+    expect(useBoardStore.getState().polledGone).toEqual([]);
+    del.resolve();
+    await deleting;
+    client.getBoard.mockResolvedValueOnce(withoutCard1());
+    await useBoardStore.getState().pollBoard('b1');
+    expect(useBoardStore.getState().polledGone).toEqual([]);
+  });
+
+  it('a Card still being created stays on the board through a poll that predates it', async () => {
+    const post = held();
+    client.createCard.mockReturnValueOnce(post.promise);
+    const creating = useBoardStore.getState().createCard('c1', { title: 'New' });
+    const { id } = board().cards.find(c => c.title === 'New');
+    client.getBoard.mockResolvedValueOnce(makeBoard());           // no 'New' yet
+    await useBoardStore.getState().pollBoard('b1');
+    expect(board().cards.map(c => c.id)).toContain(id);
+    expect(useBoardStore.getState().polledGone).toEqual([]);
+    post.resolve({ id, columnId: 'c1', title: 'New', position: 2 });
+    await creating;
+  });
+
+  it('a stale poll (sent before a commit landed) is discarded and removes nothing', async () => {
+    const poll = held();
+    client.getBoard.mockReturnValueOnce(poll.promise);
+    const polling = useBoardStore.getState().pollBoard('b1');
+    client.patchCard.mockResolvedValueOnce({ id: 'card1', columnId: 'c1', title: 'X', position: 1 });
+    await useBoardStore.getState().patchCard('card1', { title: 'X' });
+    poll.resolve(withoutCard1());
+    await polling;
+    expect(useBoardStore.getState().polledGone).toEqual([]);
+    expect(board().cards.map(c => c.id)).toEqual(['card1']);
   });
 });
 

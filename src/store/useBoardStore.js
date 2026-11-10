@@ -4,6 +4,7 @@ import * as client from '../api/client';
 import { positionBetween } from '../domain/ordering';
 import { resolveAttach, resolveDetach } from '../domain/category';
 import { visibleNeighbour } from '../domain/subtaskVisibility';
+import { cardsGone } from '../domain/openCard';
 import { init, enqueue, ready, start, succeed, fail, startPoll, receivePoll, view } from '../domain/pendingOps';
 
 // The open board is a pending-ops board (#73, design in #69, model in
@@ -180,6 +181,11 @@ const useBoardStore = create((set, get) => {
     ops: null,
     board: null,
     boardStatus: { state: 'idle' },
+    // The ids of the Cards the last poll took off the board (#81), worked out
+    // as the poll is written: the open-Card decision announces "deleted by
+    // another member" only for these, and closes silently for a Card gone
+    // through a local action — whatever order React renders the writes in.
+    polledGone: [],
     listError: null,
     listFetchError: null,
     listLoading: false,
@@ -225,7 +231,7 @@ const useBoardStore = create((set, get) => {
           setOps(sent ? receivePoll(ops, data, sent.mark) : ops, openedPatch(boardId));
         } else {
           closeBoard();
-          setOps(init(data, ops), openedPatch(boardId));
+          setOps(init(data, ops), { ...openedPatch(boardId), polledGone: [] });
         }
       } catch (err) {
         set({ boardStatus: { state: 'failed', boardId, error: err.message } });
@@ -242,7 +248,10 @@ const useBoardStore = create((set, get) => {
       if (sent) setOps(sent.state);
       const data = await client.getBoard(boardId);
       const ops = get().ops;
-      if (sent && ops?.server.board?.id === boardId) setOps(receivePoll(ops, data, sent.mark));
+      if (sent && ops?.server.board?.id === boardId) {
+        const next = receivePoll(ops, data, sent.mark);
+        setOps(next, { polledGone: cardsGone(get().board, view(next)) });
+      }
       return data;
     },
 

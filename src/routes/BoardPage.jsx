@@ -9,6 +9,7 @@ import useSession from '../store/useSession';
 import useBoardStore from '../store/useBoardStore';
 import { useBoardActions } from '../hooks/useBoardActions';
 import { usePolling } from '../hooks/usePolling';
+import { useOpenCard } from '../hooks/useOpenCard';
 import { resolveDrag } from '../domain/dragDrop';
 import { columnView, columnViews } from '../domain/columnView';
 import { cardView } from '../domain/cardView';
@@ -26,16 +27,20 @@ export default function BoardPage() {
   const { boardId } = useParams();
   const navigate    = useNavigate();
   const { currentUserId } = useSession();
-  const { board, boardStatus, fetchBoard, pollBoard } = useBoardStore();
+  const { board, boardStatus, polledGone, fetchBoard, pollBoard } = useBoardStore();
 
-  const [activeCard, setActiveCard]   = useState(null);
   const [inviteOpen, setInviteOpen]   = useState(false);
   const [activeDrag, setActiveDrag]   = useState(null);
   const [opError, setOpError]         = useState(null);
   const [view, setView]               = useState('board');
   // Every board mutation and its error policy (#68): failures land in the
   // op-error banner, or close the Card panel when the Card is gone.
-  const actions = useBoardActions(boardId, { opError: setOpError, closeCard: () => setActiveCard(null) });
+  // The Card panel's Card, held as an id (#81): open / close / "deleted by
+  // another member" are decided in one place. (The announce callback reads
+  // `actions` only when called — from an effect, after both are set up.)
+  const openCard = useOpenCard(board, polledGone, () => actions.cardDeleted());
+  const activeCard = openCard.card;
+  const actions = useBoardActions(boardId, { opError: setOpError, closeCard: openCard.close });
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: DND_ACTIVATION_DISTANCE } }),
@@ -49,20 +54,9 @@ export default function BoardPage() {
   usePolling({
     boardId,
     poll: pollBoard,
-    onReconcile: handleReconcile,
     onForbidden: () => navigate('/boards', { state: { ejected: true } }),
     onNotFound:  () => navigate('/boards', { replace: true }),
   });
-
-  useEffect(() => {
-    if (activeCard && board) {
-      const updated = board.cards.find(c => c.id === activeCard.id);
-      // Gone from the board (e.g. its column was deleted): close the panel.
-      // Deletions by another member are announced where they're detected —
-      // handleReconcile and the board actions' card-gone policy.
-      setActiveCard(updated ?? null);
-    }
-  }, [board?.cards, board?.cardLabels]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The Board didn't open (fetch 403/404, or its create failed): back to the
   // list. A failed create's error is the list's own `listError`, so it shows
@@ -74,18 +68,9 @@ export default function BoardPage() {
     if (status === 'failed') navigate('/boards', { replace: true });
   }, [status, navigate]);
 
-  // Polling (pollBoard has already written the snapshot into the store): if
-  // the open card is now missing from the board, another member deleted it.
-  // Read the board, not the raw snapshot — a poll may predate a Card still
-  // being created, and a stale poll is ignored.
-  function handleReconcile() {
-    const cards = useBoardStore.getState().board?.cards ?? [];
-    if (activeCard && !cards.some(c => c.id === activeCard.id)) actions.cardDeleted();
-  }
-
   function handleDragStart({ active }) {
     setActiveDrag(active.data.current ?? null);
-    setActiveCard(null); // close panel during drag
+    openCard.close(); // close panel during drag
   }
 
   function handleDragEnd({ active, over }) {
@@ -123,7 +108,7 @@ export default function BoardPage() {
         onInvite={() => setInviteOpen(true)}
         onRemoveMember={actions.removeMember}
         view={view}
-        onViewChange={v => { setView(v); setActiveCard(null); }}
+        onViewChange={v => { setView(v); openCard.close(); }}
       />
 
       {opError && (
@@ -150,7 +135,7 @@ export default function BoardPage() {
                     board={board}
                     onRename={(colId, name, color) => actions.renameColumn(colId, { name, color })}
                     onDelete={actions.deleteColumn}
-                    onCardClick={setActiveCard}
+                    onCardClick={openCard.open}
                     onAddCard={actions.createCard}
                   />
                 ))}
@@ -177,7 +162,7 @@ export default function BoardPage() {
           <ListView
             board={board}
             onAddColumn={actions.createColumn}
-            onCardClick={setActiveCard}
+            onCardClick={openCard.open}
             onAddCard={actions.createCard}
             style={activeCard ? { marginRight: 380 } : {}}
           />
@@ -197,7 +182,7 @@ export default function BoardPage() {
           card={activeCard}
           board={board}
           actions={actions}
-          onClose={() => setActiveCard(null)}
+          onClose={openCard.close}
         />
       )}
     </div>

@@ -18,11 +18,9 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-test('interval tick triggers reconcile and calls onReconcile', async () => {
-  const onReconcile = jest.fn();
-
+test('an interval tick polls the board', async () => {
   renderHook(() =>
-    usePolling({ boardId: BOARD_ID, intervalMs: 5_000, onReconcile }),
+    usePolling({ boardId: BOARD_ID, intervalMs: 5_000 }),
   );
 
   await act(async () => {
@@ -30,17 +28,15 @@ test('interval tick triggers reconcile and calls onReconcile', async () => {
   });
 
   expect(client.getBoard).toHaveBeenCalledWith(BOARD_ID);
-  expect(onReconcile).toHaveBeenCalledWith(FRESH);
 });
 
-test('403 from getBoard calls onForbidden and does not call onReconcile', async () => {
+test('403 from getBoard calls onForbidden', async () => {
   const err403 = Object.assign(new Error('Forbidden'), { status: 403 });
   client.getBoard.mockRejectedValue(err403);
-  const onReconcile = jest.fn();
   const onForbidden = jest.fn();
 
   renderHook(() =>
-    usePolling({ boardId: BOARD_ID, intervalMs: 5_000, onReconcile, onForbidden }),
+    usePolling({ boardId: BOARD_ID, intervalMs: 5_000, onForbidden }),
   );
 
   await act(async () => {
@@ -48,17 +44,15 @@ test('403 from getBoard calls onForbidden and does not call onReconcile', async 
   });
 
   expect(onForbidden).toHaveBeenCalledTimes(1);
-  expect(onReconcile).not.toHaveBeenCalled();
 });
 
-test('404 from getBoard calls onNotFound and does not call onReconcile', async () => {
+test('404 from getBoard calls onNotFound', async () => {
   const err404 = Object.assign(new Error('Not found'), { status: 404 });
   client.getBoard.mockRejectedValue(err404);
-  const onReconcile = jest.fn();
   const onNotFound  = jest.fn();
 
   renderHook(() =>
-    usePolling({ boardId: BOARD_ID, intervalMs: 5_000, onReconcile, onNotFound }),
+    usePolling({ boardId: BOARD_ID, intervalMs: 5_000, onNotFound }),
   );
 
   await act(async () => {
@@ -66,14 +60,12 @@ test('404 from getBoard calls onNotFound and does not call onReconcile', async (
   });
 
   expect(onNotFound).toHaveBeenCalledTimes(1);
-  expect(onReconcile).not.toHaveBeenCalled();
 });
 
-test('unmount clears interval — no more reconcile after unmount', async () => {
-  const onReconcile = jest.fn();
+test('unmount clears interval — no more polls after unmount', async () => {
 
   const { unmount } = renderHook(() =>
-    usePolling({ boardId: BOARD_ID, intervalMs: 5_000, onReconcile }),
+    usePolling({ boardId: BOARD_ID, intervalMs: 5_000 }),
   );
 
   unmount();
@@ -82,5 +74,5 @@ test('unmount clears interval — no more reconcile after unmount', async () => 
     jest.advanceTimersByTime(10_000);
   });
 
-  expect(onReconcile).not.toHaveBeenCalled();
+  expect(client.getBoard).not.toHaveBeenCalled();
 });
